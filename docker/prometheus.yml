@@ -1,0 +1,52 @@
+global:
+  scrape_interval:     15s
+  evaluation_interval: 15s
+  external_labels:
+    env: production
+    app: kyc-aml-v2
+
+# ─── Règles d'alertes ─────────────────────────────────────────────────────────
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+# ─── Alertmanager (optionnel) ─────────────────────────────────────────────────
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets: ["alertmanager:9093"]
+
+# ─── Cibles de scraping ───────────────────────────────────────────────────────
+scrape_configs:
+
+  # Application Node.js — endpoint /metrics exposé par prom-client
+  - job_name: kyc_app
+    static_configs:
+      - targets: ["app:3000"]
+        labels:
+          service: nodejs
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # Microservice ML Python — FastAPI avec prometheus_client
+  - job_name: kyc_ml
+    static_configs:
+      - targets: ["kyc_ml:8000"]
+        labels:
+          service: python-ml
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # PostgreSQL — via postgres_exporter (optionnel)
+  # - job_name: postgres
+  #   static_configs:
+  #     - targets: ["postgres-exporter:9187"]
+
+  # Redis — via redis_exporter (optionnel)
+  # - job_name: redis
+  #   static_configs:
+  #     - targets: ["redis-exporter:9121"]
+
+  # Prometheus lui-même
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

@@ -1,0 +1,204 @@
+version: "3.9"
+
+services:
+  # ─── Application ─────────────────────────────────────────────────────────────
+  app:
+    image: ghcr.io/${GITHUB_REPOSITORY:-kyc-aml/kyc-aml-v2}:${IMAGE_TAG:-latest}
+    container_name: kyc_app
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+
+  # ─── PostgreSQL 16 ───────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: kyc_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Pas exposé en prod — accès uniquement via réseau interne Docker
+
+  # ─── Redis 7 ─────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: kyc_redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Nginx reverse proxy + SSL ───────────────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: kyc_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - certbot_www:/var/www/certbot
+    depends_on:
+      - app
+
+  # ─── ML Scoring Service (Python FastAPI) ─────────────────────────────────────
+  ml:
+    build:
+      context: ./ml
+      dockerfile: Dockerfile
+    image: kyc-ml:${IMAGE_TAG:-latest}
+    container_name: kyc_ml
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      ML_DATABASE_URL:      postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
+      ML_INTERNAL_API_KEY:  ${ML_INTERNAL_API_KEY}
+      ML_DEBUG:             "false"
+    volumes:
+      - ml_models:/app/models    # persistance des modèles entraînés
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.0"
+
+  # ─── Backup PostgreSQL automatique ───────────────────────────────────────────
+  backup:
+    image: postgres:16-alpine
+    container_name: kyc_backup
+    restart: unless-stopped
+    environment:
+      PGPASSWORD: ${DB_PASSWORD}
+    volumes:
+      - ./docker/backup.sh:/backup.sh:ro
+      - backups:/backups
+    entrypoint: ["/bin/sh", "-c", "crond -f -d 8"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ─── Prometheus — collecte des métriques ─────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: kyc_prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    # Pas exposé publiquement — accès via Grafana uniquement
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 5s
+
+  # ─── Grafana — dashboards ──────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: kyc_grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER:     ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-changeme}
+      GF_SERVER_ROOT_URL:         ${GRAFANA_URL:-http://localhost:3001}
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP:    "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+      - loki
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+
+  # ─── Loki — agrégation des logs ───────────────────────────────────────────────
+  loki:
+    image: grafana/loki:2.9.5
+    container_name: kyc_loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/loki.yml
+    volumes:
+      - ./docker/loki.yml:/etc/loki/loki.yml:ro
+      - loki_data:/loki
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3100/ready"]
+      interval: 30s
+
+volumes:
+  postgres_data:
+    name: kyc_postgres_data_prod
+  redis_data:
+    name: kyc_redis_data_prod
+  ml_models:
+    name: kyc_ml_models
+  backups:
+    name: kyc_backups
+  certbot_www:
+    name: kyc_certbot_www
+  prometheus_data:
+    name: kyc_prometheus_data
+  grafana_data:
+    name: kyc_grafana_data
+  loki_data:
+    name: kyc_loki_data
+
+networks:
+  default:
+    name: kyc_network_prod

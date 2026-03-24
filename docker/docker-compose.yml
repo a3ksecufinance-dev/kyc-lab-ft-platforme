@@ -1,0 +1,99 @@
+version: "3.9"
+
+services:
+  # ─── PostgreSQL 16 ───────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: kyc_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kyc_user
+      POSTGRES_PASSWORD: kyc_password
+      POSTGRES_DB: kyc_aml_db
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kyc_user -d kyc_aml_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ─── Redis 7 ─────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: kyc_redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── pgAdmin (optionnel, interface DB visuelle) ───────────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: kyc_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@kyc.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - tools
+
+  # ─── ML Scoring Service (optionnel en dev) ───────────────────────────────────
+  ml:
+    build:
+      context: ./ml
+      dockerfile: Dockerfile
+    container_name: kyc_ml
+    restart: unless-stopped
+    environment:
+      ML_DATABASE_URL:      postgresql://kyc_user:kyc_password@postgres:5432/kyc_aml_db
+      ML_INTERNAL_API_KEY:  dev_ml_key_changeme
+      ML_DEBUG:             "true"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ml_models:/app/models
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - ml      # lancer avec : docker compose --profile ml up -d
+
+volumes:
+  postgres_data:
+    name: kyc_postgres_data
+  redis_data:
+    name: kyc_redis_data
+  ml_models:
+    name: kyc_ml_models_dev
+  pgadmin_data:
+    name: kyc_pgadmin_data
+
+networks:
+  default:
+    name: kyc_network
