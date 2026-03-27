@@ -3,14 +3,20 @@ import path from "path";
 
 export default defineConfig({
   test: {
-    globals: true,
+    globals:     true,
     environment: "node",
-    setupFiles: ["./server/test-setup.ts"],
+    setupFiles:  ["./server/test-setup.ts"],
+    // Exclure les tests Playwright (runner différent)
+    exclude: [
+      "**/node_modules/**",
+      "**/dist/**",
+      "e2e/**",
+    ],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
-      include: ["server/modules/**/*.ts"],
-      exclude: ["**/*.test.ts", "**/index.ts"],
+      include:  ["server/modules/**/*.ts"],
+      exclude:  ["**/*.test.ts", "**/index.ts"],
     },
   },
   resolve: {

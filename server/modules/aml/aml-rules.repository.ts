@@ -1,5 +1,5 @@
 import { db } from "../../_core/db";
-import { amlRules, amlRuleExecutions } from "../../../drizzle/schema";
+import { amlRules, amlRuleExecutions, amlRuleFeedback } from "../../../drizzle/schema";
 import type { AmlRule, InsertAmlRule, AmlRuleExecution } from "../../../drizzle/schema";
 import { eq, and, desc, count, gte } from "drizzle-orm";
 
@@ -124,7 +124,7 @@ export async function getRuleStats(ruleId: number, since?: Date): Promise<{
     totalExecutions: total,
     totalTriggered:  triggered,
     triggerRate:     total > 0 ? Math.round((triggered / total) * 100) : 0,
-    avgScore:        0, // calculé séparément si besoin
+    avgScore:        0,
   };
 }
 
@@ -138,4 +138,33 @@ export async function getRecentExecutions(
     .where(eq(amlRuleExecutions.ruleId, ruleId))
     .orderBy(desc(amlRuleExecutions.createdAt))
     .limit(limit);
+}
+
+// ─── Feedback faux positifs (Sprint 5) ───────────────────────────────────────
+
+export async function insertRuleFeedback(values: {
+  ruleId:  number;
+  userId?: number;
+  note?:   string;
+  type:    string;
+}): Promise<void> {
+  await db.insert(amlRuleFeedback).values({
+    ruleId:    values.ruleId,
+    userId:    values.userId ?? null,
+    type:      values.type,
+    note:      values.note ?? null,
+  });
+}
+
+export async function getRuleFalsePositiveCount(ruleId: number): Promise<number> {
+  const [row] = await db
+    .select({ cnt: count() })
+    .from(amlRuleFeedback)
+    .where(
+      and(
+        eq(amlRuleFeedback.ruleId, ruleId),
+        eq(amlRuleFeedback.type, "FALSE_POSITIVE")
+      )
+    );
+  return Number(row?.cnt ?? 0);
 }

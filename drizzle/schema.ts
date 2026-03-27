@@ -583,7 +583,27 @@ export const amlRuleExecutions = pgTable("aml_rule_executions", {
 }));
 
 export type AmlRuleExecution = typeof amlRuleExecutions.$inferSelect;
+// ─────────────────────────────────────────────────────────────────────────────
+// PATCH SPRINT 5 — Coller ce bloc dans drizzle/schema.ts
+// Position exacte : APRÈS la ligne "export type AmlRuleExecution = ..."
+//                   AVANT la ligne "// ─── Relations Drizzle ──────────────────"
+// ─────────────────────────────────────────────────────────────────────────────
 
+// ─── Feedback faux positifs — Sprint 5 ───────────────────────────────────────
+
+export const amlRuleFeedback = pgTable("aml_rule_feedback", {
+  id:        serial("id").primaryKey(),
+  ruleId:    integer("rule_id").notNull().references(() => amlRules.id, { onDelete: "cascade" }),
+  userId:    integer("user_id").references(() => users.id, { onDelete: "set null" }),
+  type:      varchar("type", { length: 30 }).default("FALSE_POSITIVE").notNull(),
+  note:      text("note"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  ruleIdx: index("aml_feedback_rule_idx").on(t.ruleId),
+  dateIdx: index("aml_feedback_date_idx").on(t.createdAt),
+}));
+
+export type AmlRuleFeedback = typeof amlRuleFeedback.$inferSelect;
 // ─── Relations Drizzle ────────────────────────────────────────────────────────
 
 export const customersRelations = relations(customers, ({ many, one }) => ({

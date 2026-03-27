@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { router, analystProc, supervisorProc, adminProc } from "../../_core/trpc";
 import { createAuditFromContext } from "../../_core/audit";
 import { runBacktest } from "./aml-rules.backtest";
@@ -10,6 +11,8 @@ import {
   deleteRule,
   getRuleStats,
   getRecentExecutions,
+  insertRuleFeedback,
+  getRuleFalsePositiveCount,
 } from "./aml-rules.repository";
 import { DEFAULT_AML_RULES } from "./aml-rules.engine";
 import { db } from "../../_core/db";
@@ -36,7 +39,7 @@ const categoryEnum = z.enum([
   "THRESHOLD", "FREQUENCY", "PATTERN",
   "GEOGRAPHY", "COUNTERPARTY", "VELOCITY", "CUSTOMER",
 ]);
-const statusEnum  = z.enum(["ACTIVE", "INACTIVE", "TESTING"]);
+const statusEnum   = z.enum(["ACTIVE", "INACTIVE", "TESTING"]);
 const priorityEnum = z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]);
 const alertTypeEnum = z.enum([
   "THRESHOLD", "PATTERN", "VELOCITY", "SANCTIONS", "FRAUD", "PEP", "NETWORK",
@@ -61,8 +64,8 @@ export const amlRulesRouter = router({
 
   stats: analystProc
     .input(z.object({
-      id:    z.number().int().positive(),
-      days:  z.number().int().min(1).max(90).default(30),
+      id:   z.number().int().positive(),
+      days: z.number().int().min(1).max(90).default(30),
     }))
     .query(async ({ input }) => {
       const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
@@ -137,7 +140,6 @@ export const amlRulesRouter = router({
       const log = createAuditFromContext(ctx);
       const { id, ...updates } = input;
 
-      // exactOptionalPropertyTypes : ne passer que les champs explicitement définis
       const patch: Parameters<typeof updateRule>[1] = { updatedBy: ctx.user.id };
       if (updates.name           !== undefined) patch.name           = updates.name;
       if (updates.description    !== undefined) patch.description    = updates.description;
@@ -234,10 +236,8 @@ export const amlRulesRouter = router({
       return { seeded: created.length, message: `${created.length} règles par défaut créées` };
     }),
 
-  /**
-   * Backtesting d'une règle sur l'historique — supervisor+
-   * Rejoue les transactions sans créer d'alertes
-   */
+  // ── Backtesting ───────────────────────────────────────────────────────────────
+
   backtest: supervisorProc
     .input(z.object({
       ruleId:            z.number().int().positive(),
@@ -248,12 +248,11 @@ export const amlRulesRouter = router({
     .mutation(async ({ input, ctx }) => {
       const log = createAuditFromContext(ctx);
       const result = await runBacktest(input);
-
       await log({
         action:     "AML_RULE_TRIGGERED",
         entityType: "aml_rule",
         entityId:   String(input.ruleId),
-        details:    {
+        details: {
           action:      "backtest",
           daysPeriod:  input.daysPeriod,
           triggered:   result.simulation.triggered,
@@ -261,7 +260,58 @@ export const amlRulesRouter = router({
           durationMs:  result.durationMs,
         },
       });
-
       return result;
+    }),
+
+  // ── Feedback faux positifs (Sprint 5) ────────────────────────────────────────
+
+  feedback: analystProc
+    .input(z.object({
+      ruleId: z.number().int().positive(),
+      note:   z.string().min(10, "Note requise (min 10 caractères)"),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const log = createAuditFromContext(ctx);
+
+      const rule = await getRuleById(input.ruleId);
+      if (!rule) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Règle introuvable" });
+      }
+
+      // Enregistrer le feedback
+      await insertRuleFeedback({
+        ruleId: input.ruleId,
+        userId: ctx.user.id,
+        note:   input.note,
+        type:   "FALSE_POSITIVE",
+      });
+
+      await log({
+        action:     "AML_RULE_TRIGGERED",
+        entityType: "aml_rule",
+        entityId:   rule.ruleId,
+        details:    { action: "false_positive_reported", note: input.note },
+      });
+
+      // Rétrogradation automatique si taux FP > 20% (réévaluation tous les 10 feedbacks)
+      const fpCount = await getRuleFalsePositiveCount(input.ruleId);
+      if (fpCount > 0 && fpCount % 10 === 0) {
+        const stats = await getRuleStats(input.ruleId);
+        if (stats.totalTriggered > 0 && fpCount / stats.totalTriggered > 0.2) {
+          await updateRule(input.ruleId, { status: "TESTING", updatedBy: ctx.user.id });
+          await log({
+            action:     "AML_RULE_TRIGGERED",
+            entityType: "aml_rule",
+            entityId:   rule.ruleId,
+            details: {
+              action:  "auto_demoted_to_testing",
+              fpRate:  Math.round((fpCount / stats.totalTriggered) * 100),
+              fpCount,
+            },
+          });
+        }
+      }
+
+      return { success: true, message: "Feedback enregistré" };
     }),
 });

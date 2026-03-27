@@ -1,16 +1,30 @@
+/**
+ * Sprint 5 — No-Code AML Rule Builder
+ * Fichier : client/src/pages/AmlRulesPage.tsx (REMPLACE l'existant)
+ *
+ * Nouveautés vs version actuelle :
+ *  1. Builder visuel multi-conditions avec AND/OR imbriqués
+ *  2. Prévisualisation JSON temps réel
+ *  3. Simulateur : tester la règle sur une transaction fictive
+ *  4. Graphe de performance recharts (triggerRate 30j)
+ *  5. Feedback loop : analyste signale faux positif → réentraînement ML
+ *  6. Templates de règles prêtes à l'emploi (BAM Maroc, FATF, MENA)
+ */
+
 import { useState } from "react";
-import { AppLayout } from "../components/layout/AppLayout";
-import { Badge } from "../components/ui/Badge";
-import { StatCard } from "../components/ui/StatCard";
-import { trpc } from "../lib/trpc";
-import { formatRelative } from "../lib/utils";
+import { AppLayout }    from "../components/layout/AppLayout";
+import { trpc }         from "../lib/trpc";
+import { useAuth }      from "../hooks/useAuth";
+import { hasRole }      from "../lib/auth";
 import {
-  Shield, Plus, ToggleLeft, ToggleRight, Trash2,
-  FlaskConical, Activity, ChevronDown, ChevronRight,
-  Zap, AlertTriangle,
+  Shield, Plus, Trash2, FlaskConical,
+  ChevronDown, ChevronRight, Zap, AlertTriangle,
+  Play, Copy, CheckCircle, ToggleLeft, ToggleRight,
+  GitBranch, TrendingUp, ThumbsDown, Code,
 } from "lucide-react";
-import { useAuth } from "../hooks/useAuth";
-import { hasRole } from "../lib/auth";
+import {
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+} from "recharts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -23,6 +37,23 @@ type AmlRule = {
   createdAt: Date; updatedAt: Date;
 };
 
+type SimpleCondition = {
+  type: "simple";
+  field: string;
+  op: ">=" | "<=" | ">" | "<" | "==" | "!=" | "in" | "not_in";
+  value: string;
+};
+
+type CompoundCondition = {
+  type: "compound";
+  logic: "AND" | "OR";
+  rules: Condition[];
+};
+
+type Condition = SimpleCondition | CompoundCondition;
+
+// ─── Constantes ───────────────────────────────────────────────────────────────
+
 const CATEGORY_LABELS: Record<string, string> = {
   THRESHOLD: "Seuil", FREQUENCY: "Fréquence", PATTERN: "Pattern",
   GEOGRAPHY: "Géographie", COUNTERPARTY: "Contrepartie",
@@ -30,519 +61,890 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
-  THRESHOLD:   "text-amber-400  bg-amber-400/10  border-amber-400/20",
-  FREQUENCY:   "text-blue-400   bg-blue-400/10   border-blue-400/20",
-  PATTERN:     "text-purple-400 bg-purple-400/10 border-purple-400/20",
-  GEOGRAPHY:   "text-red-400    bg-red-400/10    border-red-400/20",
-  COUNTERPARTY:"text-orange-400 bg-orange-400/10 border-orange-400/20",
-  VELOCITY:    "text-cyan-400   bg-cyan-400/10   border-cyan-400/20",
-  CUSTOMER:    "text-emerald-400 bg-emerald-400/10 border-emerald-400/20",
+  THRESHOLD:    "text-amber-400  bg-amber-400/10  border-amber-400/20",
+  FREQUENCY:    "text-blue-400   bg-blue-400/10   border-blue-400/20",
+  PATTERN:      "text-purple-400 bg-purple-400/10 border-purple-400/20",
+  GEOGRAPHY:    "text-red-400    bg-red-400/10    border-red-400/20",
+  COUNTERPARTY: "text-orange-400 bg-orange-400/10 border-orange-400/20",
+  VELOCITY:     "text-cyan-400   bg-cyan-400/10   border-cyan-400/20",
+  CUSTOMER:     "text-emerald-400 bg-emerald-400/10 border-emerald-400/20",
 };
 
-const STATUS_ICON = {
-  ACTIVE:   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block" />,
-  INACTIVE: <span className="w-2 h-2 rounded-full bg-[#484f58] inline-block" />,
-  TESTING:  <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />,
-};
+const FIELDS = [
+  { group: "Transaction", options: [
+    { value: "amount",             label: "Montant (MAD/EUR)" },
+    { value: "currency",           label: "Devise" },
+    { value: "channel",            label: "Canal (ONLINE/ATM...)" },
+    { value: "transactionType",    label: "Type (TRANSFER...)" },
+    { value: "counterpartyCountry",label: "Pays contrepartie (ISO)" },
+    { value: "counterpartyBank",   label: "Banque contrepartie" },
+    { value: "amountIsRound",      label: "Montant rond (≥5000, %1000)" },
+    { value: "isHighAmount",       label: "Montant élevé (≥seuil ENV)" },
+  ]},
+  { group: "Client", options: [
+    { value: "pepStatus",          label: "Statut PEP (true/false)" },
+    { value: "riskLevel",          label: "Niveau risque (LOW/HIGH...)" },
+    { value: "riskScore",          label: "Score risque (0-100)" },
+    { value: "kycStatus",          label: "Statut KYC" },
+    { value: "customerType",       label: "Type client (INDIVIDUAL...)" },
+    { value: "residenceCountry",   label: "Pays résidence (ISO)" },
+    { value: "nationality",        label: "Nationalité (ISO)" },
+  ]},
+  { group: "Agrégés 24h", options: [
+    { value: "recentTxCount",      label: "Nb transactions récentes" },
+    { value: "recentTxVolume",     label: "Volume total récent (MAD)" },
+    { value: "volumeVariation",    label: "Variation volume (%)" },
+  ]},
+];
 
-// ─── Page principale ──────────────────────────────────────────────────────────
+const OPERATORS = [
+  { value: ">=", label: "≥  supérieur ou égal" },
+  { value: "<=", label: "≤  inférieur ou égal" },
+  { value: ">",  label: ">  strictement supérieur" },
+  { value: "<",  label: "<  strictement inférieur" },
+  { value: "==", label: "=  égal à" },
+  { value: "!=", label: "≠  différent de" },
+  { value: "in",     label: "in  dans la liste (virgule)" },
+  { value: "not_in", label: "not_in  hors liste" },
+];
 
-export function AmlRulesPage() {
-  const { user } = useAuth();
-  const canEdit   = hasRole(user, "supervisor");
-  const canDelete = hasRole(user, "admin");
+// Templates BAM Maroc / FATF
+const TEMPLATES = [
+  {
+    label: "Seuil BAM 10 000 MAD",
+    icon: "🇲🇦",
+    conditions: { type: "simple", field: "amount", op: ">=", value: "10000" } as Condition,
+    category: "THRESHOLD", priority: "HIGH", score: 60, alertType: "THRESHOLD",
+    desc: "Transaction unique ≥ 10 000 MAD — seuil déclaratoire BAM Circulaire 5/W/2023",
+  },
+  {
+    label: "Pays FATF risque élevé",
+    icon: "🌍",
+    conditions: { type: "simple", field: "counterpartyCountry", op: "in", value: "KP,IR,MM,BY,RU,SY,YE,AF" } as Condition,
+    category: "GEOGRAPHY", priority: "HIGH", score: 70, alertType: "THRESHOLD",
+    desc: "Contrepartie dans un pays sous sanctions FATF ou liste grise",
+  },
+  {
+    label: "Client PEP + montant > 5000",
+    icon: "👤",
+    conditions: {
+      type: "compound", logic: "AND",
+      rules: [
+        { type: "simple", field: "pepStatus",  op: "==", value: "true"  },
+        { type: "simple", field: "amount",     op: ">=", value: "5000"  },
+      ],
+    } as Condition,
+    category: "CUSTOMER", priority: "HIGH", score: 65, alertType: "PEP",
+    desc: "Transaction PEP ≥ 5 000 MAD — vigilance renforcée AMLD6 Art.18",
+  },
+  {
+    label: "Structuring (Smurfing)",
+    icon: "📊",
+    conditions: {
+      type: "compound", logic: "AND",
+      rules: [
+        { type: "simple", field: "recentTxCount", op: ">=", value: "3"    },
+        { type: "simple", field: "amount",         op: "<",  value: "9999" },
+      ],
+    } as Condition,
+    category: "PATTERN", priority: "CRITICAL", score: 85, alertType: "PATTERN",
+    desc: "≥3 transactions sous 10 000 MAD en 24h — pattern structuring",
+  },
+  {
+    label: "Variation volume +300%",
+    icon: "📈",
+    conditions: { type: "simple", field: "volumeVariation", op: ">=", value: "300" } as Condition,
+    category: "VELOCITY", priority: "MEDIUM", score: 55, alertType: "VELOCITY",
+    desc: "Volume journalier > 3× la moyenne historique 30j",
+  },
+  {
+    label: "Hawala / Réseau informel",
+    icon: "🕸️",
+    conditions: {
+      type: "compound", logic: "AND",
+      rules: [
+        { type: "simple", field: "channel",           op: "in", value: "BRANCH,ATM" },
+        { type: "simple", field: "recentTxCount",      op: ">=", value: "5"          },
+        { type: "simple", field: "residenceCountry",   op: "!=", value: "MA"         },
+      ],
+    } as Condition,
+    category: "PATTERN", priority: "HIGH", score: 75, alertType: "PATTERN",
+    desc: "Pattern hawala : flux cash agence/ATM + fréquence élevée + non-résident",
+  },
+];
 
-  const [showCreate, setShowCreate] = useState(false);
-  const [expandedId, setExpandedId] = useState<number | null>(null);
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-  const utils = trpc.useUtils();
+const inputCls  = "w-full bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff]/50 transition-colors";
+const labelCls  = "block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5";
+const btnBlue   = "px-3 py-1.5 text-xs font-mono bg-[#1f6feb]/20 border border-[#1f6feb]/40 text-[#58a6ff] rounded-md hover:bg-[#1f6feb]/30 transition-colors";
+const btnGhost  = "px-3 py-1.5 text-xs font-mono border border-[#30363d] text-[#7d8590] rounded-md hover:border-[#484f58] transition-colors";
+const btnRed    = "px-3 py-1.5 text-xs font-mono bg-red-500/10 border border-red-500/20 text-red-400 rounded-md hover:bg-red-500/20 transition-colors";
 
-  const { data: rules, isLoading } = trpc.amlRules.list.useQuery();
-
-  const toggleMutation = trpc.amlRules.toggleStatus.useMutation({
-    onSuccess: () => utils.amlRules.list.invalidate(),
-  });
-  const deleteMutation = trpc.amlRules.delete.useMutation({
-    onSuccess: () => utils.amlRules.list.invalidate(),
-  });
-  const seedMutation = trpc.amlRules.seedDefaults.useMutation({
-    onSuccess: () => utils.amlRules.list.invalidate(),
-  });
-
-  const active   = rules?.filter((r: AmlRule) => r.status === "ACTIVE").length ?? 0;
-  const inactive = rules?.filter((r: AmlRule) => r.status === "INACTIVE").length ?? 0;
-  const testing  = rules?.filter((r: AmlRule) => r.status === "TESTING").length ?? 0;
-  const avgScore = rules?.length
-    ? Math.round(rules.reduce((s: number, r: AmlRule) => s + r.baseScore, 0) / rules.length)
-    : 0;
-
-  return (
-    <AppLayout>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-lg font-semibold text-[#e6edf3] font-mono">
-            Règles AML dynamiques
-          </h1>
-          <p className="text-xs font-mono text-[#7d8590] mt-0.5">
-            Configuration sans redéploiement — {rules?.length ?? 0} règles
-          </p>
-        </div>
-        <div className="flex gap-2">
-          {rules?.length === 0 && canEdit && (
-            <button
-              onClick={() => seedMutation.mutate()}
-              disabled={seedMutation.isPending}
-              className="flex items-center gap-2 px-3 py-1.5 text-xs font-mono bg-amber-400/10 border border-amber-400/30 hover:bg-amber-400/20 text-amber-400 rounded-md"
-            >
-              <Zap size={12} />
-              {seedMutation.isPending ? "Chargement..." : "Charger règles par défaut"}
-            </button>
-          )}
-          {canEdit && (
-            <button
-              onClick={() => setShowCreate(true)}
-              className="flex items-center gap-2 px-3 py-1.5 text-xs font-mono bg-[#1f6feb]/20 border border-[#1f6feb]/30 hover:bg-[#1f6feb]/30 text-[#58a6ff] rounded-md"
-            >
-              <Plus size={12} /> Nouvelle règle
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-4 gap-3 mb-6">
-        <StatCard label="Règles actives"   value={String(active)}   icon={Shield}    accent="default" />
-        <StatCard label="En test A/B"      value={String(testing)}  icon={FlaskConical} />
-        <StatCard label="Inactives"        value={String(inactive)} icon={ToggleLeft} />
-        <StatCard label="Score moyen"      value={`${avgScore}/100`} icon={Activity} />
-      </div>
-
-      {/* Légende */}
-      <div className="flex gap-4 mb-4 text-[10px] font-mono text-[#484f58]">
-        <span className="flex items-center gap-1.5">{STATUS_ICON.ACTIVE}   Actif — génère des alertes</span>
-        <span className="flex items-center gap-1.5">{STATUS_ICON.TESTING}  Test A/B — s'exécute sans alerter</span>
-        <span className="flex items-center gap-1.5">{STATUS_ICON.INACTIVE} Inactif — ignoré</span>
-      </div>
-
-      {/* Liste des règles */}
-      {isLoading ? (
-        <div className="space-y-2">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-16 bg-[#161b22] border border-[#21262d] rounded-lg animate-pulse" />
-          ))}
-        </div>
-      ) : rules?.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 bg-[#0d1117] border border-[#21262d] rounded-lg">
-          <Shield size={32} className="text-[#30363d] mb-3" />
-          <p className="text-sm font-mono text-[#484f58]">Aucune règle AML configurée</p>
-          <p className="text-xs font-mono text-[#30363d] mt-1">
-            Cliquez sur "Charger règles par défaut" pour démarrer
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {(rules ?? []).map((rule: AmlRule) => (
-            <RuleCard
-              key={rule.id}
-              rule={rule as AmlRule}
-              expanded={expandedId === rule.id}
-              onToggleExpand={(): void => { setExpandedId(expandedId === rule.id ? null : rule.id); }}
-              onStatusChange={(s: AmlRule["status"]): void => { toggleMutation.mutate({ id: rule.id, status: s }); }}
-              onDelete={(): void => {
-                if (confirm(`Supprimer "${rule.name}" ?`)) deleteMutation.mutate({ id: rule.id });
-              }}
-              canEdit={canEdit}
-              canDelete={canDelete}
-              isPending={(toggleMutation.isPending || deleteMutation.isPending) as boolean}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Modal création */}
-      {showCreate && <CreateRuleModal onClose={() => setShowCreate(false)} />}
-    </AppLayout>
-  );
+function conditionToJson(c: Condition): unknown {
+  if (c.type === "simple") {
+    const isNum = [">=", "<=", ">", "<"].includes(c.op);
+    const isArr = ["in", "not_in"].includes(c.op);
+    const v = isArr
+      ? c.value.split(",").map(s => s.trim()).filter(Boolean)
+      : isNum ? Number(c.value) : c.value === "true" ? true : c.value === "false" ? false : c.value;
+    return { field: c.field, op: c.op, value: v };
+  }
+  return { logic: c.logic, rules: c.rules.map(conditionToJson) };
 }
 
-// ─── Carte d'une règle ────────────────────────────────────────────────────────
+function evaluateCondition(c: Condition, tx: Record<string, unknown>): boolean {
+  if (c.type === "compound") {
+    if (c.logic === "AND") return c.rules.every(r => evaluateCondition(r as Condition, tx));
+    return c.rules.some(r => evaluateCondition(r as Condition, tx));
+  }
+  const raw = tx[c.field];
+  const fv = raw !== undefined ? raw : null;
+  const isArr = ["in", "not_in"].includes(c.op);
+  const listVals = isArr ? c.value.split(",").map(s => s.trim()) : [];
+  switch (c.op) {
+    case ">=": return Number(fv) >= Number(c.value);
+    case "<=": return Number(fv) <= Number(c.value);
+    case ">":  return Number(fv) >  Number(c.value);
+    case "<":  return Number(fv) <  Number(c.value);
+    case "==": return String(fv) === c.value || fv === (c.value === "true");
+    case "!=": return String(fv) !== c.value;
+    case "in":     return listVals.includes(String(fv));
+    case "not_in": return !listVals.includes(String(fv));
+    default: return false;
+  }
+}
 
-function RuleCard({
-  rule, expanded, onToggleExpand, onStatusChange, onDelete,
-  canEdit, canDelete, isPending,
+// ─── ConditionBuilder — composant récursif ─────────────────────────────────
+
+function ConditionBuilder({
+  cond, onChange, onRemove, depth = 0,
 }: {
-  rule: AmlRule;
-  expanded: boolean;
-  onToggleExpand: () => void;
-  onStatusChange: (s: AmlRule["status"]) => void;
-  onDelete: () => void;
-  canEdit: boolean; canDelete: boolean; isPending: boolean;
+  cond: Condition;
+  onChange: (c: Condition) => void;
+  onRemove?: (() => void) | undefined;
+  depth?: number | undefined;
 }) {
-  const catColor = CATEGORY_COLORS[rule.category] ?? "text-[#7d8590] bg-[#161b22] border-[#30363d]";
+  const indent = depth > 0 ? "ml-5 pl-4 border-l border-[#30363d]" : "";
 
-  function nextStatus(s: AmlRule["status"]): AmlRule["status"] {
-    if (s === "ACTIVE")   return "INACTIVE";
-    if (s === "INACTIVE") return "TESTING";
-    return "ACTIVE";
+  if (cond.type === "compound") {
+    const addSimple = () => onChange({
+      ...cond,
+      rules: [...cond.rules, { type: "simple", field: "amount", op: ">=", value: "" }],
+    });
+    const addGroup = () => onChange({
+      ...cond,
+      rules: [...cond.rules, { type: "compound", logic: "AND", rules: [
+        { type: "simple", field: "amount", op: ">=", value: "" },
+      ]}],
+    });
+    const toggleLogic = () => onChange({ ...cond, logic: cond.logic === "AND" ? "OR" : "AND" });
+    const updateChild = (i: number, child: Condition) => {
+      const rules = [...cond.rules];
+      rules[i] = child;
+      onChange({ ...cond, rules });
+    };
+    const removeChild = (i: number) => {
+      onChange({ ...cond, rules: cond.rules.filter((_, idx) => idx !== i) });
+    };
+
+    return (
+      <div className={`space-y-2 ${indent}`}>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={toggleLogic}
+            className={`px-2.5 py-1 text-[10px] font-mono font-bold rounded border transition-colors ${
+              cond.logic === "AND"
+                ? "bg-blue-500/20 border-blue-500/40 text-blue-400"
+                : "bg-amber-500/20 border-amber-500/40 text-amber-400"
+            }`}
+          >{cond.logic}</button>
+          <span className="text-[10px] font-mono text-[#484f58]">
+            {cond.logic === "AND" ? "toutes les conditions" : "au moins une condition"}
+          </span>
+          {onRemove && (
+            <button onClick={onRemove} className="ml-auto text-[#484f58] hover:text-red-400 transition-colors">
+              <Trash2 size={12} />
+            </button>
+          )}
+        </div>
+        {cond.rules.map((child, i) => (
+          <ConditionBuilder
+            key={i}
+            cond={child as Condition}
+            onChange={c => updateChild(i, c)}
+            onRemove={cond.rules.length > 1 ? () => removeChild(i) : undefined}
+            depth={depth + 1}
+          />
+        ))}
+        <div className="flex gap-2 pt-1">
+          <button onClick={addSimple} className={`${btnGhost} flex items-center gap-1`}>
+            <Plus size={10} /> Condition
+          </button>
+          {depth < 2 && (
+            <button onClick={addGroup} className={`${btnGhost} flex items-center gap-1`}>
+              <GitBranch size={10} /> Groupe AND/OR
+            </button>
+          )}
+        </div>
+      </div>
+    );
   }
 
-  return (
-    <div className={`bg-[#0d1117] border rounded-lg overflow-hidden transition-colors ${
-      rule.status === "ACTIVE"   ? "border-[#21262d]" :
-      rule.status === "TESTING"  ? "border-amber-400/20" :
-                                   "border-[#161b22] opacity-60"
-    }`}>
-      {/* Header de la carte */}
-      <div className="px-4 py-3 flex items-center gap-3">
-        {/* Icône statut */}
-        <div className="flex-shrink-0">{STATUS_ICON[rule.status]}</div>
-
-        {/* Info principale */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-medium font-mono text-[#e6edf3]">{rule.name}</span>
-            <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${catColor}`}>
-              {CATEGORY_LABELS[rule.category] ?? rule.category}
-            </span>
-            {rule.status === "TESTING" && (
-              <span className="text-[10px] font-mono text-amber-400 flex items-center gap-1">
-                <FlaskConical size={10} /> A/B TEST
-              </span>
-            )}
-          </div>
-          {rule.description && (
-            <p className="text-[10px] font-mono text-[#484f58] mt-0.5 truncate">{rule.description}</p>
-          )}
-        </div>
-
-        {/* Score & priorité */}
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <div className="text-right">
-            <p className="text-xs font-mono font-semibold text-[#e6edf3]">{rule.baseScore}</p>
-            <p className="text-[10px] font-mono text-[#484f58]">score</p>
-          </div>
-          <div>
-            <Badge label={rule.priority} />
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center gap-1 flex-shrink-0">
-          {canEdit && (
-            <button
-              disabled={isPending}
-              onClick={(e: React.MouseEvent) => { e.stopPropagation(); onStatusChange(nextStatus(rule.status)); }}
-              className="p-1.5 hover:bg-[#21262d] rounded transition-colors"
-              title={`Passer en ${nextStatus(rule.status).toLowerCase()}`}
-            >
-              {rule.status === "ACTIVE"
-                ? <ToggleRight size={16} className="text-emerald-400" />
-                : <ToggleLeft  size={16} className="text-[#484f58]" />
-              }
-            </button>
-          )}
-          {canDelete && (
-            <button
-              disabled={isPending}
-              onClick={(e: React.MouseEvent) => { e.stopPropagation(); onDelete(); }}
-              className="p-1.5 hover:bg-red-400/10 rounded transition-colors"
-            >
-              <Trash2 size={14} className="text-[#484f58] hover:text-red-400" />
-            </button>
-          )}
-          <button
-            onClick={onToggleExpand}
-            className="p-1.5 hover:bg-[#21262d] rounded transition-colors"
-          >
-            {expanded
-              ? <ChevronDown  size={14} className="text-[#7d8590]" />
-              : <ChevronRight size={14} className="text-[#7d8590]" />
-            }
-          </button>
-        </div>
-      </div>
-
-      {/* Détail expandable */}
-      {expanded && <RuleDetail rule={rule} />}
-    </div>
-  );
-}
-
-// ─── Détail d'une règle (expandé) ────────────────────────────────────────────
-
-function RuleDetail({ rule }: { rule: AmlRule }) {
-  const { data: stats } = trpc.amlRules.stats.useQuery({ id: rule.id, days: 7 });
-
-  return (
-    <div className="border-t border-[#21262d] px-4 py-3 grid grid-cols-3 gap-4">
-      {/* Conditions JSON */}
-      <div className="col-span-2">
-        <p className="text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-2">Conditions</p>
-        <pre className="text-[10px] font-mono text-[#e6edf3] bg-[#161b22] border border-[#21262d] rounded p-2 overflow-x-auto">
-          {JSON.stringify(rule.conditions, null, 2)}
-        </pre>
-        <div className="flex gap-4 mt-2 text-[10px] font-mono text-[#484f58]">
-          {rule.thresholdValue && <span>Seuil : {rule.thresholdValue}€</span>}
-          {rule.windowMinutes  && <span>Fenêtre : {rule.windowMinutes} min</span>}
-          {rule.countThreshold && <span>Comptage : {rule.countThreshold}</span>}
-          <span>Type alerte : {rule.alertType}</span>
-          <span>Màj : {formatRelative(rule.updatedAt)}</span>
-        </div>
-      </div>
-
-      {/* Stats 7 jours */}
-      <div>
-        <p className="text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-2">Stats 7 jours</p>
-        {stats ? (
-          <div className="space-y-2">
-            <div className="flex justify-between text-xs font-mono">
-              <span className="text-[#7d8590]">Exécutions</span>
-              <span className="text-[#e6edf3]">{stats.totalExecutions}</span>
-            </div>
-            <div className="flex justify-between text-xs font-mono">
-              <span className="text-[#7d8590]">Déclenchées</span>
-              <span className="text-[#e6edf3]">{stats.totalTriggered}</span>
-            </div>
-            <div className="flex justify-between text-xs font-mono">
-              <span className="text-[#7d8590]">Taux</span>
-              <span className={`font-medium ${
-                stats.triggerRate > 20 ? "text-red-400" :
-                stats.triggerRate > 5  ? "text-amber-400" : "text-emerald-400"
-              }`}>{stats.triggerRate}%</span>
-            </div>
-            {/* Barre de taux */}
-            <div className="h-1.5 bg-[#21262d] rounded-full overflow-hidden mt-1">
-              <div
-                className={`h-full rounded-full transition-all ${
-                  stats.triggerRate > 20 ? "bg-red-400" :
-                  stats.triggerRate > 5  ? "bg-amber-400" : "bg-emerald-400"
-                }`}
-                style={{ width: `${Math.min(stats.triggerRate, 100)}%` }}
-              />
-            </div>
-            {stats.triggerRate > 15 && (
-              <p className="text-[10px] font-mono text-amber-400 flex items-center gap-1">
-                <AlertTriangle size={10} /> Taux élevé — vérifier le seuil
-              </p>
-            )}
-          </div>
-        ) : (
-          <div className="text-[10px] font-mono text-[#484f58]">Chargement...</div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── Modal création ───────────────────────────────────────────────────────────
-
-function CreateRuleModal({ onClose }: { onClose: () => void }) {
-  const utils = trpc.useUtils();
-
-  const [name, setName]         = useState("");
-  const [desc, setDesc]         = useState("");
-  const [category, setCategory] = useState("THRESHOLD");
-  const [status, setStatus]     = useState("ACTIVE");
-  const [score, setScore]       = useState(50);
-  const [priority, setPriority] = useState("MEDIUM");
-  const [alertType, setAlertType] = useState("THRESHOLD");
-  const [condType] = useState<"simple" | "compound">("simple");
   // Simple condition
-  const [field, setField]       = useState("amount");
-  const [op, setOp]             = useState(">=");
-  const [value, setValue]       = useState("");
-  // Threshold & window
-  const [threshold, setThreshold] = useState("");
-  const [window, setWindow]       = useState("");
+  return (
+    <div className={`flex items-center gap-2 ${indent}`}>
+      <select
+        value={cond.field}
+        onChange={e => onChange({ ...cond, field: e.target.value })}
+        className="bg-[#0d1117] border border-[#30363d] rounded px-2 py-1.5 text-[11px] font-mono text-[#e6edf3] focus:outline-none focus:border-[#58a6ff]/50 w-44"
+      >
+        {FIELDS.map(g => (
+          <optgroup key={g.group} label={g.group}>
+            {g.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </optgroup>
+        ))}
+      </select>
+      <select
+        value={cond.op}
+        onChange={e => onChange({ ...cond, op: e.target.value as SimpleCondition["op"] })}
+        className="bg-[#0d1117] border border-[#30363d] rounded px-2 py-1.5 text-[11px] font-mono text-[#e6edf3] focus:outline-none focus:border-[#58a6ff]/50 w-36"
+      >
+        {OPERATORS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+      <input
+        value={cond.value}
+        onChange={e => onChange({ ...cond, value: e.target.value })}
+        placeholder={cond.op === "in" || cond.op === "not_in" ? "KP,IR,RU" : "valeur"}
+        className="bg-[#0d1117] border border-[#30363d] rounded px-2 py-1.5 text-[11px] font-mono text-[#e6edf3] focus:outline-none focus:border-[#58a6ff]/50 w-28 placeholder-[#484f58]"
+      />
+      {onRemove && (
+        <button onClick={onRemove} className="text-[#484f58] hover:text-red-400 transition-colors flex-shrink-0">
+          <Trash2 size={12} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─── Simulateur ───────────────────────────────────────────────────────────────
+
+function RuleSimulator({ cond }: { cond: Condition }) {
+  const [tx, setTx] = useState({
+    amount: "8500", currency: "MAD", channel: "ONLINE",
+    transactionType: "TRANSFER", counterpartyCountry: "MA",
+    pepStatus: "false", riskLevel: "LOW", riskScore: "20",
+    kycStatus: "APPROVED", residenceCountry: "MA", nationality: "MA",
+    recentTxCount: "2", recentTxVolume: "17000", volumeVariation: "120",
+    amountIsRound: "false", isHighAmount: "false",
+  });
+
+  const txParsed: Record<string, unknown> = {
+    ...tx,
+    amount: Number(tx.amount),
+    pepStatus: tx.pepStatus === "true",
+    riskScore: Number(tx.riskScore),
+    recentTxCount: Number(tx.recentTxCount),
+    recentTxVolume: Number(tx.recentTxVolume),
+    volumeVariation: Number(tx.volumeVariation),
+    amountIsRound: Number(tx.amount) >= 5000 && Number(tx.amount) % 1000 === 0,
+    isHighAmount: Number(tx.amount) >= 10000,
+  };
+
+  let triggered = false;
+  try { triggered = evaluateCondition(cond, txParsed); } catch {}
+
+  const simuFields = [
+    ["amount", "Montant"], ["currency", "Devise"], ["channel", "Canal"],
+    ["transactionType", "Type tx"], ["counterpartyCountry", "Pays contrepartie"],
+    ["pepStatus", "PEP"], ["riskLevel", "Niveau risque"],
+    ["recentTxCount", "Nb tx 24h"], ["recentTxVolume", "Volume 24h"],
+    ["volumeVariation", "Variation volume %"],
+  ];
+
+  return (
+    <div className="space-y-3">
+      <p className="text-[10px] font-mono text-[#7d8590] uppercase tracking-widest">Transaction de test</p>
+      <div className="grid grid-cols-2 gap-2">
+        {simuFields.map(([key, label]) => (
+          <div key={key}>
+            <label className="text-[9px] font-mono text-[#484f58] uppercase block mb-0.5">{label}</label>
+            <input
+              value={tx[key as keyof typeof tx]}
+              onChange={e => setTx(prev => ({ ...prev, [key as string]: e.target.value }))}
+              className="w-full bg-[#161b22] border border-[#21262d] rounded px-2 py-1 text-[11px] font-mono text-[#e6edf3] focus:outline-none focus:border-[#58a6ff]/40"
+            />
+          </div>
+        ))}
+      </div>
+      <div className={`flex items-center gap-3 p-3 rounded-lg border ${
+        triggered
+          ? "bg-red-500/10 border-red-500/30"
+          : "bg-emerald-500/10 border-emerald-500/30"
+      }`}>
+        {triggered
+          ? <AlertTriangle size={16} className="text-red-400 flex-shrink-0" />
+          : <CheckCircle size={16} className="text-emerald-400 flex-shrink-0" />
+        }
+        <div>
+          <p className={`text-xs font-mono font-bold ${triggered ? "text-red-400" : "text-emerald-400"}`}>
+            {triggered ? "RÈGLE DÉCLENCHÉE" : "Aucun déclenchement"}
+          </p>
+          <p className="text-[10px] font-mono text-[#7d8590]">
+            {triggered ? "Cette transaction créerait une alerte AML" : "Transaction passerait sans alerte"}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Modal création/édition ───────────────────────────────────────────────────
+
+function RuleModal({
+  onClose, initial,
+}: {
+  onClose: () => void;
+  initial?: Partial<{
+    name: string; description: string; category: string; status: string;
+    score: number; priority: string; alertType: string;
+    conditions: Condition; threshold: string; window: string;
+  }>;
+}) {
+  const utils = trpc.useUtils();
+  const [tab, setTab] = useState<"builder" | "simulate" | "json" | "templates">("builder");
+
+  const [name,      setName]     = useState(initial?.name      ?? "");
+  const [desc,      setDesc]     = useState(initial?.description ?? "");
+  const [category,  setCategory] = useState(initial?.category  ?? "THRESHOLD");
+  const [status,    setStatus]   = useState(initial?.status    ?? "ACTIVE");
+  const [score,     setScore]    = useState(initial?.score      ?? 50);
+  const [priority,  setPriority] = useState(initial?.priority  ?? "MEDIUM");
+  const [alertType, setAlertType]= useState(initial?.alertType ?? "THRESHOLD");
+  const [threshold, setThreshold]= useState(initial?.threshold ?? "");
+  const [window_,   setWindow]   = useState(initial?.window    ?? "");
+  const [cond, setCond] = useState<Condition>(
+    initial?.conditions ?? { type: "simple", field: "amount", op: ">=", value: "" }
+  );
+
+  const jsonPreview = JSON.stringify(conditionToJson(cond), null, 2);
 
   const mutation = trpc.amlRules.create.useMutation({
     onSuccess: () => { utils.amlRules.list.invalidate(); onClose(); },
   });
 
-  function buildConditions() {
-    if (condType === "simple") {
-      const v = [">=", "<=", ">", "<"].includes(op) ? Number(value) : value;
-      return { field, op, value: v };
-    }
-    return { field, op, value: Number(value) };
-  }
+  const applyTemplate = (t: typeof TEMPLATES[0]) => {
+    setCond(t.conditions);
+    setCategory(t.category);
+    setPriority(t.priority);
+    setScore(t.score);
+    setAlertType(t.alertType);
+    setDesc(t.desc);
+    if (!name) setName(t.label);
+    setTab("builder");
+  };
 
-  const inputCls = "w-full bg-[#161b22] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff]/40";
-  const labelCls = "block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5";
+  const isValid = name.trim().length >= 3 && (
+    cond.type === "simple" ? cond.value.trim() !== "" : true
+  );
+
+  const TABS = [
+    { id: "templates", label: "Templates",  icon: <Zap size={11} /> },
+    { id: "builder",   label: "Builder",    icon: <GitBranch size={11} /> },
+    { id: "simulate",  label: "Simulateur", icon: <Play size={11} /> },
+    { id: "json",      label: "JSON",       icon: <Code size={11} /> },
+  ] as const;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-[#0d1117] border border-[#30363d] rounded-xl w-full max-w-xl max-h-[90vh] flex flex-col">
-        <div className="px-6 py-5 border-b border-[#21262d] flex-shrink-0">
-          <h3 className="text-sm font-semibold text-[#e6edf3] font-mono">Nouvelle règle AML</h3>
-          <p className="text-[10px] font-mono text-[#484f58] mt-1">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-[#0d1117] border border-[#30363d] rounded-xl w-full max-w-2xl max-h-[92vh] flex flex-col shadow-2xl">
+
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-[#21262d] flex-shrink-0">
+          <h3 className="text-sm font-semibold text-[#e6edf3] font-mono flex items-center gap-2">
+            <Shield size={14} className="text-[#58a6ff]" /> Nouvelle règle AML
+          </h3>
+          <p className="text-[10px] font-mono text-[#484f58] mt-0.5">
             Active immédiatement — aucun redéploiement requis
           </p>
         </div>
 
-        <div className="overflow-y-auto px-6 py-4 flex-1 space-y-3">
-          <div>
-            <label className={labelCls}>Nom <span className="text-red-400">*</span></label>
-            <input value={name} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setName(e.target.value)}
-              placeholder="Ex : Seuil TRACFIN 10 000€" className={inputCls} />
-          </div>
+        {/* Tabs */}
+        <div className="flex border-b border-[#21262d] flex-shrink-0">
+          {TABS.map(t => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-[11px] font-mono border-b-2 transition-colors ${
+                tab === t.id
+                  ? "border-[#58a6ff] text-[#58a6ff]"
+                  : "border-transparent text-[#7d8590] hover:text-[#e6edf3]"
+              }`}
+            >
+              {t.icon}{t.label}
+            </button>
+          ))}
+        </div>
 
-          <div>
-            <label className={labelCls}>Description</label>
-            <textarea value={desc} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setDesc(e.target.value)}
-              rows={2} placeholder="Objectif réglementaire de cette règle..." className={`${inputCls} resize-none`} />
-          </div>
+        <div className="overflow-y-auto flex-1 px-6 py-4">
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>Catégorie</label>
-              <select value={category} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setCategory(e.target.value)} className={inputCls}>
-                {Object.entries(CATEGORY_LABELS).map(([v, l]) => (
-                  <option key={v} value={v}>{l}</option>
+          {/* Métadonnées (toujours visible) */}
+          {tab !== "templates" && (
+            <div className="space-y-3 mb-5 pb-4 border-b border-[#21262d]">
+              <div>
+                <label className={labelCls}>Nom <span className="text-red-400">*</span></label>
+                <input value={name} onChange={e => setName(e.target.value)}
+                  placeholder="Ex: Seuil TRACFIN 10 000 MAD" className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Description réglementaire</label>
+                <textarea value={desc} onChange={e => setDesc(e.target.value)} rows={2}
+                  placeholder="Référence BAM, FATF, AMLD6..." className={`${inputCls} resize-none`} />
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { label: "Catégorie", val: category, set: setCategory, opts: Object.entries(CATEGORY_LABELS).map(([v,l]) => ({v,l})) },
+                  { label: "Statut", val: status, set: setStatus, opts: [{v:"ACTIVE",l:"Actif"},{v:"TESTING",l:"Test A/B"},{v:"INACTIVE",l:"Inactif"}] },
+                  { label: "Priorité", val: priority, set: setPriority, opts: [{v:"LOW",l:"Faible"},{v:"MEDIUM",l:"Moyenne"},{v:"HIGH",l:"Haute"},{v:"CRITICAL",l:"Critique"}] },
+                  { label: "Type alerte", val: alertType, set: setAlertType, opts: [{v:"THRESHOLD",l:"Seuil"},{v:"PATTERN",l:"Pattern"},{v:"VELOCITY",l:"Vélocité"},{v:"SANCTIONS",l:"Sanctions"},{v:"PEP",l:"PEP"},{v:"FRAUD",l:"Fraude"}] },
+                ].map(({label, val, set, opts}) => (
+                  <div key={label}>
+                    <label className={labelCls}>{label}</label>
+                    <select value={val} onChange={e => set(e.target.value)} className={inputCls}>
+                      {opts.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+                    </select>
+                  </div>
                 ))}
-              </select>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className={labelCls}>Score risque (0-100)</label>
+                  <div className="flex items-center gap-2">
+                    <input type="range" min={0} max={100} value={score}
+                      onChange={e => setScore(Number(e.target.value))}
+                      className="flex-1 accent-[#58a6ff]" />
+                    <span className="text-xs font-mono text-[#58a6ff] w-8 text-right">{score}</span>
+                  </div>
+                </div>
+                <div>
+                  <label className={labelCls}>Seuil (pour stats)</label>
+                  <input value={threshold} onChange={e => setThreshold(e.target.value)}
+                    placeholder="10000.00" className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Fenêtre (minutes)</label>
+                  <input type="number" value={window_} onChange={e => setWindow(e.target.value)}
+                    placeholder="1440 = 24h" className={inputCls} />
+                </div>
+              </div>
             </div>
-            <div>
-              <label className={labelCls}>Statut initial</label>
-              <select value={status} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setStatus(e.target.value)} className={inputCls}>
-                <option value="ACTIVE">Actif</option>
-                <option value="TESTING">Test A/B</option>
-                <option value="INACTIVE">Inactif</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className={labelCls}>Score (0–100)</label>
-              <input type="number" min={0} max={100} value={score}
-                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setScore(Number(e.target.value))} className={inputCls} />
-            </div>
-            <div>
-              <label className={labelCls}>Priorité</label>
-              <select value={priority} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setPriority(e.target.value)} className={inputCls}>
-                <option value="LOW">Faible</option>
-                <option value="MEDIUM">Moyenne</option>
-                <option value="HIGH">Haute</option>
-                <option value="CRITICAL">Critique</option>
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Type alerte</label>
-              <select value={alertType} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setAlertType(e.target.value)} className={inputCls}>
-                <option value="THRESHOLD">Seuil</option>
-                <option value="PATTERN">Pattern</option>
-                <option value="VELOCITY">Vélocité</option>
-                <option value="SANCTIONS">Sanctions</option>
-                <option value="PEP">PEP</option>
-                <option value="FRAUD">Fraude</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="pt-2 border-t border-[#21262d]">
-            <p className="text-[10px] font-mono text-[#58a6ff] mb-3 tracking-widest uppercase">Condition de déclenchement</p>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className={labelCls}>Champ</label>
-              <select value={field} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setField(e.target.value)} className={inputCls}>
-                <optgroup label="Transaction">
-                  <option value="amount">Montant</option>
-                  <option value="channel">Canal</option>
-                  <option value="transactionType">Type</option>
-                  <option value="counterpartyCountry">Pays contrepartie</option>
-                  <option value="amountIsRound">Montant rond</option>
-                </optgroup>
-                <optgroup label="Client">
-                  <option value="pepStatus">Statut PEP</option>
-                  <option value="riskLevel">Niveau risque</option>
-                  <option value="kycStatus">Statut KYC</option>
-                </optgroup>
-                <optgroup label="Agrégés (24h)">
-                  <option value="recentTxCount">Nb tx récentes</option>
-                  <option value="recentTxVolume">Volume récent</option>
-                  <option value="volumeVariation">Variation volume %</option>
-                </optgroup>
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Opérateur</label>
-              <select value={op} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setOp(e.target.value)} className={inputCls}>
-                <option value=">=">≥ supérieur ou égal</option>
-                <option value="<=">≤ inférieur ou égal</option>
-                <option value=">">{">"} strictement supérieur</option>
-                <option value="<">{"<"} strictement inférieur</option>
-                <option value="==">= égal à</option>
-                <option value="!=">≠ différent de</option>
-                <option value="in">dans la liste</option>
-                <option value="not_in">hors de la liste</option>
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Valeur <span className="text-red-400">*</span></label>
-              <input value={value}
-                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setValue(e.target.value)}
-                placeholder={op === "in" || op === "not_in" ? "KP,IR,RU" : "10000"}
-                className={inputCls}
-              />
-            </div>
-          </div>
-
-          {(op === "in" || op === "not_in") && (
-            <p className="text-[10px] font-mono text-[#484f58]">
-              Pour "dans la liste" : séparer les valeurs par des virgules (ex: KP,IR,RU,SY)
-            </p>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>Seuil (pour affichage)</label>
-              <input value={threshold} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setThreshold(e.target.value)}
-                placeholder="10000.00" className={inputCls} />
+          {/* Tab: Templates */}
+          {tab === "templates" && (
+            <div className="space-y-2">
+              <p className="text-[10px] font-mono text-[#7d8590] mb-3">
+                Règles pré-configurées BAM Maroc / FATF / MENA — cliquer pour appliquer
+              </p>
+              {TEMPLATES.map((t, i) => (
+                <button key={i} onClick={() => applyTemplate(t)}
+                  className="w-full text-left p-3 bg-[#161b22] border border-[#30363d] rounded-lg hover:border-[#58a6ff]/40 hover:bg-[#1f2937] transition-all group">
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg">{t.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-mono font-semibold text-[#e6edf3] group-hover:text-[#58a6ff] transition-colors">
+                        {t.label}
+                      </p>
+                      <p className="text-[10px] font-mono text-[#7d8590] mt-0.5 truncate">{t.desc}</p>
+                    </div>
+                    <div className="flex gap-1 flex-shrink-0">
+                      <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${CATEGORY_COLORS[t.category] ?? ""}`}>
+                        {CATEGORY_LABELS[t.category]}
+                      </span>
+                      <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${
+                        t.priority === "CRITICAL" ? "text-red-400 bg-red-400/10 border-red-400/20"
+                        : t.priority === "HIGH"   ? "text-amber-400 bg-amber-400/10 border-amber-400/20"
+                        : "text-blue-400 bg-blue-400/10 border-blue-400/20"
+                      }`}>{t.priority}</span>
+                    </div>
+                  </div>
+                </button>
+              ))}
             </div>
-            <div>
-              <label className={labelCls}>Fenêtre (minutes)</label>
-              <input type="number" value={window} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setWindow(e.target.value)}
-                placeholder="1440 (= 24h)" className={inputCls} />
-            </div>
-          </div>
+          )}
 
-          {mutation.error && (
-            <p className="text-xs font-mono text-red-400">{mutation.error.message}</p>
+          {/* Tab: Builder */}
+          {tab === "builder" && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] font-mono text-[#7d8590] uppercase tracking-widest">
+                  Conditions de déclenchement
+                </p>
+                {cond.type === "simple" && (
+                  <button
+                    onClick={() => setCond({ type: "compound", logic: "AND", rules: [cond] })}
+                    className={`${btnGhost} flex items-center gap-1`}
+                  >
+                    <GitBranch size={10} /> Ajouter groupe AND/OR
+                  </button>
+                )}
+              </div>
+              <div className="bg-[#161b22] border border-[#21262d] rounded-lg p-4">
+                <ConditionBuilder cond={cond} onChange={setCond} />
+              </div>
+              <p className="text-[9px] font-mono text-[#484f58]">
+                Champs agrégés (recentTxCount, recentTxVolume, volumeVariation) utilisent les données des 24h précédentes.
+              </p>
+            </div>
+          )}
+
+          {/* Tab: Simulateur */}
+          {tab === "simulate" && (
+            <RuleSimulator cond={cond} />
+          )}
+
+          {/* Tab: JSON */}
+          {tab === "json" && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-mono text-[#7d8590] uppercase tracking-widest">
+                  Aperçu JSON envoyé à l'API
+                </p>
+                <button
+                  onClick={() => navigator.clipboard.writeText(jsonPreview)}
+                  className={`${btnGhost} flex items-center gap-1`}
+                >
+                  <Copy size={10} /> Copier
+                </button>
+              </div>
+              <pre className="bg-[#161b22] border border-[#21262d] rounded-lg p-4 text-[11px] font-mono text-[#79c0ff] overflow-x-auto whitespace-pre-wrap">
+                {jsonPreview}
+              </pre>
+            </div>
           )}
         </div>
 
+        {/* Footer */}
         <div className="px-6 py-4 border-t border-[#21262d] flex gap-2 flex-shrink-0">
-          <button onClick={onClose}
-            className="flex-1 py-2 text-xs font-mono border border-[#30363d] text-[#7d8590] rounded-md">
-            Annuler
-          </button>
+          {mutation.error && (
+            <p className="text-xs font-mono text-red-400 mr-auto self-center">{mutation.error.message}</p>
+          )}
+          <button onClick={onClose} className={btnGhost}>Annuler</button>
           <button
-            disabled={!name || !value || mutation.isPending}
-            onClick={() => {
-              const conditions = buildConditions();
-              mutation.mutate({
-                name,
-                description:    desc || undefined,
-                category:       category as "THRESHOLD" | "FREQUENCY" | "PATTERN" | "GEOGRAPHY" | "COUNTERPARTY" | "VELOCITY" | "CUSTOMER",
-                status:         status as "ACTIVE" | "INACTIVE" | "TESTING",
-                baseScore:      score,
-                priority:       priority as "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
-                alertType:      alertType as "THRESHOLD" | "PATTERN" | "VELOCITY" | "SANCTIONS" | "FRAUD" | "PEP" | "NETWORK",
-                conditions,
-                thresholdValue: threshold || undefined,
-                windowMinutes:  window ? parseInt(window) : undefined,
-              });
-            }}
-            className="flex-1 py-2 text-xs font-mono bg-[#1f6feb]/20 border border-[#1f6feb]/30 text-[#58a6ff] hover:bg-[#1f6feb]/30 rounded-md disabled:opacity-40"
+            disabled={!isValid || mutation.isPending}
+            onClick={() => mutation.mutate({
+              name: name.trim(),
+              description:    desc || undefined,
+              category:       category as "THRESHOLD" | "FREQUENCY" | "PATTERN" | "GEOGRAPHY" | "COUNTERPARTY" | "VELOCITY" | "CUSTOMER",
+              status:         status as "ACTIVE" | "INACTIVE" | "TESTING",
+              baseScore:      score,
+              priority:       priority as "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
+              alertType:      alertType as "THRESHOLD" | "PATTERN" | "VELOCITY" | "SANCTIONS" | "FRAUD" | "PEP" | "NETWORK",
+              conditions:     conditionToJson(cond),
+              thresholdValue: threshold || undefined,
+              windowMinutes:  window_ ? parseInt(window_) : undefined,
+            })}
+            className={`${btnBlue} disabled:opacity-40`}
           >
             {mutation.isPending ? "Création..." : "Créer la règle"}
           </button>
         </div>
       </div>
     </div>
+  );
+}
+
+// ─── Carte de règle ───────────────────────────────────────────────────────────
+
+function RuleCard({ rule, canEdit, canDelete }: { rule: AmlRule; canEdit: boolean; canDelete: boolean }) {
+  const utils  = trpc.useUtils();
+  const [open, setOpen] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackNote, setFeedbackNote] = useState("");
+
+  const { data: stats } = trpc.amlRules.stats.useQuery(
+    { id: rule.id, days: 30 },
+    { enabled: open }
+  );
+  const { data: executions } = trpc.amlRules.recentExecutions.useQuery(
+    { id: rule.id, limit: 30 },
+    { enabled: open }
+  );
+
+  const toggleMut = trpc.amlRules.toggleStatus.useMutation({
+    onSuccess: () => utils.amlRules.list.invalidate(),
+  });
+  const deleteMut = trpc.amlRules.delete.useMutation({
+    onSuccess: () => utils.amlRules.list.invalidate(),
+  });
+  const feedbackMut = trpc.amlRules.feedback.useMutation({
+    onSuccess: () => { setShowFeedback(false); setFeedbackNote(""); utils.amlRules.list.invalidate(); },
+  });
+
+  // Préparer les données recharts depuis les executions
+  const chartData = executions
+    ? (() => {
+        const byDay: Record<string, { date: string; triggered: number; total: number }> = {};
+        for (const e of executions) {
+          const day = new Date(e.createdAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
+          if (!byDay[day]) byDay[day] = { date: day, triggered: 0, total: 0 };
+          byDay[day].total += 1;
+          if (e.triggered) byDay[day].triggered += 1;
+        }
+        return Object.values(byDay).slice(-14);
+      })()
+    : [];
+
+  const STATUS_LABELS = { ACTIVE: "Actif", INACTIVE: "Inactif", TESTING: "Test A/B" };
+  const STATUS_STYLES = {
+    ACTIVE:   "text-emerald-400 bg-emerald-400/10 border-emerald-400/20",
+    INACTIVE: "text-[#484f58]  bg-[#21262d]      border-[#30363d]",
+    TESTING:  "text-amber-400  bg-amber-400/10   border-amber-400/20",
+  };
+
+  return (
+    <div className={`bg-[#161b22] border rounded-lg transition-all ${
+      open ? "border-[#58a6ff]/30" : "border-[#21262d] hover:border-[#30363d]"
+    }`}>
+      <div className="p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-mono font-semibold text-[#e6edf3]">{rule.name}</span>
+              <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${CATEGORY_COLORS[rule.category] ?? ""}`}>
+                {CATEGORY_LABELS[rule.category] ?? rule.category}
+              </span>
+              <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${STATUS_STYLES[rule.status]}`}>
+                {STATUS_LABELS[rule.status]}
+              </span>
+              {rule.status === "ACTIVE" && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
+              )}
+            </div>
+            {rule.description && (
+              <p className="text-[10px] font-mono text-[#7d8590] mt-1 line-clamp-1">{rule.description}</p>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="text-center">
+              <div className={`text-sm font-mono font-bold ${
+                rule.baseScore >= 75 ? "text-red-400" : rule.baseScore >= 50 ? "text-amber-400" : "text-emerald-400"
+              }`}>{rule.baseScore}</div>
+              <div className="text-[9px] font-mono text-[#484f58]">score</div>
+            </div>
+
+            {canEdit && (
+              <button
+                onClick={() => toggleMut.mutate({
+                  id: rule.id,
+                  status: rule.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
+                })}
+                className="text-[#484f58] hover:text-[#58a6ff] transition-colors"
+                title={rule.status === "ACTIVE" ? "Désactiver" : "Activer"}
+              >
+                {rule.status === "ACTIVE"
+                  ? <ToggleRight size={18} className="text-emerald-400" />
+                  : <ToggleLeft size={18} />
+                }
+              </button>
+            )}
+
+            <button
+              onClick={() => setShowFeedback(true)}
+              className="text-[#484f58] hover:text-amber-400 transition-colors"
+              title="Signaler faux positif"
+            >
+              <ThumbsDown size={14} />
+            </button>
+
+            {canDelete && (
+              <button
+                onClick={() => { if (confirm("Supprimer cette règle ?")) deleteMut.mutate({ id: rule.id }); }}
+                className="text-[#484f58] hover:text-red-400 transition-colors"
+              >
+                <Trash2 size={14} />
+              </button>
+            )}
+
+            <button onClick={() => setOpen(!open)} className="text-[#484f58] hover:text-[#e6edf3] transition-colors">
+              {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Feedback modal faux positif */}
+      {showFeedback && (
+        <div className="mx-4 mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+          <p className="text-[10px] font-mono text-amber-400 uppercase tracking-widest mb-2">
+            Signaler un faux positif
+          </p>
+          <textarea
+            value={feedbackNote}
+            onChange={e => setFeedbackNote(e.target.value)}
+            placeholder="Décrivez pourquoi cette règle génère trop de faux positifs..."
+            rows={2}
+            className={`${inputCls} mb-2 text-[11px]`}
+          />
+          <div className="flex gap-2">
+            <button onClick={() => setShowFeedback(false)} className={btnGhost}>Annuler</button>
+            <button
+              onClick={() => feedbackMut.mutate({ ruleId: rule.id, note: feedbackNote })}
+              disabled={feedbackNote.length < 10 || feedbackMut.isPending}
+              className={`${btnRed} disabled:opacity-40`}
+            >
+              {feedbackMut.isPending ? "Envoi..." : "Signaler"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Expand: stats + graph */}
+      {open && (
+        <div className="border-t border-[#21262d] p-4 space-y-4">
+          {/* Stats */}
+          <div className="grid grid-cols-4 gap-3">
+            {[
+              { label: "Exécutions 30j",   val: stats?.totalExecutions ?? 0 },
+              { label: "Déclenchements",   val: stats?.totalTriggered  ?? 0 },
+              { label: "Taux déclench.",   val: `${stats?.triggerRate ?? 0}%` },
+              { label: "Règle ID",         val: rule.ruleId },
+            ].map(({ label, val }) => (
+              <div key={label} className="bg-[#0d1117] border border-[#21262d] rounded p-2">
+                <div className="text-xs font-mono font-bold text-[#e6edf3]">{String(val)}</div>
+                <div className="text-[9px] font-mono text-[#484f58] mt-0.5">{label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Graphe recharts */}
+          {chartData.length > 0 && (
+            <div>
+              <p className="text-[9px] font-mono text-[#484f58] uppercase tracking-widest mb-2 flex items-center gap-1">
+                <TrendingUp size={10} /> Déclenchements / jour (14 derniers jours)
+              </p>
+              <ResponsiveContainer width="100%" height={80}>
+                <LineChart data={chartData} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#21262d" />
+                  <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#484f58", fontFamily: "monospace" }} />
+                  <YAxis tick={{ fontSize: 9, fill: "#484f58", fontFamily: "monospace" }} width={20} />
+                  <Tooltip
+                    contentStyle={{ background: "#161b22", border: "1px solid #30363d", borderRadius: 4, fontSize: 10, fontFamily: "monospace" }}
+                    labelStyle={{ color: "#7d8590" }}
+                  />
+                  <Line type="monotone" dataKey="triggered" stroke="#f97316" strokeWidth={1.5} dot={false} name="Déclenchés" />
+                  <Line type="monotone" dataKey="total" stroke="#30363d" strokeWidth={1} dot={false} name="Analysés" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* Conditions JSON */}
+          <div>
+            <p className="text-[9px] font-mono text-[#484f58] uppercase tracking-widest mb-1">Conditions JSON</p>
+            <pre className="bg-[#0d1117] border border-[#21262d] rounded p-3 text-[10px] font-mono text-[#79c0ff] overflow-x-auto whitespace-pre-wrap">
+              {JSON.stringify(rule.conditions, null, 2)}
+            </pre>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Page principale ──────────────────────────────────────────────────────────
+
+export function AmlRulesPage() {
+  const { user }    = useAuth();
+  const canEdit     = hasRole(user, "supervisor");
+  const canDelete   = hasRole(user, "admin");
+  const [showCreate, setShowCreate] = useState(false);
+
+  const utils = trpc.useUtils();
+  const { data: rules, isLoading } = trpc.amlRules.list.useQuery();
+
+  const seedMut = trpc.amlRules.seedDefaults.useMutation({
+    onSuccess: () => utils.amlRules.list.invalidate(),
+  });
+
+  const active   = rules?.filter((r: AmlRule) => r.status === "ACTIVE").length   ?? 0;
+  const testing  = rules?.filter((r: AmlRule) => r.status === "TESTING").length  ?? 0;
+  const inactive = rules?.filter((r: AmlRule) => r.status === "INACTIVE").length ?? 0;
+  const avgScore = rules?.length
+    ? Math.round(rules.reduce((s: number, r: AmlRule) => s + r.baseScore, 0) / rules.length)
+    : 0;
+
+  return (
+    <AppLayout>
+      <div className="p-6 space-y-6">
+
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-semibold text-[#e6edf3] font-mono flex items-center gap-2">
+              <Shield size={18} className="text-[#58a6ff]" /> Moteur de règles AML
+            </h1>
+            <p className="text-[11px] font-mono text-[#7d8590] mt-0.5">
+              No-code — règles actives immédiatement sans redéploiement
+            </p>
+          </div>
+          <div className="flex gap-2">
+            {canEdit && rules?.length === 0 && (
+              <button onClick={() => seedMut.mutate()} disabled={seedMut.isPending}
+                className={`${btnGhost} flex items-center gap-1.5`}>
+                <FlaskConical size={12} />
+                {seedMut.isPending ? "Chargement..." : "Charger règles BAM"}
+              </button>
+            )}
+            {canEdit && (
+              <button onClick={() => setShowCreate(true)}
+                className={`${btnBlue} flex items-center gap-1.5`}>
+                <Plus size={12} /> Nouvelle règle
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-4 gap-4">
+          {[
+            { label: "Actives",          val: active,   sub: "en production",     color: "text-emerald-400" },
+            { label: "En test A/B",      val: testing,  sub: "sans alerte réelle",color: "text-amber-400"  },
+            { label: "Inactives",        val: inactive, sub: "désactivées",       color: "text-[#484f58]"  },
+            { label: "Score moyen",      val: avgScore, sub: "sur 100",           color: "text-[#58a6ff]"  },
+          ].map(({ label, val, sub, color }) => (
+            <div key={label} className="bg-[#161b22] border border-[#21262d] rounded-lg p-4">
+              <div className={`text-xl font-mono font-bold ${color}`}>{val}</div>
+              <div className="text-xs font-mono text-[#e6edf3] mt-0.5">{label}</div>
+              <div className="text-[9px] font-mono text-[#484f58]">{sub}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Liste */}
+        {isLoading ? (
+          <div className="text-center py-12 text-[11px] font-mono text-[#484f58]">
+            Chargement des règles...
+          </div>
+        ) : !rules?.length ? (
+          <div className="text-center py-16 border border-dashed border-[#21262d] rounded-lg">
+            <Shield size={32} className="mx-auto text-[#21262d] mb-3" />
+            <p className="text-sm font-mono text-[#484f58]">Aucune règle AML configurée</p>
+            <p className="text-[10px] font-mono text-[#484f58] mt-1">
+              Cliquez sur "Charger règles BAM" pour démarrer avec les règles BAM Maroc pré-configurées
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {rules.map((rule: AmlRule) => (
+              <RuleCard key={rule.id} rule={rule} canEdit={canEdit} canDelete={canDelete} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {showCreate && <RuleModal onClose={() => setShowCreate(false)} />}
+    </AppLayout>
   );
 }

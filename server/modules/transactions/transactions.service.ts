@@ -14,9 +14,9 @@ import { runDynamicAmlRules } from "../aml/aml-rules.engine";
 import { callMlScoring } from "../aml/ml-scoring.client";
 import { findCustomerById } from "../customers/customers.repository";
 import { createLogger } from "../../_core/logger";
+import type { Transaction } from "../../../drizzle/schema";
 
 const log = createLogger("transactions");
-import type { Transaction } from "../../../drizzle/schema";
 
 // ─── Screening asynchrone de la contrepartie ─────────────────────────────────
 

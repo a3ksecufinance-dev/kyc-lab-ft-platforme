@@ -180,15 +180,18 @@ export const dashboardRouter = router({
         db
           .select({ count: count(), createdAt: alerts.createdAt })
           .from(alerts)
-          .where(gte(alerts.createdAt, since)),
+          .where(gte(alerts.createdAt, since))
+          .groupBy(alerts.createdAt),
         db
           .select({ count: count(), createdAt: transactions.createdAt })
           .from(transactions)
-          .where(gte(transactions.createdAt, since)),
+          .where(gte(transactions.createdAt, since))
+          .groupBy(transactions.createdAt),
         db
           .select({ count: count(), createdAt: transactions.createdAt })
           .from(transactions)
-          .where(and(eq(transactions.isSuspicious, true), gte(transactions.createdAt, since))),
+          .where(and(eq(transactions.isSuspicious, true), gte(transactions.createdAt, since)))
+          .groupBy(transactions.createdAt),
       ]);
 
       // Remplir les buckets

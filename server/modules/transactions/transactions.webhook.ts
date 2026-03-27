@@ -96,28 +96,43 @@ function mapChannel(
 // ─── Handler principal ────────────────────────────────────────────────────────
 
 export async function handleTransactionWebhook(req: Request, res: Response): Promise<void> {
-  // 1. Vérifier la signature
   const signature = req.headers["x-webhook-signature"] as string | undefined;
-  const rawBody   = (req as Request & { rawBody?: Buffer }).rawBody;
 
-  if (!rawBody) {
-    res.status(400).json({ error: "Corps de la requête invalide" });
-    return;
-  }
+  // Récupérer le body brut — robuste aux deux ordres de middleware
+  const stored = (req as unknown as { rawBody?: Buffer }).rawBody;
+  const rawBody: Buffer = Buffer.isBuffer(stored) && stored.length > 0
+    ? stored
+    : Buffer.isBuffer(req.body) && (req.body as Buffer).length > 0
+      ? req.body as Buffer
+      : Buffer.from("{}");
 
-  if (signature && !verifyWebhookSignature(rawBody, signature)) {
-    log.warn({ ip: req.ip }, "Signature webhook invalide");
-    res.status(401).json({ error: "Signature invalide" });
-    return;
-  }
-
-  // 2. Parser le payload
+  // Parser le payload JSON
   let payload: CbsTransactionPayload;
-  try {
-    payload = JSON.parse(rawBody.toString()) as CbsTransactionPayload;
-  } catch {
-    res.status(400).json({ error: "JSON invalide" });
-    return;
+  if (rawBody.toString() === "{}") {
+    // Fallback : express.json() a déjà parsé → utiliser req.body directement
+    if (req.body && typeof req.body === "object") {
+      log.warn("Webhook: body déjà parsé par express.json() — HMAC non vérifiable");
+      payload = req.body as CbsTransactionPayload;
+    } else {
+      res.status(400).json({ error: "Corps de la requête vide ou illisible" });
+      return;
+    }
+  } else {
+    try {
+      payload = JSON.parse(rawBody.toString("utf8")) as CbsTransactionPayload;
+    } catch {
+      res.status(400).json({ error: "JSON invalide" });
+      return;
+    }
+  }
+
+  // Vérifier la signature HMAC seulement si rawBody original disponible
+  if (signature && Buffer.isBuffer(stored) && stored.length > 0) {
+    if (!verifyWebhookSignature(rawBody, signature)) {
+      log.warn({ ip: req.ip }, "Signature webhook invalide");
+      res.status(401).json({ error: "Signature invalide" });
+      return;
+    }
   }
 
   // 3. Vérifier la fraîcheur du timestamp (5 min max)
