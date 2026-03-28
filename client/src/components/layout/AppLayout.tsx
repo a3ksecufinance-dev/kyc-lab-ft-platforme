@@ -14,50 +14,66 @@ export function AppLayout({ children, title }: AppLayoutProps) {
   });
 
   return (
-    <div className="flex min-h-screen" style={{ background: "#07070D" }}>
+    <div style={{ display: "flex", minHeight: "100vh", background: "#111827" }}>
       <Sidebar alertCount={alertStats?.open ?? undefined} />
 
-      <main className="flex-1 overflow-auto flex flex-col">
-        {/* Topbar */}
-        <div
-          className="flex-shrink-0 px-6 py-3 flex items-center justify-between"
-          style={{
-            borderBottom: "1px solid rgba(184,142,61,0.08)",
-            background: "rgba(10,10,18,0.8)",
-            backdropFilter: "blur(8px)",
-          }}
-        >
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        {/* ── Topbar ────────────────────────────────────────────────────── */}
+        <header style={{
+          height: 52,
+          background: "#172035",
+          borderBottom: "1px solid rgba(255,255,255,0.06)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "0 24px",
+          flexShrink: 0,
+        }}>
           {title ? (
-            <h1
-              className="text-[15px] font-semibold tracking-tight"
-              style={{ color: "#D8D8E8", fontFamily: "Georgia, serif" }}
-            >
+            <h1 style={{
+              fontSize: 17,
+              fontWeight: 400,
+              color: "#C8D8EC",
+              fontFamily: "'Playfair Display', Georgia, serif",
+              letterSpacing: "-0.3px",
+              margin: 0,
+            }}>
               {title}
             </h1>
-          ) : (
-            <div />
-          )}
+          ) : <div />}
 
-          {/* Indicateur de statut système */}
-          <div className="flex items-center gap-2">
-            <span
-              className="w-1.5 h-1.5 rounded-full"
-              style={{ background: "#4ADE80", boxShadow: "0 0 6px rgba(74,222,128,0.6)" }}
-            />
-            <span
-              className="text-[10px] tracking-widest uppercase"
-              style={{ color: "rgba(184,142,61,0.4)", fontFamily: "monospace" }}
-            >
+          {/* Statut système */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{
+              width: 6, height: 6,
+              borderRadius: "50%",
+              background: "#34D399",
+              boxShadow: "0 0 6px rgba(52,211,153,0.5)",
+              display: "inline-block",
+            }} />
+            <span style={{
+              fontSize: 10,
+              fontFamily: "monospace",
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              color: "rgba(212,175,55,0.35)",
+            }}>
               Système opérationnel
             </span>
           </div>
-        </div>
+        </header>
 
-        {/* Contenu */}
-        <div className="flex-1 max-w-screen-xl mx-auto w-full px-6 py-6">
-          {children}
-        </div>
-      </main>
+        {/* ── Contenu ───────────────────────────────────────────────────── */}
+        <main style={{ flex: 1, overflow: "auto" }}>
+          <div style={{
+            maxWidth: 1400,
+            margin: "0 auto",
+            padding: "24px",
+          }}>
+            {children}
+          </div>
+        </main>
+      </div>
     </div>
   );
 }
