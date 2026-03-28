@@ -30,7 +30,7 @@ const VALUE_COLORS: Record<string, string> = {
 };
 
 export function StatCard({ label, value, sub, icon: Icon, accent = "default" }: StatCardProps) {
-  const ic = ICON_COLORS[accent];
+  const ic = ICON_COLORS[accent] ?? ICON_COLORS["default"]!;
   return (
     <div style={{
       position: "relative",

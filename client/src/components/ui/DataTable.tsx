@@ -1,25 +1,38 @@
-import { cn } from "../../lib/utils";
+import React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export interface Column<T> {
-  key: string;
-  header: string;
-  render: (row: T) => React.ReactNode;
-  width?: string;
+  key:     string;
+  header:  string;
+  render:  (row: T) => React.ReactNode;
+  width?:  string;
 }
 
 interface DataTableProps<T> {
-  columns: Column<T>[];
-  data: T[];
-  keyFn: (row: T) => string | number;
-  isLoading?: boolean;
-  total?: number | undefined;
-  page?: number | undefined;
-  limit?: number | undefined;
-  onPageChange?: (page: number) => void;
-  onRowClick?: (row: T) => void;
-  emptyMessage?: string;
+  columns:       Column<T>[];
+  data:          T[];
+  keyFn:         (row: T) => string | number;
+  isLoading?:    boolean | undefined;
+  total?:        number | undefined;
+  page?:         number | undefined;
+  limit?:        number | undefined;
+  onPageChange?: ((page: number) => void) | undefined;
+  onRowClick?:   ((row: T) => void) | undefined;
+  emptyMessage?: string | undefined;
 }
+
+const C = {
+  surface:  "#1E2A40",
+  surface2: "#172035",
+  border:   "rgba(255,255,255,0.07)",
+  border2:  "rgba(255,255,255,0.04)",
+  hover:    "rgba(255,255,255,0.025)",
+  text1:    "#C8D8EC",
+  text2:    "#5A7490",
+  text3:    "#3A5070",
+  gold:     "#D4AF37",
+  mono:     "'JetBrains Mono','Courier New',monospace",
+};
 
 export function DataTable<T>({
   columns, data, keyFn, isLoading,
@@ -29,18 +42,25 @@ export function DataTable<T>({
   const totalPages = Math.ceil(total / limit);
 
   return (
-    <div className="flex flex-col gap-0">
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
-            <tr className="border-b border-[#21262d]">
+            <tr style={{ background: C.surface2, borderBottom: `1px solid ${C.border}` }}>
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className={cn(
-                    "text-left py-2.5 px-4 text-[11px] font-mono text-[#7d8590] tracking-widest uppercase",
-                    col.width
-                  )}
+                  style={{
+                    textAlign: "left",
+                    padding: "11px 16px",
+                    fontSize: 10,
+                    fontFamily: C.mono,
+                    color: C.text2,
+                    letterSpacing: "0.14em",
+                    textTransform: "uppercase",
+                    fontWeight: 600,
+                    whiteSpace: "nowrap",
+                  }}
                 >
                   {col.header}
                 </th>
@@ -50,17 +70,30 @@ export function DataTable<T>({
           <tbody>
             {isLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
-                <tr key={i} className="border-b border-[#21262d]/50">
+                <tr key={i} style={{ borderBottom: `1px solid ${C.border2}` }}>
                   {columns.map((col) => (
-                    <td key={col.key} className="py-3 px-4">
-                      <div className="h-4 bg-[#161b22] rounded animate-pulse" />
+                    <td key={col.key} style={{ padding: "12px 16px" }}>
+                      <div style={{
+                        height: 14, borderRadius: 4,
+                        background: "rgba(255,255,255,0.06)",
+                        animation: "pulse 2s ease-in-out infinite",
+                      }} />
                     </td>
                   ))}
                 </tr>
               ))
             ) : data.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="py-12 text-center text-[#7d8590] font-mono text-sm">
+                <td
+                  colSpan={columns.length}
+                  style={{
+                    padding: "48px 16px",
+                    textAlign: "center",
+                    color: C.text3,
+                    fontFamily: C.mono,
+                    fontSize: 12,
+                  }}
+                >
                   {emptyMessage}
                 </td>
               </tr>
@@ -69,13 +102,24 @@ export function DataTable<T>({
                 <tr
                   key={keyFn(row)}
                   onClick={() => onRowClick?.(row)}
-                  className={cn(
-                    "border-b border-[#21262d]/50 transition-colors",
-                    onRowClick && "cursor-pointer hover:bg-[#161b22]"
-                  )}
+                  style={{
+                    borderBottom: `1px solid ${C.border2}`,
+                    cursor: onRowClick ? "pointer" : "default",
+                    transition: "background 0.12s",
+                  }}
+                  onMouseEnter={e => { if (onRowClick) (e.currentTarget as HTMLElement).style.background = C.hover; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
                 >
                   {columns.map((col) => (
-                    <td key={col.key} className={cn("py-3 px-4 text-sm text-[#e6edf3]", col.width)}>
+                    <td
+                      key={col.key}
+                      style={{
+                        padding: "10px 16px",
+                        fontSize: 12.5,
+                        color: C.text1,
+                        verticalAlign: "middle",
+                      }}
+                    >
                       {col.render(row)}
                     </td>
                   ))}
@@ -88,25 +132,49 @@ export function DataTable<T>({
 
       {/* Pagination */}
       {totalPages > 1 && onPageChange && (
-        <div className="flex items-center justify-between px-4 py-3 border-t border-[#21262d]">
-          <p className="text-xs font-mono text-[#7d8590]">
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "10px 16px",
+          borderTop: `1px solid ${C.border}`,
+        }}>
+          <p style={{ fontSize: 11, fontFamily: C.mono, color: C.text3, margin: 0 }}>
             {((page - 1) * limit) + 1}–{Math.min(page * limit, total)} sur {total}
           </p>
-          <div className="flex items-center gap-1">
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <button
               onClick={() => onPageChange(page - 1)}
               disabled={page <= 1}
-              className="p-1.5 rounded text-[#7d8590] hover:text-[#e6edf3] hover:bg-[#161b22] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              style={{
+                padding: "5px 8px", borderRadius: 6,
+                background: "transparent",
+                border: `1px solid rgba(255,255,255,0.08)`,
+                color: page <= 1 ? C.text3 : C.text2,
+                cursor: page <= 1 ? "not-allowed" : "pointer",
+                opacity: page <= 1 ? 0.4 : 1,
+                transition: "all 0.15s",
+                display: "flex", alignItems: "center",
+              }}
             >
-              <ChevronLeft size={14} />
+              <ChevronLeft size={13} />
             </button>
-            <span className="px-3 py-1 text-xs font-mono text-[#e6edf3]">{page} / {totalPages}</span>
+            <span style={{ padding: "4px 10px", fontSize: 11, fontFamily: C.mono, color: C.text1 }}>
+              {page} / {totalPages}
+            </span>
             <button
               onClick={() => onPageChange(page + 1)}
               disabled={page >= totalPages}
-              className="p-1.5 rounded text-[#7d8590] hover:text-[#e6edf3] hover:bg-[#161b22] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              style={{
+                padding: "5px 8px", borderRadius: 6,
+                background: "transparent",
+                border: `1px solid rgba(255,255,255,0.08)`,
+                color: page >= totalPages ? C.text3 : C.text2,
+                cursor: page >= totalPages ? "not-allowed" : "pointer",
+                opacity: page >= totalPages ? 0.4 : 1,
+                transition: "all 0.15s",
+                display: "flex", alignItems: "center",
+              }}
             >
-              <ChevronRight size={14} />
+              <ChevronRight size={13} />
             </button>
           </div>
         </div>

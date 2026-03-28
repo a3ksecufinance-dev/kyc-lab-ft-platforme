@@ -1,31 +1,48 @@
-import { AppLayout } from "../components/layout/AppLayout";
-import { StatCard } from "../components/ui/StatCard";
-import { Badge } from "../components/ui/Badge";
-import { trpc } from "../lib/trpc";
+import { AppLayout }  from "../components/layout/AppLayout";
+import { StatCard }   from "../components/ui/StatCard";
+import { Badge }      from "../components/ui/Badge";
+import { trpc }       from "../lib/trpc";
 import { formatAmount, formatRelative, formatNumber } from "../lib/utils";
 import {
-  Users, AlertTriangle, FolderOpen,
-  ArrowLeftRight, RefreshCw,
+  Users, AlertTriangle, FolderOpen, ArrowLeftRight,
+  RefreshCw, FileText, Shield,
 } from "lucide-react";
 import {
-  AreaChart, Area, XAxis, YAxis, Tooltip,
-  ResponsiveContainer,
+  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 
-const CHART_COLORS = {
-  alerts:       "#f85149",
-  suspicious:   "#d29922",
-  transactions: "#58a6ff",
+// ─── Palette cohérente WatchReg ───────────────────────────────────────────────
+const C = {
+  surface:  "#1E2A40",
+  border:   "rgba(255,255,255,0.06)",
+  border2:  "rgba(255,255,255,0.1)",
+  text1:    "#C8D8EC",
+  text2:    "#5A7490",
+  text3:    "#3A5070",
+  gold:     "#D4AF37",
+  red:      "#F87171",
+  amber:    "#FB923C",
+  green:    "#34D399",
+  blue:     "#60A5FA",
+  mono:     "'JetBrains Mono','Courier New',monospace",
+  serif:    "'Playfair Display',Georgia,serif",
 };
 
+const RISK_COLORS: Record<string, string> = {
+  LOW: "#34D399", MEDIUM: "#FB923C", HIGH: "#F87171", CRITICAL: "#FF5252",
+};
+
+// ─── Graphe tendances ─────────────────────────────────────────────────────────
 function TrendChart({ days }: { days: number }) {
   const { data, isLoading } = trpc.dashboard.trends.useQuery({ days }, {
     refetchInterval: 60_000,
   });
 
-  if (isLoading) return <div className="h-48 bg-[#161b22] rounded animate-pulse" />;
+  if (isLoading) return (
+    <div style={{ height: 200, background: "rgba(255,255,255,0.02)", borderRadius: 8, animation: "pulse 2s infinite" }} />
+  );
   if (!data) return null;
 
   const chartData = data.series.map((s: { date: string; transactions: number; suspicious: number }) => ({
@@ -34,59 +51,84 @@ function TrendChart({ days }: { days: number }) {
   }));
 
   return (
-    <ResponsiveContainer width="100%" height={180}>
-      <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+    <ResponsiveContainer width="100%" height={200}>
+      <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -16 }}>
         <defs>
-          <linearGradient id="gradAlerts" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%"  stopColor={CHART_COLORS.alerts} stopOpacity={0.25} />
-            <stop offset="95%" stopColor={CHART_COLORS.alerts} stopOpacity={0} />
+          <linearGradient id="gTx" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%"  stopColor={C.blue}  stopOpacity={0.2} />
+            <stop offset="95%" stopColor={C.blue}  stopOpacity={0} />
           </linearGradient>
-          <linearGradient id="gradTx" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%"  stopColor={CHART_COLORS.transactions} stopOpacity={0.15} />
-            <stop offset="95%" stopColor={CHART_COLORS.transactions} stopOpacity={0} />
+          <linearGradient id="gAl" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%"  stopColor={C.red}   stopOpacity={0.2} />
+            <stop offset="95%" stopColor={C.red}   stopOpacity={0} />
           </linearGradient>
         </defs>
-        <XAxis dataKey="dateLabel" tick={{ fill: "#484f58", fontSize: 10, fontFamily: "IBM Plex Mono" }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-        <YAxis tick={{ fill: "#484f58", fontSize: 10, fontFamily: "IBM Plex Mono" }} tickLine={false} axisLine={false} />
-        <Tooltip
-          contentStyle={{ background: "#161b22", border: "1px solid #30363d", borderRadius: 6, fontSize: 12, fontFamily: "IBM Plex Mono" }}
-          labelStyle={{ color: "#7d8590" }}
-          itemStyle={{ color: "#e6edf3" }}
+        <CartesianGrid stroke="rgba(255,255,255,0.04)" vertical={false} />
+        <XAxis
+          dataKey="dateLabel"
+          tick={{ fill: C.text3, fontSize: 10, fontFamily: C.mono }}
+          tickLine={false} axisLine={false}
+          interval="preserveStartEnd"
         />
-        <Area type="monotone" dataKey="transactions" stroke={CHART_COLORS.transactions} strokeWidth={1.5} fill="url(#gradTx)" name="Transactions" />
-        <Area type="monotone" dataKey="alerts" stroke={CHART_COLORS.alerts} strokeWidth={1.5} fill="url(#gradAlerts)" name="Alertes" />
+        <YAxis
+          tick={{ fill: C.text3, fontSize: 10, fontFamily: C.mono }}
+          tickLine={false} axisLine={false}
+        />
+        <Tooltip
+          contentStyle={{
+            background: "#172035",
+            border: `1px solid ${C.border2}`,
+            borderRadius: 8,
+            fontSize: 12,
+            fontFamily: C.mono,
+            color: C.text1,
+          }}
+          labelStyle={{ color: C.text2 }}
+          itemStyle={{ color: C.text1 }}
+        />
+        <Area
+          type="monotone" dataKey="transactions"
+          stroke={C.blue} strokeWidth={1.5}
+          fill="url(#gTx)" name="Transactions"
+        />
+        <Area
+          type="monotone" dataKey="alerts"
+          stroke={C.red} strokeWidth={1.5}
+          fill="url(#gAl)" name="Alertes"
+        />
       </AreaChart>
     </ResponsiveContainer>
   );
 }
 
+// ─── Barre de risque ──────────────────────────────────────────────────────────
 function RiskBar({ data }: { data: Record<string, number> }) {
   const items = Object.entries(data).map(([key, value]) => ({ key, value }));
   const total = items.reduce((s, i) => s + i.value, 0);
-
-  const COLOR: Record<string, string> = {
-    LOW: "#3fb950", MEDIUM: "#d29922", HIGH: "#f85149", CRITICAL: "#ff7b72",
-  };
-
-  if (!total) return null;
+  if (!total) return <p style={{ fontSize: 12, color: C.text3, fontFamily: C.mono }}>Aucune donnée</p>;
 
   return (
-    <div className="space-y-2">
-      <div className="flex h-2 rounded-full overflow-hidden gap-0.5">
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {/* Barre */}
+      <div style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden", gap: 2 }}>
         {items.map(({ key, value }) => (
-          <div
-            key={key}
-            style={{ width: `${(value / total) * 100}%`, background: COLOR[key] ?? "#484f58" }}
-            className="rounded-sm"
-          />
+          <div key={key} style={{
+            width: `${(value / total) * 100}%`,
+            background: RISK_COLORS[key] ?? C.text3,
+            borderRadius: 2,
+          }} />
         ))}
       </div>
-      <div className="flex gap-4 flex-wrap">
+      {/* Légende */}
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         {items.map(({ key, value }) => (
-          <div key={key} className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full" style={{ background: COLOR[key] ?? "#484f58" }} />
-            <span className="text-[11px] font-mono text-[#7d8590]">
-              <Badge label={key} variant="risk" /> <span className="text-[#e6edf3]">{value}</span>
+          <div key={key} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div style={{ width: 7, height: 7, borderRadius: "50%", background: RISK_COLORS[key] ?? C.text3 }} />
+            <span style={{ fontSize: 10, fontFamily: C.mono, color: C.text3 }}>
+              {key}
+            </span>
+            <span style={{ fontSize: 11, fontFamily: C.mono, color: C.text1, fontWeight: 600 }}>
+              {value}
             </span>
           </div>
         ))}
@@ -95,181 +137,294 @@ function RiskBar({ data }: { data: Record<string, number> }) {
   );
 }
 
+// ─── Card conteneur ───────────────────────────────────────────────────────────
+function Card({
+  title, right, children, noPad = false,
+}: {
+  title: string;
+  right?: React.ReactNode;
+  children: React.ReactNode;
+  noPad?: boolean;
+}) {
+  return (
+    <div style={{
+      background: C.surface,
+      border: `1px solid ${C.border}`,
+      borderRadius: 10,
+      overflow: "hidden",
+    }}>
+      <div style={{
+        padding: "12px 18px",
+        borderBottom: `1px solid ${C.border}`,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+      }}>
+        <p style={{
+          fontSize: 10, fontFamily: C.mono,
+          letterSpacing: "0.16em", textTransform: "uppercase",
+          color: C.text2, margin: 0, fontWeight: 600,
+        }}>
+          {title}
+        </p>
+        {right}
+      </div>
+      <div style={noPad ? {} : { padding: "14px 18px" }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ─── Page principale ──────────────────────────────────────────────────────────
 export function DashboardPage() {
-  const { data: overview, isLoading, refetch, isRefetching } = trpc.dashboard.overview.useQuery(undefined, {
-    refetchInterval: 30_000,
-    staleTime: 20_000,
-  });
-  const { data: recent } = trpc.dashboard.recentActivity.useQuery({ limit: 8 }, {
-    refetchInterval: 30_000,
-  });
+  const { data: overview, isLoading, refetch, isRefetching } =
+    trpc.dashboard.overview.useQuery(undefined, {
+      refetchInterval: 30_000,
+      staleTime: 20_000,
+    });
+
+  const { data: recent } = trpc.dashboard.recentActivity.useQuery(
+    { limit: 6 },
+    { refetchInterval: 30_000 }
+  );
 
   return (
     <AppLayout>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-lg font-semibold text-[#e6edf3] font-mono">Dashboard</h1>
-          <p className="text-xs font-mono text-[#7d8590] mt-0.5">
-            Vue d'ensemble — données en temps réel
-          </p>
-        </div>
-        <button
-          onClick={() => refetch()}
-          disabled={isRefetching}
-          className="flex items-center gap-2 px-3 py-1.5 text-xs font-mono text-[#7d8590] hover:text-[#e6edf3] border border-[#30363d] hover:border-[#58a6ff]/40 rounded-md transition-colors"
-        >
-          <RefreshCw size={12} className={isRefetching ? "animate-spin" : ""} />
-          Actualiser
-        </button>
-      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
-      {/* KPIs principaux */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        <StatCard
-          label="Clients actifs"
-          value={isLoading ? "—" : formatNumber(overview?.customers.total ?? 0)}
-          sub={`${overview?.customers.byStatus?.["APPROVED"] ?? 0} approuvés`}
-          icon={Users}
-        />
-        <StatCard
-          label="Alertes ouvertes"
-          value={isLoading ? "—" : formatNumber(overview?.alerts.open ?? 0)}
-          sub={`${overview?.alerts.byPriority?.["CRITICAL"] ?? 0} critiques`}
-          icon={AlertTriangle}
-          accent={(overview?.alerts.byPriority?.["CRITICAL"] ?? 0) > 0 ? "danger" : "default"}
-        />
-        <StatCard
-          label="Dossiers en cours"
-          value={isLoading ? "—" : formatNumber(overview?.cases.byStatus?.["OPEN"] ?? 0)}
-          sub={`${overview?.cases.byStatus?.["PENDING_APPROVAL"] ?? 0} en approbation`}
-          icon={FolderOpen}
-          accent={(overview?.cases.byStatus?.["PENDING_APPROVAL"] ?? 0) > 0 ? "warning" : "default"}
-        />
-        <StatCard
-          label="Transactions aujourd'hui"
-          value={isLoading ? "—" : formatNumber(overview?.transactions.todayCount ?? 0)}
-          sub={formatAmount(overview?.transactions.todayVolume ?? 0)}
-          icon={ArrowLeftRight}
-        />
-      </div>
-
-      {/* Graphique + risque */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-        <div className="lg:col-span-2 bg-[#0d1117] border border-[#21262d] rounded-lg p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-[11px] font-mono text-[#7d8590] tracking-widest uppercase">
-              Activité — 30 derniers jours
-            </h2>
-            <div className="flex gap-3">
-              {Object.entries(CHART_COLORS).map(([key, color]) => (
-                <div key={key} className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full" style={{ background: color }} />
-                  <span className="text-[10px] font-mono text-[#7d8590] capitalize">{key}</span>
-                </div>
-              ))}
-            </div>
+        {/* ── En-tête ─────────────────────────────────────────────────────── */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+          <div>
+            <h1 style={{
+              fontSize: 22,
+              fontWeight: 400,
+              fontFamily: C.serif,
+              color: C.text1,
+              letterSpacing: "-0.4px",
+              margin: "0 0 4px",
+            }}>
+              Tableau de bord
+            </h1>
+            <p style={{ fontSize: 11, fontFamily: C.mono, color: C.text3, margin: 0 }}>
+              Vue d'ensemble · Données en temps réel
+            </p>
           </div>
-          <TrendChart days={30} />
+          <button
+            onClick={() => refetch()}
+            disabled={isRefetching}
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "8px 14px",
+              background: "rgba(255,255,255,0.04)",
+              border: `1px solid ${C.border2}`,
+              borderRadius: 8,
+              fontSize: 11, fontFamily: C.mono,
+              color: C.text2,
+              cursor: "pointer",
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(212,175,55,0.3)"; (e.currentTarget as HTMLElement).style.color = C.gold; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = C.border2; (e.currentTarget as HTMLElement).style.color = C.text2; }}
+          >
+            <RefreshCw size={12} style={{ animation: isRefetching ? "spin 1s linear infinite" : "none" }} />
+            Actualiser
+          </button>
         </div>
 
-        <div className="bg-[#0d1117] border border-[#21262d] rounded-lg p-4 space-y-4">
-          <h2 className="text-[11px] font-mono text-[#7d8590] tracking-widest uppercase">
-            Répartition du risque
-          </h2>
-          {overview?.customers.byRisk && (
-            <RiskBar data={overview.customers.byRisk} />
-          )}
+        {/* ── KPIs ────────────────────────────────────────────────────────── */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
+          <StatCard
+            label="Clients actifs"
+            value={isLoading ? "—" : formatNumber(overview?.customers.total ?? 0)}
+            sub={`${overview?.customers.byStatus?.["APPROVED"] ?? 0} approuvés`}
+            icon={Users}
+            accent="default"
+          />
+          <StatCard
+            label="Alertes ouvertes"
+            value={isLoading ? "—" : formatNumber(overview?.alerts.open ?? 0)}
+            sub={`${overview?.alerts.byPriority?.["CRITICAL"] ?? 0} critiques`}
+            icon={AlertTriangle}
+            accent={(overview?.alerts.byPriority?.["CRITICAL"] ?? 0) > 0 ? "danger" : "default"}
+          />
+          <StatCard
+            label="Dossiers en cours"
+            value={isLoading ? "—" : formatNumber(overview?.cases.byStatus?.["OPEN"] ?? 0)}
+            sub={`${overview?.cases.byStatus?.["PENDING_APPROVAL"] ?? 0} en approbation`}
+            icon={FolderOpen}
+            accent={(overview?.cases.byStatus?.["PENDING_APPROVAL"] ?? 0) > 0 ? "warning" : "default"}
+          />
+          <StatCard
+            label="Transactions aujourd'hui"
+            value={isLoading ? "—" : formatNumber(overview?.transactions.todayCount ?? 0)}
+            sub={formatAmount(overview?.transactions.todayVolume ?? 0)}
+            icon={ArrowLeftRight}
+            accent="default"
+          />
+        </div>
 
-          <div className="pt-2 border-t border-[#21262d] space-y-2">
-            <p className="text-[11px] font-mono text-[#7d8590] tracking-widest uppercase">Rapports</p>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="bg-[#161b22] rounded p-2.5">
-                <p className="text-[10px] font-mono text-[#7d8590]">SAR</p>
-                <p className="text-lg font-mono font-semibold text-[#e6edf3]">
-                  {overview?.reports.byType?.["SAR"] ?? 0}
-                </p>
+        {/* ── Graphe + Risque ──────────────────────────────────────────────── */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 12 }}>
+
+          {/* Graphe tendances */}
+          <Card
+            title="Activité — 30 derniers jours"
+            right={
+              <div style={{ display: "flex", gap: 14 }}>
+                {[
+                  { label: "Transactions", color: C.blue },
+                  { label: "Alertes", color: C.red },
+                ].map(({ label, color }) => (
+                  <div key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    <div style={{ width: 8, height: 2, background: color, borderRadius: 1 }} />
+                    <span style={{ fontSize: 10, fontFamily: C.mono, color: C.text3 }}>{label}</span>
+                  </div>
+                ))}
               </div>
-              <div className="bg-[#161b22] rounded p-2.5">
-                <p className="text-[10px] font-mono text-[#7d8590]">STR</p>
-                <p className="text-lg font-mono font-semibold text-[#e6edf3]">
-                  {overview?.reports.byType?.["STR"] ?? 0}
-                </p>
+            }
+          >
+            <TrendChart days={30} />
+          </Card>
+
+          {/* Colonne droite */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+            {/* Risque clients */}
+            <Card title="Répartition du risque clients">
+              {overview?.customers.byRisk
+                ? <RiskBar data={overview.customers.byRisk} />
+                : <p style={{ fontSize: 11, color: C.text3, fontFamily: C.mono }}>Chargement…</p>
+              }
+            </Card>
+
+            {/* Rapports SAR/STR */}
+            <Card title="Rapports réglementaires">
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                {[
+                  { label: "SAR", val: overview?.reports.byType?.["SAR"] ?? 0, icon: FileText, color: C.amber },
+                  { label: "STR", val: overview?.reports.byType?.["STR"] ?? 0, icon: Shield,   color: C.red   },
+                ].map(({ label, val, icon: Icon, color }) => (
+                  <div key={label} style={{
+                    background: "rgba(255,255,255,0.03)",
+                    border: `1px solid ${C.border}`,
+                    borderRadius: 8, padding: "12px",
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                      <Icon size={12} style={{ color }} />
+                      <span style={{ fontSize: 9, fontFamily: C.mono, letterSpacing: "0.14em", textTransform: "uppercase", color: C.text3 }}>{label}</span>
+                    </div>
+                    <p style={{ fontSize: 22, fontWeight: 600, fontFamily: C.serif, color, margin: 0, lineHeight: 1 }}>
+                      {val}
+                    </p>
+                  </div>
+                ))}
               </div>
-            </div>
+            </Card>
+
           </div>
         </div>
-      </div>
 
-      {/* Activité récente */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Alertes récentes */}
-        <div className="bg-[#0d1117] border border-[#21262d] rounded-lg overflow-hidden">
-          <div className="px-4 py-3 border-b border-[#21262d] flex items-center justify-between">
-            <h2 className="text-[11px] font-mono text-[#7d8590] tracking-widest uppercase">
-              Alertes récentes
-            </h2>
-            <span className="text-[10px] font-mono text-[#484f58]">24h</span>
-          </div>
-          <div className="divide-y divide-[#21262d]/50">
-            {!recent?.recentAlerts.length ? (
-              <p className="px-4 py-6 text-xs font-mono text-[#484f58] text-center">Aucune alerte récente</p>
-            ) : (
-              recent.recentAlerts.map((a: {
+        {/* ── Activité récente ─────────────────────────────────────────────── */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+
+          {/* Alertes récentes */}
+          <Card title="Alertes récentes" right={
+            <span style={{ fontSize: 9, fontFamily: C.mono, color: C.text3, letterSpacing: "0.1em", textTransform: "uppercase" }}>24h</span>
+          } noPad>
+            <div>
+              {!recent?.recentAlerts.length ? (
+                <p style={{ padding: "20px 18px", fontSize: 12, fontFamily: C.mono, color: C.text3, textAlign: "center" }}>
+                  Aucune alerte récente
+                </p>
+              ) : recent.recentAlerts.map((a: {
                 id: number; alertId: string; scenario: string;
                 priority: string; riskScore: number; createdAt: Date;
               }) => (
-                <div key={a.id} className="px-4 py-2.5 hover:bg-[#161b22] transition-colors">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-xs font-mono text-[#e6edf3] truncate">{a.scenario}</p>
-                      <p className="text-[10px] font-mono text-[#484f58] mt-0.5">{formatRelative(a.createdAt)}</p>
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                      <Badge label={a.priority} variant="priority" />
-                      <span className="text-[10px] font-mono text-[#7d8590]">{a.riskScore}</span>
-                    </div>
+                <div key={a.id} style={{
+                  padding: "10px 18px",
+                  borderBottom: `1px solid rgba(255,255,255,0.03)`,
+                  display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+                  transition: "background 0.15s", cursor: "pointer",
+                }}
+                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.02)")}
+                onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = "transparent")}
+                >
+                  {/* Dot priorité */}
+                  <div style={{
+                    width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
+                    background: a.priority === "CRITICAL" ? C.red
+                               : a.priority === "HIGH"     ? C.amber
+                               : a.priority === "MEDIUM"   ? C.gold
+                               : C.green,
+                  }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 12, color: C.text1, margin: "0 0 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {a.scenario}
+                    </p>
+                    <p style={{ fontSize: 10, fontFamily: C.mono, color: C.text3, margin: 0 }}>
+                      {formatRelative(a.createdAt)}
+                    </p>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                    <Badge label={a.priority} variant="priority" />
+                    <span style={{
+                      fontSize: 11, fontFamily: C.mono,
+                      color: a.riskScore >= 70 ? C.red : a.riskScore >= 40 ? C.amber : C.text2,
+                      fontWeight: 600,
+                    }}>
+                      {a.riskScore}
+                    </span>
                   </div>
                 </div>
-              ))
-            )}
-          </div>
-        </div>
+              ))}
+            </div>
+          </Card>
 
-        {/* Transactions suspectes */}
-        <div className="bg-[#0d1117] border border-[#21262d] rounded-lg overflow-hidden">
-          <div className="px-4 py-3 border-b border-[#21262d] flex items-center justify-between">
-            <h2 className="text-[11px] font-mono text-[#7d8590] tracking-widest uppercase">
-              Transactions suspectes
-            </h2>
-            <span className="text-[10px] font-mono text-[#484f58]">24h</span>
-          </div>
-          <div className="divide-y divide-[#21262d]/50">
-            {!recent?.recentTransactions.length ? (
-              <p className="px-4 py-6 text-xs font-mono text-[#484f58] text-center">Aucune transaction suspecte</p>
-            ) : (
-              recent.recentTransactions.map((t: {
+          {/* Transactions suspectes */}
+          <Card title="Transactions suspectes" right={
+            <span style={{ fontSize: 9, fontFamily: C.mono, color: C.text3, letterSpacing: "0.1em", textTransform: "uppercase" }}>24h</span>
+          } noPad>
+            <div>
+              {!recent?.recentTransactions.length ? (
+                <p style={{ padding: "20px 18px", fontSize: 12, fontFamily: C.mono, color: C.text3, textAlign: "center" }}>
+                  Aucune transaction suspecte
+                </p>
+              ) : recent.recentTransactions.map((t: {
                 id: number; transactionId: string; amount: string;
                 currency: string; transactionType: string;
                 riskScore: number | null; createdAt: Date;
               }) => (
-                <div key={t.id} className="px-4 py-2.5 hover:bg-[#161b22] transition-colors">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-xs font-mono text-[#e6edf3]">{t.transactionId}</p>
-                      <p className="text-[10px] font-mono text-[#484f58] mt-0.5">{formatRelative(t.createdAt)}</p>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-xs font-mono font-medium text-amber-400">
-                        {formatAmount(t.amount, t.currency)}
-                      </p>
-                      <Badge label={t.transactionType} className="mt-0.5" />
-                    </div>
+                <div key={t.id} style={{
+                  padding: "10px 18px",
+                  borderBottom: `1px solid rgba(255,255,255,0.03)`,
+                  display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+                  transition: "background 0.15s", cursor: "pointer",
+                }}
+                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.02)")}
+                onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = "transparent")}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 12, fontFamily: C.mono, color: C.text1, margin: "0 0 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {t.transactionId}
+                    </p>
+                    <p style={{ fontSize: 10, fontFamily: C.mono, color: C.text3, margin: 0 }}>
+                      {formatRelative(t.createdAt)}
+                    </p>
+                  </div>
+                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                    <p style={{ fontSize: 12, fontFamily: C.mono, color: C.amber, fontWeight: 600, margin: "0 0 3px" }}>
+                      {formatAmount(t.amount, t.currency)}
+                    </p>
+                    <Badge label={t.transactionType} />
                   </div>
                 </div>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          </Card>
+
         </div>
+
       </div>
     </AppLayout>
   );

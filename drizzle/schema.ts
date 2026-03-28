@@ -193,7 +193,7 @@ export const users = pgTable("users", {
   lastSignedIn: timestamp("last_signed_in"),
   // ─ MFA TOTP ────────────────────────────────────────────────────────────────
   mfaEnabled:     boolean("mfa_enabled").default(false).notNull(),
-  mfaSecret:      varchar("mfa_secret", { length: 64 }),       // secret TOTP chiffré
+  mfaSecret:      varchar("mfa_secret", { length: 200 }),       // secret TOTP chiffré
   mfaBackupCodes: jsonb("mfa_backup_codes"),                    // codes de secours hachés
   mfaEnabledAt:   timestamp("mfa_enabled_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

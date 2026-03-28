@@ -143,8 +143,8 @@ export async function computeAmld6Kpis(period: Amld6KpiPeriod): Promise<Amld6Kpi
     high:     count(sql`CASE WHEN ${alerts.priority} = 'HIGH'     THEN 1 END`),
     medium:   count(sql`CASE WHEN ${alerts.priority} = 'MEDIUM'   THEN 1 END`),
     low:      count(sql`CASE WHEN ${alerts.priority} = 'LOW'      THEN 1 END`),
-    resolved: count(sql`CASE WHEN ${alerts.status} = 'RESOLVED'   THEN 1 END`),
-    dismissed: count(sql`CASE WHEN ${alerts.status} = 'DISMISSED' THEN 1 END`),
+    resolved: count(sql`CASE WHEN ${alerts.status} = 'CLOSED'         THEN 1 END`),
+    dismissed: count(sql`CASE WHEN ${alerts.status} = 'FALSE_POSITIVE' THEN 1 END`),
   }).from(alerts).where(alertFilter);
 
   const alertTotal    = Number(alertStats?.total ?? 0);
@@ -156,7 +156,7 @@ export async function computeAmld6Kpis(period: Amld6KpiPeriod): Promise<Amld6Kpi
     avgDays: avg(
       sql`EXTRACT(EPOCH FROM (${alerts.resolvedAt} - ${alerts.createdAt})) / 86400`
     ),
-  }).from(alerts).where(and(alertFilter, ne(alerts.status, "OPEN")));
+  }).from(alerts).where(and(alertFilter, ne(alerts.status, "OPEN" as "OPEN")));
 
   const avgResolutionDays = Number(resolutionStats?.avgDays ?? 0);
 

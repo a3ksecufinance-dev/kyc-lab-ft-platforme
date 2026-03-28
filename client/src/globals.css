@@ -2,39 +2,29 @@
 
 /* ─── WatchReg Design System ─────────────────────────────────────────────── */
 :root {
-  --wr-bg:       #0B1120;
-  --wr-page:     #111827;
-  --wr-surface:  #172035;
-  --wr-card:     #1E2A40;
-  --wr-hover:    #253350;
-  --wr-border:   rgba(255,255,255,0.07);
-  --wr-border2:  rgba(255,255,255,0.12);
-
-  --wr-gold:     #D4AF37;
-  --wr-gold-dim: rgba(212,175,55,0.15);
-  --wr-gold-bg:  rgba(212,175,55,0.08);
-
-  --wr-blue:     #60A5FA;
-  --wr-green:    #34D399;
-  --wr-amber:    #FB923C;
-  --wr-red:      #F87171;
-
-  --wr-text-1:   #D8E4F0;
-  --wr-text-2:   #7A90AA;
-  --wr-text-3:   #4A6080;
-
+  --wr-bg:      #0B1120;
+  --wr-page:    #111827;
+  --wr-surface: #172035;
+  --wr-card:    #1E2A40;
+  --wr-hover:   #253350;
+  --wr-border:  rgba(255,255,255,0.07);
+  --wr-border2: rgba(255,255,255,0.12);
+  --wr-gold:    #D4AF37;
+  --wr-blue:    #60A5FA;
+  --wr-green:   #34D399;
+  --wr-amber:   #FB923C;
+  --wr-red:     #F87171;
+  --wr-text-1:  #D8E4F0;
+  --wr-text-2:  #7A90AA;
+  --wr-text-3:  #4A6080;
   --wr-font-serif: 'Playfair Display', Georgia, serif;
   --wr-font-sans:  'Inter', system-ui, sans-serif;
   --wr-font-mono:  'JetBrains Mono', 'Courier New', monospace;
-
-  --wr-r-sm:   6px;
-  --wr-r-md:   8px;
-  --wr-r-lg:   12px;
-  --wr-r-xl:   16px;
+  --wr-r-md: 8px;
+  --wr-r-lg: 12px;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
-
 html { font-size: 14px; }
 
 body {
@@ -48,35 +38,196 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ─── Scrollbar ──────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
-
-/* ─── Sélection ──────────────────────────────────────────────────────────── */
 ::selection { background: rgba(212,175,55,0.25); color: var(--wr-text-1); }
-
-/* ─── Focus visible ──────────────────────────────────────────────────────── */
-*:focus-visible {
-  outline: 2px solid rgba(212,175,55,0.5);
-  outline-offset: 2px;
-}
+*:focus-visible { outline: 2px solid rgba(212,175,55,0.5); outline-offset: 2px; }
 
 /* ─── Animations ─────────────────────────────────────────────────────────── */
-@keyframes wr-fade-in {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes wr-pulse {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.4; }
-}
+@keyframes wr-fade-in { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+@keyframes spin        { to{transform:rotate(360deg)} }
+@keyframes pulse       { 0%,100%{opacity:1} 50%{opacity:0.5} }
 
-.animate-slide-in {
-  animation: wr-fade-in 0.25s ease-out both;
-}
+.animate-slide-in { animation: wr-fade-in 0.25s ease-out both; }
+.animate-fade-in  { animation: wr-fade-in 0.2s ease-out both; }
+.animate-spin     { animation: spin 1s linear infinite; }
+.animate-pulse    { animation: pulse 2s ease-in-out infinite; }
 
-/* ─── Utilitaires ────────────────────────────────────────────────────────── */
-.font-mono { font-family: var(--wr-font-mono) !important; }
+.font-mono  { font-family: var(--wr-font-mono) !important; }
 .font-serif { font-family: var(--wr-font-serif) !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BRIDGE TAILWIND → WATCHREG
+   Remappe toutes les couleurs hardcodées GitHub dark vers la palette navy/or.
+   Aucune modification des pages nécessaire.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Backgrounds ─────────────────────────────────────────────────────────── */
+.bg-\[\#080c10\] { background-color: #0B1120 !important; }
+.bg-\[\#0d1117\] { background-color: #1E2A40 !important; }
+.bg-\[\#161b22\] { background-color: #253350 !important; }
+.bg-\[\#21262d\] { background-color: rgba(255,255,255,0.05) !important; }
+.bg-\[\#1c2128\] { background-color: #1E2A40 !important; }
+
+/* ─── Borders ─────────────────────────────────────────────────────────────── */
+.border-\[\#21262d\]     { border-color: rgba(255,255,255,0.08) !important; }
+.border-\[\#21262d\]\/50 { border-color: rgba(255,255,255,0.04) !important; }
+.border-\[\#30363d\]     { border-color: rgba(255,255,255,0.12) !important; }
+.divide-\[\#21262d\]\/50 > * + * { border-color: rgba(255,255,255,0.04) !important; }
+
+/* ─── Text ────────────────────────────────────────────────────────────────── */
+.text-\[\#e6edf3\] { color: #D8E4F0 !important; }
+.text-\[\#c9d1d9\] { color: #D8E4F0 !important; }
+.text-\[\#7d8590\] { color: #7A90AA !important; }
+.text-\[\#484f58\] { color: #4A6080 !important; }
+.text-\[\#30363d\] { color: #3A5070 !important; }
+.text-\[\#58a6ff\] { color: #D4AF37 !important; }
+
+/* ─── Boutons primaires (bleu GitHub → or WatchReg) ─────────────────────── */
+.bg-\[\#1f6feb\]         { background-color: rgba(212,175,55,0.85) !important; }
+.bg-\[\#1f6feb\]\/20     { background-color: rgba(212,175,55,0.1) !important; }
+.bg-\[\#1f6feb\]\/30     { background-color: rgba(212,175,55,0.18) !important; }
+.border-\[\#1f6feb\]\/30 { border-color: rgba(212,175,55,0.3) !important; }
+.border-\[\#1f6feb\]\/40 { border-color: rgba(212,175,55,0.4) !important; }
+.border-\[\#58a6ff\]     { border-color: #D4AF37 !important; }
+.hover\:bg-\[\#1f6feb\]\/30:hover    { background-color: rgba(212,175,55,0.18) !important; }
+.hover\:bg-\[\#388bfd\]:hover        { background-color: rgba(212,175,55,0.9) !important; }
+.focus\:border-\[\#58a6ff\]\/40:focus { border-color: rgba(212,175,55,0.4) !important; }
+.focus\:ring-\[\#58a6ff\]\/20:focus   { box-shadow: 0 0 0 3px rgba(212,175,55,0.15) !important; }
+
+/* ─── Hover rows ──────────────────────────────────────────────────────────── */
+.hover\:bg-\[\#161b22\]:hover { background-color: rgba(255,255,255,0.03) !important; }
+.hover\:bg-\[\#21262d\]:hover { background-color: rgba(255,255,255,0.04) !important; }
+.hover\:text-\[\#e6edf3\]:hover { color: #D8E4F0 !important; }
+.hover\:text-\[\#58a6ff\]:hover { color: #D4AF37 !important; }
+.hover\:border-\[\#58a6ff\]\/40:hover { border-color: rgba(212,175,55,0.4) !important; }
+
+/* ─── Inputs / selects / textareas ───────────────────────────────────────── */
+input, textarea, select {
+  background-color: rgba(255,255,255,0.04) !important;
+  border-color: rgba(255,255,255,0.1) !important;
+  color: #D8E4F0 !important;
+  font-family: var(--wr-font-mono) !important;
+}
+input::placeholder, textarea::placeholder { color: #4A6080 !important; }
+input:focus, textarea:focus, select:focus {
+  border-color: rgba(212,175,55,0.4) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(212,175,55,0.08) !important;
+}
+select option { background-color: #1E2A40 !important; color: #D8E4F0 !important; }
+
+/* ─── Table ───────────────────────────────────────────────────────────────── */
+thead tr {
+  background-color: #172035 !important;
+  border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+}
+thead th {
+  color: #4A6080 !important;
+  font-family: var(--wr-font-mono) !important;
+  font-size: 10px !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  font-weight: 600 !important;
+}
+tbody td {
+  color: #B8C8D8 !important;
+  font-size: 12.5px !important;
+  border-bottom: 1px solid rgba(255,255,255,0.04) !important;
+}
+tbody tr:hover td { background-color: rgba(255,255,255,0.02) !important; }
+
+/* ─── Page titles ─────────────────────────────────────────────────────────── */
+h1.font-mono, h1.font-semibold {
+  font-family: var(--wr-font-serif) !important;
+  font-weight: 400 !important;
+  font-size: 20px !important;
+  color: var(--wr-text-1) !important;
+  letter-spacing: -0.3px !important;
+}
+
+/* ─── Section labels ──────────────────────────────────────────────────────── */
+.tracking-widest.uppercase {
+  font-family: var(--wr-font-mono) !important;
+  letter-spacing: 0.15em !important;
+  color: #4A6080 !important;
+}
+
+/* ─── Progress bar ────────────────────────────────────────────────────────── */
+.bg-\[\#21262d\].rounded-full { background-color: rgba(255,255,255,0.08) !important; }
+
+/* ─── Skeleton loading ────────────────────────────────────────────────────── */
+.h-4.bg-\[\#161b22\].rounded { background-color: rgba(255,255,255,0.06) !important; }
+
+/* ─── Spinner ─────────────────────────────────────────────────────────────── */
+.border-\[\#58a6ff\]\/30 { border-color: rgba(212,175,55,0.25) !important; }
+.border-t-\[\#58a6ff\]   { border-top-color: #D4AF37 !important; }
+
+/* ─── Badges sémantiques (couleurs AML conservées intactes) ─────────────── */
+.bg-emerald-400\/10     { background-color: rgba(52,211,153,0.12) !important; }
+.bg-emerald-400\/15     { background-color: rgba(52,211,153,0.15) !important; }
+.text-emerald-400       { color: #34D399 !important; }
+.border-emerald-400\/20 { border-color: rgba(52,211,153,0.2) !important; }
+.border-emerald-400\/40 { border-color: rgba(52,211,153,0.4) !important; }
+
+.bg-red-400\/10         { background-color: rgba(248,113,113,0.12) !important; }
+.bg-red-400\/15         { background-color: rgba(248,113,113,0.15) !important; }
+.bg-red-500\/10         { background-color: rgba(239,68,68,0.12) !important; }
+.text-red-400           { color: #F87171 !important; }
+.text-red-300           { color: #FCA5A5 !important; }
+.text-red-500           { color: #EF4444 !important; }
+.border-red-400\/20     { border-color: rgba(248,113,113,0.2) !important; }
+.border-red-400\/30     { border-color: rgba(248,113,113,0.3) !important; }
+.border-red-400\/40     { border-color: rgba(248,113,113,0.4) !important; }
+.border-red-300\/30     { border-color: rgba(252,165,165,0.3) !important; }
+.bg-red-300\/10         { background-color: rgba(252,165,165,0.1) !important; }
+
+.bg-amber-400\/10       { background-color: rgba(251,191,36,0.12) !important; }
+.bg-amber-400\/15       { background-color: rgba(251,191,36,0.15) !important; }
+.bg-amber-400\/20       { background-color: rgba(251,191,36,0.2) !important; }
+.text-amber-400         { color: #FBBF24 !important; }
+.border-amber-400\/20   { border-color: rgba(251,191,36,0.2) !important; }
+.border-amber-400\/30   { border-color: rgba(251,191,36,0.3) !important; }
+.border-amber-400\/40   { border-color: rgba(251,191,36,0.4) !important; }
+
+.bg-sky-400\/10         { background-color: rgba(56,189,248,0.12) !important; }
+.text-sky-400           { color: #38BDF8 !important; }
+.border-sky-400\/20     { border-color: rgba(56,189,248,0.2) !important; }
+
+.bg-blue-400\/10        { background-color: rgba(96,165,250,0.12) !important; }
+.text-blue-400          { color: #60A5FA !important; }
+.border-blue-400\/20    { border-color: rgba(96,165,250,0.2) !important; }
+
+.bg-purple-400\/10      { background-color: rgba(192,132,252,0.12) !important; }
+.bg-purple-400\/15      { background-color: rgba(192,132,252,0.15) !important; }
+.bg-purple-400\/20      { background-color: rgba(192,132,252,0.2) !important; }
+.text-purple-400        { color: #C084FC !important; }
+.border-purple-400\/20  { border-color: rgba(192,132,252,0.2) !important; }
+.border-purple-400\/30  { border-color: rgba(192,132,252,0.3) !important; }
+
+.bg-violet-400\/10      { background-color: rgba(167,139,250,0.12) !important; }
+.text-violet-400        { color: #A78BFA !important; }
+.border-violet-400\/20  { border-color: rgba(167,139,250,0.2) !important; }
+
+.bg-slate-500\/10       { background-color: rgba(100,116,139,0.12) !important; }
+.text-slate-400         { color: #94A3B8 !important; }
+.text-slate-500         { color: #64748B !important; }
+.border-slate-500\/20   { border-color: rgba(100,116,139,0.2) !important; }
+
+.bg-orange-400\/10      { background-color: rgba(251,146,60,0.12) !important; }
+.text-orange-400        { color: #FB923C !important; }
+.border-orange-400\/20  { border-color: rgba(251,146,60,0.2) !important; }
+
+.bg-cyan-400\/10        { background-color: rgba(34,211,238,0.12) !important; }
+.text-cyan-400          { color: #22D3EE !important; }
+.border-cyan-400\/20    { border-color: rgba(34,211,238,0.2) !important; }
+
+.bg-pink-400\/10        { background-color: rgba(244,114,182,0.12) !important; }
+.text-pink-400          { color: #F472B6 !important; }
+
+/* ─── AmlRulesPage classes spécifiques ───────────────────────────────────── */
+.border-emerald-500\/20 { border-color: rgba(34,197,94,0.2) !important; }
+.bg-emerald-500\/10     { background-color: rgba(34,197,94,0.1) !important; }
+.text-emerald-400.rounded-md { color: #34D399 !important; }
