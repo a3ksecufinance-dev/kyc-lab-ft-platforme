@@ -211,11 +211,11 @@ export type InsertUser = typeof users.$inferInsert;
 export const customers = pgTable("customers", {
   id: serial("id").primaryKey(),
   customerId: varchar("customer_id", { length: 50 }).notNull().unique(),
-  firstName: varchar("first_name", { length: 100 }).notNull(),
-  lastName: varchar("last_name", { length: 100 }).notNull(),
-  email: varchar("email", { length: 320 }),
-  phone: varchar("phone", { length: 50 }),
-  dateOfBirth: varchar("date_of_birth", { length: 20 }),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  email: text("email"),
+  phone: text("phone"),
+  dateOfBirth: text("date_of_birth"),
   nationality: varchar("nationality", { length: 10 }),
   residenceCountry: varchar("residence_country", { length: 10 }),
   address: text("address"),
@@ -236,6 +236,15 @@ export const customers = pgTable("customers", {
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  // ─── Gel des avoirs ─────────────────────────────────────────────────────
+  frozenAt:     timestamp("frozen_at"),
+  frozenReason: text("frozen_reason"),
+  frozenBy:     integer("frozen_by").references(() => users.id, { onDelete: "set null" }),
+  // ─── RGPD — droit à l'effacement ────────────────────────────────────────
+  erasureRequestedAt: timestamp("erasure_requested_at"),
+  erasureCompletedAt: timestamp("erasure_completed_at"),
+  erasureRequestedBy: integer("erasure_requested_by").references(() => users.id, { onDelete: "set null" }),
+  erasureCompletedBy: integer("erasure_completed_by").references(() => users.id, { onDelete: "set null" }),
 }, (t) => ({
   customerIdIdx: uniqueIndex("customers_customer_id_idx").on(t.customerId),
   riskLevelIdx: index("customers_risk_level_idx").on(t.riskLevel),
@@ -246,6 +255,46 @@ export const customers = pgTable("customers", {
 
 export type Customer = typeof customers.$inferSelect;
 export type InsertCustomer = typeof customers.$inferInsert;
+
+// ─── Profils de juridictions AML ─────────────────────────────────────────────
+
+export const jurisdictionProfiles = pgTable("jurisdiction_profiles", {
+  id:                  serial("id").primaryKey(),
+  jurisdictionCode:    varchar("jurisdiction_code", { length: 10 }).notNull().unique(),
+  jurisdictionName:    varchar("jurisdiction_name", { length: 200 }).notNull(),
+  isActive:            boolean("is_active").default(true).notNull(),
+
+  // Seuils
+  thresholdSingleTx:   numeric("threshold_single_tx",   { precision: 15, scale: 2 }),
+  thresholdStructuring: numeric("threshold_structuring", { precision: 15, scale: 2 }),
+  structuringWindowH:  integer("structuring_window_h"),
+  frequencyThreshold:  integer("frequency_threshold"),
+  cashThreshold:       numeric("cash_threshold",         { precision: 15, scale: 2 }),
+  currencyCode:        varchar("currency_code", { length: 10 }).default("EUR").notNull(),
+
+  // Obligations
+  strMandatoryAbove:   numeric("str_mandatory_above",    { precision: 15, scale: 2 }),
+  strDelayHours:       integer("str_delay_hours").default(24),
+  sarDelayHours:       integer("sar_delay_hours").default(72),
+  enhancedDdPep:       boolean("enhanced_dd_pep").default(true).notNull(),
+  enhancedDdHighRisk:  boolean("enhanced_dd_high_risk").default(true).notNull(),
+
+  // Régulateur
+  regulatorName:       varchar("regulator_name",   { length: 200 }),
+  regulatorCode:       varchar("regulator_code",   { length: 50 }),
+  goamlEntityType:     varchar("goaml_entity_type", { length: 50 }),
+  reportingFormat:     varchar("reporting_format",  { length: 50 }).default("GOAML_2"),
+
+  coveredCountries:    jsonb("covered_countries").default([]).notNull(),
+
+  createdBy:           integer("created_by").references(() => users.id, { onDelete: "set null" }),
+  updatedBy:           integer("updated_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt:           timestamp("created_at").defaultNow().notNull(),
+  updatedAt:           timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type JurisdictionProfile    = typeof jurisdictionProfiles.$inferSelect;
+export type InsertJurisdictionProfile = typeof jurisdictionProfiles.$inferInsert;
 
 // ─── Documents ────────────────────────────────────────────────────────────────
 
@@ -604,6 +653,26 @@ export const amlRuleFeedback = pgTable("aml_rule_feedback", {
 }));
 
 export type AmlRuleFeedback = typeof amlRuleFeedback.$inferSelect;
+
+// ─── pKYC — Snapshots de dérive comportementale ───────────────────────────────
+
+export const pkycSnapshots = pgTable("pkyc_snapshots", {
+  id:               serial("id").primaryKey(),
+  customerId:       integer("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+  snapshotDate:     timestamp("snapshot_date").defaultNow().notNull(),
+  driftScore:       integer("drift_score").default(0).notNull(),       // 0-100
+  driftFactors:     jsonb("drift_factors"),  // { volumeDrift, frequencyDrift, geoDrift, amountSpike, newCounterparties, newCountries }
+  reviewTriggered:  boolean("review_triggered").default(false).notNull(),
+  baselineDays:     integer("baseline_days").default(30).notNull(),
+  windowDays:       integer("window_days").default(7).notNull(),
+}, (t) => ({
+  customerIdx: index("pkyc_customer_idx").on(t.customerId),
+  dateIdx:     index("pkyc_date_idx").on(t.snapshotDate),
+  scoreIdx:    index("pkyc_score_idx").on(t.driftScore),
+}));
+
+export type PkycSnapshot = typeof pkycSnapshots.$inferSelect;
+
 // ─── Relations Drizzle ────────────────────────────────────────────────────────
 
 export const customersRelations = relations(customers, ({ many, one }) => ({

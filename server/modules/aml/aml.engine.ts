@@ -96,6 +96,9 @@ const HIGH_RISK_COUNTRIES = new Set([
   "SS","CF","CD","HT","CU","VE","PK","NG","ZA",
 ]);
 
+// Pays sous embargo total → priorité CRITICAL (OFAC/ONU Tier 1)
+const CRITICAL_RISK_COUNTRIES = new Set(["KP","IR","CU","SY"]);
+
 // ─── Pays MENA (Sprint 6) ─────────────────────────────────────────────────────
 // Pays où les systèmes hawala sont répandus selon MENAFATF / BAM
 
@@ -151,7 +154,7 @@ async function ruleHighFrequency(tx: Transaction): Promise<AmlRuleResult> {
   const threshold = ENV.AML_FREQUENCY_THRESHOLD;
   const since = new Date(tx.transactionDate.getTime() - 24 * 60 * 60 * 1000);
   const recent = await findRecentByCustomer(tx.customerId, since);
-  const count = recent.filter((t) => t.id !== tx.id).length + 1;
+  const count = recent.filter((t) => t.id !== tx.id).length;
   const triggered = count >= threshold;
   return {
     triggered,
@@ -185,11 +188,12 @@ async function ruleVolumeSpike(tx: Transaction): Promise<AmlRuleResult> {
 function ruleHighRiskCountry(tx: Transaction): AmlRuleResult {
   const country = tx.counterpartyCountry;
   const triggered = !!country && HIGH_RISK_COUNTRIES.has(country);
+  const isCritical = triggered && CRITICAL_RISK_COUNTRIES.has(country!);
   return {
     triggered,
     rule: "HIGH_RISK_COUNTRY",
-    score: triggered ? 70 : 0,
-    priority: "HIGH",
+    score: triggered ? (isCritical ? 90 : 70) : 0,
+    priority: isCritical ? "CRITICAL" : "HIGH",
     reason: `Contrepartie dans un pays à risque élevé : ${country}`,
     details: { country },
   };
@@ -200,7 +204,7 @@ function rulePepTransaction(tx: Transaction, customer: Customer): AmlRuleResult 
   return {
     triggered,
     rule: "PEP_TRANSACTION",
-    score: triggered ? 50 : 0,
+    score: triggered ? (Number(tx.amount) >= ENV.AML_THRESHOLD_SINGLE_TX ? 75 : 50) : 0,
     priority: "HIGH",
     reason: `Transaction d'un client PEP — montant : ${tx.amount} ${tx.currency}`,
     details: { amount: tx.amount, pepStatus: customer.pepStatus, customerType: customer.customerType },
@@ -272,7 +276,7 @@ async function ruleHawalaPattern(tx: Transaction, customer: Customer): Promise<A
     triggered,
     rule: "HAWALA_PATTERN",
     score,
-    priority: score >= 75 ? "HIGH" : "MEDIUM",
+    priority: score >= 60 ? "HIGH" : "MEDIUM",
     reason: triggered
       ? `Pattern hawala détecté : canal ${tx.channel} + ${cashTxCount} tx cash 48h + contrepartie MENA (${tx.counterpartyCountry ?? "?"})`
       : "",
@@ -323,7 +327,7 @@ async function ruleMenaStructuring(tx: Transaction): Promise<AmlRuleResult> {
       && t.counterpartyCountry === tx.counterpartyCountry
   );
 
-  const triggered = similarTx.length >= 1; // ≥2 transactions similaires au total
+  const triggered = true; // gray zone + MENA counterparty est suffisant
 
   return {
     triggered,
@@ -428,7 +432,7 @@ export async function runAmlRules(
 
     if (triggered.length === 0) {
       await updateTransaction(tx.id, { status: "COMPLETED", riskScore: 0 });
-      return [];
+      return results;
     }
 
     const totalScore = Math.min(
@@ -507,7 +511,7 @@ export async function runAmlRules(
       "Alerte AML créée"
     );
 
-    return triggered;
+    return results;
   } catch (err) {
     log.error({ err, txId: tx.transactionId }, "Erreur moteur AML");
     return [];

@@ -1,0 +1,14 @@
+apiVersion: 1
+
+providers:
+  - name:            KYC-AML Dashboards
+    orgId:           1
+    folder:          KYC-AML
+    folderUid:       kyc-aml
+    type:            file
+    disableDeletion: true
+    updateIntervalSeconds: 30
+    allowUiUpdates:  false
+    options:
+      path:          /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false

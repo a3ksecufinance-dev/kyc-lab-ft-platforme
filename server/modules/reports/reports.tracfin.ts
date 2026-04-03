@@ -19,16 +19,17 @@
 import { redis } from "../../_core/redis";
 import { createLogger } from "../../_core/logger";
 import { validateGoAmlXml } from "./reports.goaml";
+import { ENV } from "../../_core/env";
 
 const log = createLogger("tracfin-connector");
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
-const TRACFIN_BASE_URL    = process.env["TRACFIN_API_URL"]    ?? "";
-const TRACFIN_API_KEY     = process.env["TRACFIN_API_KEY"]    ?? "";
-const TRACFIN_ENTITY_ID   = process.env["TRACFIN_ENTITY_ID"]  ?? "SIMU-0000";
-const GOAML_ENDPOINT      = process.env["GOAML_API_URL"]      ?? "";
-const TRANSMISSION_MODE   = (process.env["TRANSMISSION_MODE"] ?? "SIMULATION") as TransmissionMode;
+const TRACFIN_BASE_URL    = ENV.TRACFIN_API_URL    ?? "";
+const TRACFIN_API_KEY     = ENV.TRACFIN_API_KEY    ?? "";
+const TRACFIN_ENTITY_ID   = ENV.TRACFIN_ENTITY_ID;
+const GOAML_ENDPOINT      = ENV.GOAML_API_URL      ?? "";
+const TRANSMISSION_MODE   = ENV.TRANSMISSION_MODE  as TransmissionMode;
 
 type TransmissionMode = "SIMULATION" | "TRACFIN_PORTAL" | "GOAML_DIRECT";
 

@@ -6,6 +6,7 @@ import { Badge } from "../components/ui/Badge";
 import { trpc } from "../lib/trpc";
 import { formatDate, formatRelative, formatNumber } from "../lib/utils";
 import { FolderPlus, Clock, User } from "lucide-react";
+import { useI18n } from "../hooks/useI18n";
 
 type Case = {
   id: number; caseId: string; title: string;
@@ -17,6 +18,7 @@ type Case = {
 type CaseStatus = "OPEN" | "UNDER_INVESTIGATION" | "PENDING_APPROVAL" | "ESCALATED" | "CLOSED" | "SAR_SUBMITTED";
 
 export function CasesPage() {
+  const { t } = useI18n();
   const [page, setPage] = useState(1);
   const [status, setStatus]     = useState<string>("");
   const [severity, setSeverity] = useState<string>("");
@@ -49,11 +51,11 @@ export function CasesPage() {
 
   const COLUMNS: Column<Case>[] = [
     {
-      key: "id", header: "ID Dossier", width: "w-36",
+      key: "id", header: t.cases.caseId, width: "w-36",
       render: (r) => <span className="font-mono text-xs text-[#58a6ff]">{r.caseId}</span>,
     },
     {
-      key: "title", header: "Titre",
+      key: "title", header: t.cases.subject,
       render: (r) => (
         <div>
           <p className="text-xs text-[#e6edf3] truncate max-w-xs">{r.title}</p>
@@ -62,15 +64,15 @@ export function CasesPage() {
       ),
     },
     {
-      key: "status", header: "Statut", width: "w-40",
+      key: "status", header: t.common.status, width: "w-40",
       render: (r) => <Badge label={r.status} variant="status" />,
     },
     {
-      key: "severity", header: "Sévérité", width: "w-28",
+      key: "severity", header: t.cases.priority, width: "w-28",
       render: (r) => <Badge label={r.severity} variant="risk" />,
     },
     {
-      key: "due", header: "Échéance", width: "w-28",
+      key: "due", header: t.cases.updatedAt, width: "w-28",
       render: (r) => {
         if (!r.dueDate) return <span className="text-[#484f58]">—</span>;
         const overdue = new Date(r.dueDate) < new Date() && r.status !== "CLOSED";
@@ -83,13 +85,13 @@ export function CasesPage() {
       },
     },
     {
-      key: "assigned", header: "Assigné", width: "w-24",
+      key: "assigned", header: t.cases.assignedTo, width: "w-24",
       render: (r) => r.assignedTo
         ? <div className="flex items-center gap-1.5 text-[10px] font-mono text-[#7d8590]"><User size={10} />#{r.assignedTo}</div>
         : <span className="text-[10px] font-mono text-[#484f58]">—</span>,
     },
     {
-      key: "date", header: "Créé", width: "w-28",
+      key: "date", header: t.cases.createdAt, width: "w-28",
       render: (r) => <span className="font-mono text-[10px] text-[#7d8590]">{formatRelative(r.createdAt)}</span>,
     },
   ];
@@ -98,9 +100,9 @@ export function CasesPage() {
     <AppLayout>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-lg font-semibold text-[#e6edf3] font-mono">Dossiers</h1>
+          <h1 className="text-lg font-semibold text-[#e6edf3] font-mono">{t.cases.title}</h1>
           <p className="text-xs font-mono text-[#7d8590] mt-0.5">
-            {data ? formatNumber(data.total) : "—"} dossiers
+            {data ? t.cases.subtitle.replace("{count}", formatNumber(data.total)) : "—"}
           </p>
         </div>
         <button
@@ -108,7 +110,7 @@ export function CasesPage() {
           className="flex items-center gap-2 px-3 py-1.5 text-xs font-mono bg-[#1f6feb]/20 border border-[#1f6feb]/30 hover:bg-[#1f6feb]/30 text-[#58a6ff] rounded-md transition-colors"
         >
           <FolderPlus size={13} />
-          Nouveau dossier
+          {t.cases.openCase}
         </button>
       </div>
 
@@ -119,24 +121,24 @@ export function CasesPage() {
           onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => { setStatus(e.target.value); setPage(1); }}
           className="bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#7d8590] focus:outline-none focus:border-[#58a6ff]/40"
         >
-          <option value="">Tous les statuts</option>
-          <option value="OPEN">Ouvert</option>
-          <option value="UNDER_INVESTIGATION">En investigation</option>
-          <option value="PENDING_APPROVAL">En approbation</option>
-          <option value="ESCALATED">Escaladé</option>
-          <option value="SAR_SUBMITTED">SAR soumis</option>
-          <option value="CLOSED">Fermé</option>
+          <option value="">{t.cases.allStatuses}</option>
+          <option value="OPEN">{t.cases.statusOpen}</option>
+          <option value="UNDER_INVESTIGATION">{t.cases.statusInvestigation}</option>
+          <option value="PENDING_APPROVAL">{t.cases.statusApproval}</option>
+          <option value="ESCALATED">{t.cases.statusEscalated}</option>
+          <option value="SAR_SUBMITTED">{t.cases.statusSarSubmitted}</option>
+          <option value="CLOSED">{t.cases.statusClosed}</option>
         </select>
         <select
           value={severity}
           onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => { setSeverity(e.target.value); setPage(1); }}
           className="bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#7d8590] focus:outline-none focus:border-[#58a6ff]/40"
         >
-          <option value="">Toutes sévérités</option>
-          <option value="CRITICAL">Critique</option>
-          <option value="HIGH">Élevé</option>
-          <option value="MEDIUM">Moyen</option>
-          <option value="LOW">Bas</option>
+          <option value="">{t.cases.allPriorities}</option>
+          <option value="CRITICAL">{t.cases.critical}</option>
+          <option value="HIGH">{t.cases.high}</option>
+          <option value="MEDIUM">{t.risk.medium}</option>
+          <option value="LOW">{t.risk.low}</option>
         </select>
       </div>
 
@@ -150,7 +152,7 @@ export function CasesPage() {
           page={page}
           limit={20}
           onPageChange={setPage}
-          emptyMessage="Aucun dossier"
+          emptyMessage={t.common.noResults}
         />
       </div>
 
@@ -158,13 +160,13 @@ export function CasesPage() {
       {showCreate && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
           <div className="bg-[#0d1117] border border-[#30363d] rounded-xl p-6 w-full max-w-lg animate-slide-in">
-            <h3 className="text-sm font-semibold text-[#e6edf3] font-mono mb-4">Nouveau dossier</h3>
+            <h3 className="text-sm font-semibold text-[#e6edf3] font-mono mb-4">{t.cases.openCase}</h3>
 
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">
-                    ID Client *
+                    {t.cases.customerIdRequired}
                   </label>
                   <input
                     type="number"
@@ -176,49 +178,49 @@ export function CasesPage() {
                 </div>
                 <div>
                   <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">
-                    Sévérité
+                    {t.cases.severity}
                   </label>
                   <select
                     value={form.severity}
                     onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setForm((f: typeof form) => ({ ...f, severity: e.target.value as typeof form.severity }))}
                     className="w-full bg-[#161b22] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#7d8590] focus:outline-none focus:border-[#58a6ff]/40"
                   >
-                    <option value="LOW">Bas</option>
-                    <option value="MEDIUM">Moyen</option>
-                    <option value="HIGH">Élevé</option>
-                    <option value="CRITICAL">Critique</option>
+                    <option value="LOW">{t.risk.low}</option>
+                    <option value="MEDIUM">{t.risk.medium}</option>
+                    <option value="HIGH">{t.cases.high}</option>
+                    <option value="CRITICAL">{t.cases.critical}</option>
                   </select>
                 </div>
               </div>
 
               <div>
                 <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">
-                  Titre *
+                  {t.cases.titleLabel} *
                 </label>
                 <input
                   value={form.title}
                   onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setForm((f: typeof form) => ({ ...f, title: e.target.value }))}
-                  placeholder="Ex : Suspicion de structuration — Client #123"
+                  placeholder={t.cases.titlePh}
                   className="w-full bg-[#161b22] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff]/40"
                 />
               </div>
 
               <div>
                 <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">
-                  Description
+                  {t.cases.descriptionLabel}
                 </label>
                 <textarea
                   value={form.description}
                   onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setForm((f: typeof form) => ({ ...f, description: e.target.value }))}
                   rows={3}
-                  placeholder="Contexte, faits observés, source de l'alerte..."
+                  placeholder={t.cases.descriptionPh}
                   className="w-full bg-[#161b22] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff]/40 resize-none"
                 />
               </div>
 
               <div>
                 <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">
-                  Date d'échéance
+                  {t.cases.dueDate}
                 </label>
                 <input
                   type="date"
@@ -238,7 +240,7 @@ export function CasesPage() {
                 onClick={() => setShowCreate(false)}
                 className="flex-1 py-2 text-xs font-mono border border-[#30363d] text-[#7d8590] hover:text-[#e6edf3] rounded-md transition-colors"
               >
-                Annuler
+                {t.common.cancel}
               </button>
               <button
                 disabled={!form.customerId || !form.title || createMutation.isPending}
@@ -251,7 +253,7 @@ export function CasesPage() {
                 })}
                 className="flex-1 py-2 text-xs font-mono bg-[#1f6feb]/20 border border-[#1f6feb]/30 hover:bg-[#1f6feb]/30 text-[#58a6ff] rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {createMutation.isPending ? "Création..." : "Créer le dossier"}
+                {createMutation.isPending ? t.common.loading : t.cases.openCase}
               </button>
             </div>
           </div>

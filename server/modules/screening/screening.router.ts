@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ENV } from "../../_core/env";
 import { router, analystProc, supervisorProc, complianceProc, adminProc } from "../../_core/trpc";
 import { createAuditFromContext } from "../../_core/audit";
 import { redis, RedisKeys } from "../../_core/redis";
@@ -10,6 +11,7 @@ import {
   getPendingScreenings,
 } from "./screening.service";
 import { forceRefresh } from "./screening.scheduler";
+import { checkListsHealth } from "./screening.lists";
 
 export const screeningRouter = router({
 
@@ -79,17 +81,31 @@ export const screeningRouter = router({
 
   listsStatus: supervisorProc
     .query(async () => {
-      const providers = ["OFAC", "EU", "UN", "UK"];
+      // Providers dynamiques : noyau + optionnels (PEP, BAM, CUSTOM)
+      const coreProv    = ["ofac", "eu", "un", "uk"];
+      const optionalProv = ["pep", "bam", "custom"];
+      const allProviders: string[] = [];
+
+      for (const key of [...coreProv, ...optionalProv]) {
+        const count = await redis.get(RedisKeys.screeningListCount(key)).catch(() => null);
+        if (count !== null || coreProv.includes(key)) allProviders.push(key);
+      }
+
       const statuses = await Promise.all(
-        providers.map(async (p) => {
-          const key       = p.toLowerCase();
+        allProviders.map(async (key) => {
           const lastUpdate = await redis.get(RedisKeys.screeningLastUpdate(key)).catch(() => null);
           const count      = await redis.get(RedisKeys.screeningListCount(key)).catch(() => null);
+          let ageHours: number | null = null;
+          if (lastUpdate) {
+            ageHours = Math.round((Date.now() - new Date(lastUpdate).getTime()) / 3_600_000);
+          }
           return {
-            provider:   p,
+            provider:   key.toUpperCase(),
             count:      count ? parseInt(count, 10) : 0,
             lastUpdate,
             inCache:    count !== null,
+            ageHours,
+            isStale:    ageHours !== null && ageHours > ENV.SCREENING_STALE_THRESHOLD_HOURS,
           };
         })
       );
@@ -101,6 +117,7 @@ export const screeningRouter = router({
         providers: statuses,
         total:     global?.total ?? statuses.reduce((s, p) => s + p.count, 0),
         updatedAt: global?.updatedAt ?? null,
+        anyStale:  statuses.some(s => s.isStale),
       };
     }),
 
@@ -120,6 +137,13 @@ export const screeningRouter = router({
         refreshedAt: new Date().toISOString(),
       };
     }),
+
+  /**
+   * Rapport de santé des listes — alerte si stale > SCREENING_STALE_THRESHOLD_HOURS
+   * analyst+
+   */
+  listsHealth: analystProc
+    .query(async () => checkListsHealth()),
 
   // ── Liste personnalisée (entrées manuelles) ────────────────────────────────
 

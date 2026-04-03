@@ -5,9 +5,10 @@ import { DataTable, type Column } from "../components/ui/DataTable";
 import { Badge } from "../components/ui/Badge";
 import { trpc } from "../lib/trpc";
 import { formatDate, formatRelative, formatNumber } from "../lib/utils";
-import { FileText, FilePlus, Send, CheckCircle, XCircle, Radio, Download } from "lucide-react";
+import { FileText, FilePlus, Send, CheckCircle, XCircle, Radio, Download, BarChart3 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { hasRole } from "../lib/auth";
+import { useI18n } from "../hooks/useI18n";
 
 // ─── Types locaux alignés sur le schéma Drizzle ───────────────────────────────
 
@@ -53,7 +54,9 @@ const DEFAULT_STR: StrForm = {
 // ─── Page principale ──────────────────────────────────────────────────────────
 
 export function ReportsPage() {
+  const { t } = useI18n();
   const { user } = useAuth();
+  const [pageTab, setPageTab]       = useState<"reports" | "amld6">("reports");
   const [page, setPage]             = useState(1);
   const [reportType, setReportType] = useState<string>("");
   const [status, setStatus]         = useState<string>("");
@@ -92,7 +95,8 @@ export function ReportsPage() {
   const transmitMutation = trpc.reports.transmit.useMutation({
     onSuccess: () => { utils.reports.list.invalidate(); setTransmitTarget(null); },
   });
-  const downloadXmlMutation = trpc.reports.downloadXml.useMutation();
+  const downloadXmlMutation    = trpc.reports.downloadXml.useMutation();
+  const exportReportPdfMutation = trpc.reports.exportReportPdf.useMutation();
 
   const canApprove = hasRole(user, "compliance_officer");
   const canReject  = hasRole(user, "supervisor");
@@ -140,7 +144,7 @@ export function ReportsPage() {
 
   const COLUMNS: Column<Report>[] = [
     {
-      key: "id", header: "ID Rapport", width: "w-36",
+      key: "id", header: t.reports.reportId, width: "w-36",
       render: (r) => (
         <div className="flex items-center gap-1.5">
           <FileText size={11} className="text-[#7d8590]" />
@@ -149,7 +153,7 @@ export function ReportsPage() {
       ),
     },
     {
-      key: "type", header: "Type", width: "w-20",
+      key: "type", header: t.reports.reportType, width: "w-20",
       render: (r) => (
         <span className={`font-mono text-xs font-semibold ${
           r.reportType === "SAR" ? "text-purple-400" : "text-orange-400"
@@ -159,7 +163,7 @@ export function ReportsPage() {
       ),
     },
     {
-      key: "title", header: "Titre",
+      key: "title", header: t.reports.titleLabel,
       render: (r) => (
         <div>
           <p className="text-xs text-[#e6edf3] truncate max-w-xs">{r.title}</p>
@@ -171,17 +175,17 @@ export function ReportsPage() {
       ),
     },
     {
-      key: "status", header: "Statut", width: "w-32",
+      key: "status", header: t.common.status, width: "w-32",
       render: (r) => <Badge label={r.status} variant="status" />,
     },
     {
-      key: "submitted", header: "Soumis le", width: "w-28",
+      key: "submitted", header: t.reports.generatedAt, width: "w-28",
       render: (r) => r.submittedAt
         ? <span className="font-mono text-[10px] text-[#7d8590]">{formatDate(r.submittedAt)}</span>
         : <span className="text-[#484f58]">—</span>,
     },
     {
-      key: "date", header: "Créé", width: "w-28",
+      key: "date", header: t.common.date, width: "w-28",
       render: (r) => <span className="font-mono text-[10px] text-[#7d8590]">{formatRelative(r.createdAt)}</span>,
     },
     {
@@ -193,7 +197,7 @@ export function ReportsPage() {
               onClick={(e: React.MouseEvent) => { e.stopPropagation(); setActionTarget({ report: r, action: "submit" }); }}
               className="text-[10px] font-mono text-[#58a6ff] hover:underline flex items-center gap-1"
             >
-              <Send size={10} /> Soumettre
+              <Send size={10} /> {t.common.submit}
             </button>
           )}
           {r.status === "REVIEW" && canApprove && (
@@ -202,14 +206,14 @@ export function ReportsPage() {
                 onClick={(e: React.MouseEvent) => { e.stopPropagation(); setActionTarget({ report: r, action: "approve" }); }}
                 className="text-[10px] font-mono text-emerald-400 hover:underline"
               >
-                Approuver
+                {t.common.approve}
               </button>
               {canReject && (
                 <button
                   onClick={(e: React.MouseEvent) => { e.stopPropagation(); setActionTarget({ report: r, action: "reject" }); }}
                   className="text-[10px] font-mono text-red-400 hover:underline"
                 >
-                  Rejeter
+                  {t.common.reject}
                 </button>
               )}
             </>
@@ -218,32 +222,56 @@ export function ReportsPage() {
             <button
               onClick={(e: React.MouseEvent) => { e.stopPropagation(); setTransmitTarget(r); }}
               className="text-[10px] font-mono text-purple-400 hover:underline flex items-center gap-1"
-              title="Transmettre au régulateur (GoAML/TRACFIN)"
+              title={t.reports.transmit}
             >
               <Radio size={10} /> GoAML
             </button>
           )}
           {canApprove && (
-            <button
-              onClick={(e: React.MouseEvent) => {
-                e.stopPropagation();
-                downloadXmlMutation.mutate({ id: r.id }, {
-                  onSuccess: (data: { xml: string; filename: string; checksum: string; reportCode: string; schemaVersion: string; generatedAt: Date }) => {
-                    const blob = new Blob([data.xml], { type: "application/xml" });
-                    const url  = URL.createObjectURL(blob);
-                    const a    = document.createElement("a");
-                    a.href     = url;
-                    a.download = data.filename;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  },
-                });
-              }}
-              className="text-[10px] font-mono text-[#484f58] hover:text-[#7d8590] flex items-center gap-1"
-              title="Télécharger XML GoAML"
-            >
-              <Download size={10} /> XML
-            </button>
+            <>
+              <button
+                onClick={(e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  downloadXmlMutation.mutate({ id: r.id }, {
+                    onSuccess: (data: { xml: string; filename: string; checksum: string; reportCode: string; schemaVersion: string; generatedAt: Date }) => {
+                      const blob = new Blob([data.xml], { type: "application/xml" });
+                      const url  = URL.createObjectURL(blob);
+                      const a    = document.createElement("a");
+                      a.href     = url;
+                      a.download = data.filename;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    },
+                  });
+                }}
+                className="text-[10px] font-mono text-[#484f58] hover:text-[#7d8590] flex items-center gap-1"
+                title={t.reports.downloadGoAML}
+              >
+                <Download size={10} /> XML
+              </button>
+              <button
+                onClick={(e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  exportReportPdfMutation.mutate({ id: r.id }, {
+                    onSuccess: (data: { base64: string; filename: string; sizeKb: number }) => {
+                      const arr  = Uint8Array.from(atob(data.base64), c => c.charCodeAt(0));
+                      const blob = new Blob([arr], { type: "application/pdf" });
+                      const url  = URL.createObjectURL(blob);
+                      const a    = document.createElement("a");
+                      a.href     = url;
+                      a.download = data.filename;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    },
+                  });
+                }}
+                disabled={exportReportPdfMutation.isPending}
+                className="text-[10px] font-mono text-red-400/60 hover:text-red-400 flex items-center gap-1 disabled:opacity-40"
+                title="Télécharger PDF"
+              >
+                <Download size={10} /> PDF
+              </button>
+            </>
           )}
         </div>
       ),
@@ -275,65 +303,91 @@ export function ReportsPage() {
 
   return (
     <AppLayout>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-lg font-semibold text-[#e6edf3] font-mono">Rapports SAR / STR</h1>
+          <h1 className="text-lg font-semibold text-[#e6edf3] font-mono">{t.reports.title}</h1>
           <p className="text-xs font-mono text-[#7d8590] mt-0.5">
-            {data ? formatNumber(data.total) : "—"} rapports
+            {data ? formatNumber(data.total) : "—"} {t.reports.subtitle}
           </p>
         </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 px-3 py-1.5 text-xs font-mono bg-[#1f6feb]/20 border border-[#1f6feb]/30 hover:bg-[#1f6feb]/30 text-[#58a6ff] rounded-md transition-colors"
-        >
-          <FilePlus size={13} /> Nouveau rapport
-        </button>
+        {pageTab === "reports" && (
+          <button
+            onClick={() => setShowCreate(true)}
+            className="flex items-center gap-2 px-3 py-1.5 text-xs font-mono bg-[#1f6feb]/20 border border-[#1f6feb]/30 hover:bg-[#1f6feb]/30 text-[#58a6ff] rounded-md transition-colors"
+          >
+            <FilePlus size={13} /> {t.reports.generateReport}
+          </button>
+        )}
       </div>
 
-      <div className="flex gap-3 mb-4">
-        <select
-          value={reportType}
-          onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => { setReportType(e.target.value); setPage(1); }}
-          className="bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#7d8590] focus:outline-none focus:border-[#58a6ff]/40"
-        >
-          <option value="">SAR + STR</option>
-          <option value="SAR">SAR uniquement</option>
-          <option value="STR">STR uniquement</option>
-        </select>
-        <select
-          value={status}
-          onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => { setStatus(e.target.value); setPage(1); }}
-          className="bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#7d8590] focus:outline-none focus:border-[#58a6ff]/40"
-        >
-          <option value="">Tous les statuts</option>
-          <option value="DRAFT">Brouillon</option>
-          <option value="REVIEW">En révision</option>
-          <option value="SUBMITTED">Soumis</option>
-          <option value="APPROVED">Approuvé</option>
-          <option value="REJECTED">Rejeté</option>
-        </select>
+      {/* Onglets */}
+      <div className="flex gap-0 border-b border-[#21262d] mb-5">
+        {([
+          { id: "reports", label: "SAR / STR", icon: FileText },
+          { id: "amld6",   label: "AMLD6 KPIs", icon: BarChart3 },
+        ] as const).map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            onClick={() => setPageTab(id)}
+            className={`flex items-center gap-1.5 px-4 py-2 text-xs font-mono border-b-2 transition-colors ${
+              pageTab === id
+                ? "border-[#58a6ff] text-[#58a6ff]"
+                : "border-transparent text-[#7d8590] hover:text-[#e6edf3]"
+            }`}
+          >
+            <Icon size={12} /> {label}
+          </button>
+        ))}
       </div>
 
-      <div className="bg-[#0d1117] border border-[#21262d] rounded-lg overflow-hidden">
-        <DataTable
-          columns={COLUMNS}
-          data={(data?.data ?? []) as unknown as Report[]}
-          keyFn={(r) => r.id}
-          isLoading={isLoading}
-          total={data?.total}
-          page={page}
-          limit={20}
-          onPageChange={setPage}
-          emptyMessage="Aucun rapport"
-        />
-      </div>
+      {pageTab === "amld6" && <Amld6Panel canApprove={canApprove} />}
+
+      {pageTab === "reports" && <>
+        <div className="flex gap-3 mb-4">
+          <select
+            value={reportType}
+            onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => { setReportType(e.target.value); setPage(1); }}
+            className="bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#7d8590] focus:outline-none focus:border-[#58a6ff]/40"
+          >
+            <option value="">{t.reports.sarAndStr}</option>
+            <option value="SAR">{t.reports.sarOnly}</option>
+            <option value="STR">{t.reports.strOnly}</option>
+          </select>
+          <select
+            value={status}
+            onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => { setStatus(e.target.value); setPage(1); }}
+            className="bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#7d8590] focus:outline-none focus:border-[#58a6ff]/40"
+          >
+            <option value="">{t.common.all}</option>
+            <option value="DRAFT">{t.reports.statusDraft}</option>
+            <option value="REVIEW">{t.reports.statusInReview}</option>
+            <option value="SUBMITTED">{t.reports.statusSubmitted}</option>
+            <option value="APPROVED">{t.reports.statusApproved}</option>
+            <option value="REJECTED">{t.reports.statusRejected}</option>
+          </select>
+        </div>
+
+        <div className="bg-[#0d1117] border border-[#21262d] rounded-lg overflow-hidden">
+          <DataTable
+            columns={COLUMNS}
+            data={(data?.data ?? []) as unknown as Report[]}
+            keyFn={(r) => r.id}
+            isLoading={isLoading}
+            total={data?.total}
+            page={page}
+            limit={20}
+            onPageChange={setPage}
+            emptyMessage={t.reports.noReports}
+          />
+        </div>
+      </>}
 
       {/* Modal création */}
       {showCreate && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in p-4">
           <div className="bg-[#0d1117] border border-[#30363d] rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col animate-slide-in">
             <div className="px-6 pt-5 pb-0 flex-shrink-0">
-              <h3 className="text-sm font-semibold text-[#e6edf3] font-mono mb-4">Nouveau rapport</h3>
+              <h3 className="text-sm font-semibold text-[#e6edf3] font-mono mb-4">{t.reports.newReport}</h3>
               <div className="flex gap-0 border-b border-[#21262d]">
                 {(["SAR", "STR"] as const).map((t) => (
                   <button
@@ -366,7 +420,7 @@ export function ReportsPage() {
                 onClick={() => { setShowCreate(false); setSarForm(DEFAULT_SAR); setStrForm(DEFAULT_STR); }}
                 className="flex-1 py-2 text-xs font-mono border border-[#30363d] text-[#7d8590] hover:text-[#e6edf3] rounded-md"
               >
-                Annuler
+                {t.common.cancel}
               </button>
               <button
                 disabled={
@@ -377,8 +431,8 @@ export function ReportsPage() {
                 className="flex-1 py-2 text-xs font-mono bg-[#1f6feb]/20 border border-[#1f6feb]/30 hover:bg-[#1f6feb]/30 text-[#58a6ff] rounded-md disabled:opacity-40"
               >
                 {createSarMutation.isPending || createStrMutation.isPending
-                  ? "Création..."
-                  : `Créer ${createTab}`}
+                  ? t.common.loading
+                  : createTab === "SAR" ? t.reports.createSar : t.reports.createStr}
               </button>
             </div>
           </div>
@@ -411,6 +465,178 @@ export function ReportsPage() {
         />
       )}
     </AppLayout>
+  );
+}
+
+// ─── Panneau AMLD6 KPIs ───────────────────────────────────────────────────────
+
+function Amld6Panel({ canApprove }: { canApprove: boolean }) {
+  const { t } = useI18n();
+  const now      = new Date();
+  const yearStart = new Date(now.getFullYear(), 0, 1).toISOString();
+
+  const { data: kpis, isLoading } = trpc.reports.amld6Stats.useQuery({
+    from: yearStart,
+    to:   now.toISOString(),
+  });
+
+  const exportCsvMutation = trpc.reports.amld6ExportCsv.useMutation({
+    onSuccess: (d: { csv: string; filename: string }) => {
+      const blob = new Blob([d.csv], { type: "text/csv" });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href = url; a.download = d.filename; a.click();
+      URL.revokeObjectURL(url);
+    },
+  });
+
+  const exportPdfMutation = trpc.reports.amld6ExportPdf.useMutation({
+    onSuccess: (d: { base64: string; filename: string }) => {
+      const bytes  = atob(d.base64);
+      const arr    = new Uint8Array(bytes.length);
+      for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+      const blob   = new Blob([arr], { type: "application/pdf" });
+      const url    = URL.createObjectURL(blob);
+      const a      = document.createElement("a");
+      a.href = url; a.download = d.filename; a.click();
+      URL.revokeObjectURL(url);
+    },
+  });
+
+  const exportInput = { from: yearStart, to: now.toISOString() };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <p className="text-xs font-mono text-[#7d8590] animate-pulse">{t.reports.computingKpis}</p>
+      </div>
+    );
+  }
+
+  if (!kpis) return null;
+
+  function KpiCard({ title, value, sub, accent }: {
+    title: string; value: string | number; sub?: string; accent?: string;
+  }) {
+    return (
+      <div className="bg-[#0d1117] border border-[#21262d] rounded-lg p-4">
+        <p className="text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-2">{title}</p>
+        <p className={`text-2xl font-bold font-mono ${accent ?? "text-[#e6edf3]"}`}>
+          {typeof value === "number" ? formatNumber(value) : value}
+        </p>
+        {sub && <p className="text-[10px] font-mono text-[#484f58] mt-1">{sub}</p>}
+      </div>
+    );
+  }
+
+  const { transactions: tx, alerts: al, declarations: decl, customers: cust, screening: sc, cases: cs, compliance: sla } = kpis;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-mono text-[#7d8590]">
+          Période : 1 janv. {now.getFullYear()} → aujourd'hui
+          {kpis.generatedAt
+            ? ` · Généré ${new Date(kpis.generatedAt).toLocaleTimeString("fr-FR")}`
+            : ""}
+        </p>
+        {canApprove && (
+          <div className="flex gap-2">
+            <button
+              onClick={() => exportCsvMutation.mutate(exportInput)}
+              disabled={exportCsvMutation.isPending}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono border border-[#30363d] text-[#7d8590] hover:text-[#e6edf3] rounded-md disabled:opacity-40"
+            >
+              <Download size={11} /> {exportCsvMutation.isPending ? "…" : "CSV"}
+            </button>
+            <button
+              onClick={() => exportPdfMutation.mutate(exportInput)}
+              disabled={exportPdfMutation.isPending}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono bg-[#1f6feb]/10 border border-[#1f6feb]/30 text-[#58a6ff] hover:bg-[#1f6feb]/20 rounded-md disabled:opacity-40"
+            >
+              <Download size={11} /> {exportPdfMutation.isPending ? t.amld6.generating : "PDF"}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* KPI 1 — Transactions */}
+      <div>
+        <p className="text-[10px] font-mono text-[#58a6ff] tracking-widest uppercase mb-3">
+          {t.amld6.txAnalyzed}
+        </p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <KpiCard title={t.amld6.totalLabel} value={tx.total} />
+          <KpiCard title={t.amld6.amountEur} value={`${(tx.totalAmount / 1_000_000).toFixed(2)} M`} />
+          <KpiCard title={t.amld6.suspicious_} value={tx.suspicious} accent="text-amber-400" />
+          <KpiCard title={t.amld6.detectionRate} value={`${tx.detectionRate.toFixed(2)} %`}
+            sub="% tx flaggées" accent={tx.detectionRate > 5 ? "text-red-400" : "text-emerald-400"} />
+        </div>
+      </div>
+
+      {/* KPI 2 — Alertes */}
+      <div>
+        <p className="text-[10px] font-mono text-[#58a6ff] tracking-widest uppercase mb-3">
+          {t.amld6.amlAlerts}
+        </p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <KpiCard title={t.amld6.totalAlerts} value={al.total} />
+          <KpiCard title="CRITICAL" value={al.byLevel.critical} accent="text-red-400" />
+          <KpiCard title="HIGH" value={al.byLevel.high} accent="text-orange-400" />
+          <KpiCard title={t.amld6.falsePositives} value={`${al.falsePositiveRate.toFixed(1)} %`}
+            sub="alertes rejetées" />
+        </div>
+      </div>
+
+      {/* KPI 3 — SAR/STR */}
+      <div>
+        <p className="text-[10px] font-mono text-[#58a6ff] tracking-widest uppercase mb-3">
+          {t.amld6.sarStrDecl}
+        </p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <KpiCard title={t.amld6.sarFiled} value={decl.sarCount} accent="text-purple-400" />
+          <KpiCard title={t.amld6.strFiled} value={decl.strCount} accent="text-orange-400" />
+          <KpiCard title={t.amld6.submitted_} value={decl.submitted} />
+          <KpiCard title={t.amld6.avgDelay} value={`${decl.avgDaysToSubmit.toFixed(1)} j`}
+            sub="création → soumission" accent={decl.avgDaysToSubmit > 5 ? "text-red-400" : "text-emerald-400"} />
+        </div>
+      </div>
+
+      {/* KPI 4 — KYC & Screening */}
+      <div>
+        <p className="text-[10px] font-mono text-[#58a6ff] tracking-widest uppercase mb-3">
+          {t.amld6.kycSanctions}
+        </p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <KpiCard title={t.amld6.kycCoverage} value={`${cust.kycCoverage.toFixed(1)} %`}
+            accent={cust.kycCoverage > 90 ? "text-emerald-400" : "text-amber-400"} />
+          <KpiCard title={t.amld6.pepActive} value={cust.pepActive} accent="text-amber-400" />
+          <KpiCard title={t.amld6.sanctionMatch} value={sc.matchCount}
+            accent={sc.matchCount > 0 ? "text-red-400" : "text-emerald-400"} />
+          <KpiCard title={t.amld6.sanctionReview} value={sc.reviewCount} />
+        </div>
+      </div>
+
+      {/* KPI 5 — Dossiers & SLA */}
+      <div>
+        <p className="text-[10px] font-mono text-[#58a6ff] tracking-widest uppercase mb-3">
+          {t.amld6.amlSla}
+        </p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <KpiCard title={t.amld6.opened} value={cs.opened} accent="text-amber-400" />
+          <KpiCard title={t.amld6.closed_} value={cs.closed} accent="text-emerald-400" />
+          <KpiCard title={t.amld6.escalated} value={cs.escalated} accent="text-red-400" />
+          <KpiCard title={t.amld6.slaBreached} value={sla.alertSlaBreaches}
+            sub="alertes > 5 j ouvrés" accent={sla.alertSlaBreaches > 0 ? "text-red-400" : "text-emerald-400"} />
+        </div>
+      </div>
+
+      {(exportCsvMutation.error || exportPdfMutation.error) && (
+        <p className="text-xs font-mono text-red-400">
+          {(exportCsvMutation.error ?? exportPdfMutation.error)?.message}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -578,6 +804,7 @@ function ActionModal({ target, onClose, onConfirm, isPending }: {
   onConfirm: () => void;
   isPending: boolean;
 }) {
+  const { t } = useI18n();
   const [rejectNote, setRejectNote] = useState("");
   const { action, report } = target;
   const canConfirm = action !== "reject" || rejectNote.length >= 10;
@@ -615,7 +842,7 @@ function ActionModal({ target, onClose, onConfirm, isPending }: {
         <div className="flex gap-2">
           <button onClick={onClose}
             className="flex-1 py-2 text-xs font-mono border border-[#30363d] text-[#7d8590] rounded-md">
-            Annuler
+            {t.common.cancel}
           </button>
           <button
             disabled={!canConfirm || isPending}
@@ -628,7 +855,7 @@ function ActionModal({ target, onClose, onConfirm, isPending }: {
                 : "bg-[#1f6feb]/20 border-[#1f6feb]/30 text-[#58a6ff]"
               }`}
           >
-            {isPending ? "En cours..." : "Confirmer"}
+            {isPending ? "En cours..." : t.common.confirm}
           </button>
         </div>
       </div>
@@ -663,6 +890,7 @@ function TransmitModal({ report, onClose, onConfirm, isPending, result, error }:
   result:     TransmitResult | null;
   error:      string | null;
 }) {
+  const { t } = useI18n();
   const [declarant, setDeclarant] = useState<TransmitDeclarant>({
     declarantFirstName: "",
     declarantLastName:  "",
@@ -836,14 +1064,14 @@ function TransmitModal({ report, onClose, onConfirm, isPending, result, error }:
         <div className="px-6 pb-5 flex gap-2">
           <button onClick={onClose}
             className="flex-1 py-2 text-xs font-mono border border-[#30363d] text-[#7d8590] rounded-md">
-            Annuler
+            {t.common.cancel}
           </button>
           <button
             disabled={!isValid || isPending}
             onClick={() => onConfirm(declarant)}
             className="flex-1 py-2 text-xs font-mono bg-purple-400/10 border border-purple-400/30 text-purple-400 hover:bg-purple-400/20 rounded-md disabled:opacity-40"
           >
-            {isPending ? "Transmission en cours…" : "Transmettre au régulateur"}
+            {isPending ? t.common.loading : t.reports.transmit}
           </button>
         </div>
       </div>

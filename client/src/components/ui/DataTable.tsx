@@ -1,5 +1,6 @@
 import React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useI18n } from "../../hooks/useI18n";
 
 export interface Column<T> {
   key:     string;
@@ -22,23 +23,25 @@ interface DataTableProps<T> {
 }
 
 const C = {
-  surface:  "#1E2A40",
-  surface2: "#172035",
-  border:   "rgba(255,255,255,0.07)",
-  border2:  "rgba(255,255,255,0.04)",
-  hover:    "rgba(255,255,255,0.025)",
-  text1:    "#C8D8EC",
-  text2:    "#5A7490",
-  text3:    "#3A5070",
-  gold:     "#D4AF37",
-  mono:     "'JetBrains Mono','Courier New',monospace",
+  surface:  "var(--wr-card)",
+  surface2: "var(--wr-surface)",
+  border:   "var(--wr-border)",
+  border2:  "var(--wr-border)",
+  hover:    "var(--wr-hover)",
+  text1:    "var(--wr-text-1)",
+  text2:    "var(--wr-text-2)",
+  text3:    "var(--wr-text-3)",
+  gold:     "var(--wr-gold)",
+  mono:     "var(--wr-font-mono)",
 };
 
 export function DataTable<T>({
   columns, data, keyFn, isLoading,
   total = 0, page = 1, limit = 20, onPageChange, onRowClick,
-  emptyMessage = "Aucune donnée",
+  emptyMessage,
 }: DataTableProps<T>) {
+  const { t } = useI18n();
+  const resolvedEmptyMessage = emptyMessage ?? t.common.noData;
   const totalPages = Math.ceil(total / limit);
 
   return (
@@ -75,7 +78,7 @@ export function DataTable<T>({
                     <td key={col.key} style={{ padding: "12px 16px" }}>
                       <div style={{
                         height: 14, borderRadius: 4,
-                        background: "rgba(255,255,255,0.06)",
+                        background: "var(--wr-hover2)",
                         animation: "pulse 2s ease-in-out infinite",
                       }} />
                     </td>
@@ -94,7 +97,7 @@ export function DataTable<T>({
                     fontSize: 12,
                   }}
                 >
-                  {emptyMessage}
+                  {resolvedEmptyMessage}
                 </td>
               </tr>
             ) : (
@@ -147,7 +150,7 @@ export function DataTable<T>({
               style={{
                 padding: "5px 8px", borderRadius: 6,
                 background: "transparent",
-                border: `1px solid rgba(255,255,255,0.08)`,
+                border: `1px solid var(--wr-border)`,
                 color: page <= 1 ? C.text3 : C.text2,
                 cursor: page <= 1 ? "not-allowed" : "pointer",
                 opacity: page <= 1 ? 0.4 : 1,
@@ -166,7 +169,7 @@ export function DataTable<T>({
               style={{
                 padding: "5px 8px", borderRadius: 6,
                 background: "transparent",
-                border: `1px solid rgba(255,255,255,0.08)`,
+                border: `1px solid var(--wr-border)`,
                 color: page >= totalPages ? C.text3 : C.text2,
                 cursor: page >= totalPages ? "not-allowed" : "pointer",
                 opacity: page >= totalPages ? 0.4 : 1,

@@ -162,7 +162,9 @@ export async function runOcr(
     return { rawText: "", confidence: 0, processingMs: 0, engine: "none" };
   }
 
+  // eslint-disable-next-line no-useless-assignment
   let rawText    = "";
+  // eslint-disable-next-line no-useless-assignment
   let confidence = 0;
   const langs    = getOcrLanguages();
 

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { router, analystProc } from "../../_core/trpc";
+import { router, analystProc, supervisorProc, complianceProc } from "../../_core/trpc";
 import { createAuditFromContext } from "../../_core/audit";
 import {
   listCustomers,
@@ -13,6 +13,10 @@ import {
   getCustomerTransactions,
   addUBO,
   getCustomerStats,
+  freezeCustomer,
+  unfreezeCustomer,
+  requestErasure,
+  processErasure,
   type CreateCustomerInput,
   type AddUBOInput,
 } from "./customers.service";
@@ -298,5 +302,68 @@ export const customersRouter = router({
     .query(async ({ input }) => {
       await getCustomerOrThrow(input.customerId);
       return getCustomerTransactions(input.customerId, input.limit);
+    }),
+
+  // ── Gel des avoirs ────────────────────────────────────────────────────────
+
+  freeze: supervisorProc
+    .input(z.object({
+      id:     z.number().int().positive(),
+      reason: z.string().min(10).max(500),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const log = createAuditFromContext(ctx);
+      const customer = await freezeCustomer(input.id, input.reason, ctx.user.id);
+      await log({
+        action:     "CUSTOMER_KYC_STATUS_CHANGED",
+        entityType: "customer",
+        entityId:   String(input.id),
+        details:    { action: "FROZEN", reason: input.reason },
+      });
+      return customer;
+    }),
+
+  unfreeze: supervisorProc
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const log = createAuditFromContext(ctx);
+      const customer = await unfreezeCustomer(input.id, ctx.user.id);
+      await log({
+        action:     "CUSTOMER_KYC_STATUS_CHANGED",
+        entityType: "customer",
+        entityId:   String(input.id),
+        details:    { action: "UNFROZEN" },
+      });
+      return customer;
+    }),
+
+  // ── RGPD — Droit à l'effacement ──────────────────────────────────────────
+
+  requestErasure: analystProc
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const log = createAuditFromContext(ctx);
+      const customer = await requestErasure(input.id, ctx.user.id);
+      await log({
+        action:     "CUSTOMER_UPDATED",
+        entityType: "customer",
+        entityId:   String(input.id),
+        details:    { action: "ERASURE_REQUESTED" },
+      });
+      return customer;
+    }),
+
+  processErasure: complianceProc
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const log = createAuditFromContext(ctx);
+      const customer = await processErasure(input.id, ctx.user.id);
+      await log({
+        action:     "CUSTOMER_UPDATED",
+        entityType: "customer",
+        entityId:   String(input.id),
+        details:    { action: "ERASURE_COMPLETED", processedBy: ctx.user.id },
+      });
+      return customer;
     }),
 });

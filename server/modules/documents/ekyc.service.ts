@@ -21,7 +21,9 @@
  *   FAIL   : score < 40 OU contrôle bloquant échoué
  */
 
+import crypto from "node:crypto";
 import { createLogger } from "../../_core/logger";
+import { ENV } from "../../_core/env";
 import type { OcrData } from "./ocr.service";
 import type { Customer } from "../../../drizzle/schema";
 
@@ -262,16 +264,368 @@ async function runLocalEkyc(
   return result;
 }
 
-// ─── Stub providers tiers ─────────────────────────────────────────────────────
+// ─── Helpers mapping types de documents ───────────────────────────────────────
 
-async function runOnfidoEkyc(_ocr: OcrData, _docType: string): Promise<EkycResult> {
-  // TODO: implémenter avec @onfido/node-sdk
-  throw new Error("Provider Onfido non configuré. Contactez votre intégrateur.");
+function mapDocTypeToOnfido(docType: string): string {
+  switch (docType) {
+    case "PASSPORT":         return "passport";
+    case "ID_CARD":          return "national_identity_card";
+    case "DRIVING_LICENSE":  return "driving_licence";
+    default:                 return "unknown";
+  }
 }
 
-async function runSumsubEkyc(_ocr: OcrData, _docType: string): Promise<EkycResult> {
-  // TODO: implémenter avec l'API Sum Sub
-  throw new Error("Provider Sum Sub non configuré. Contactez votre intégrateur.");
+function mapDocTypeToSumsub(docType: string): string {
+  switch (docType) {
+    case "PASSPORT":         return "PASSPORT";
+    case "ID_CARD":          return "ID_CARD";
+    case "DRIVING_LICENSE":  return "DRIVERS";
+    default:                 return "OTHER";
+  }
+}
+
+// ─── Provider Onfido ──────────────────────────────────────────────────────────
+// Docs : https://documentation.onfido.com
+// Flow : create applicant → upload document → create check → poll → mapper résultat
+
+interface OnfidoCheck {
+  id:     string;
+  status: string;
+  result: string | null;
+  reports?: Array<{ name: string; result: string | null; status: string }>;
+}
+
+function buildOnfidoHeaders(apiToken: string): Record<string, string> {
+  return {
+    "Authorization":  `Token token=${apiToken}`,
+    "Content-Type":   "application/json",
+  };
+}
+
+function mapOnfidoCheckToResult(check: OnfidoCheck, applicantId: string, ocr: OcrData): EkycResult {
+  let status: EkycResult["status"];
+  let score: number;
+  let detail: string;
+
+  if (check.status !== "complete") {
+    status = "REVIEW";
+    score  = 50;
+    detail = `Vérification en cours (check: ${check.id}) — résultat disponible via webhook Onfido`;
+  } else {
+    switch (check.result) {
+      case "clear":
+        status = "PASS";
+        score  = 95;
+        detail = "Document validé par Onfido";
+        break;
+      case "consider":
+        status = "REVIEW";
+        score  = 45;
+        detail = "Document nécessite révision manuelle (Onfido: consider)";
+        break;
+      default:
+        status = "FAIL";
+        score  = 5;
+        detail = `Vérification Onfido échouée (result: ${check.result ?? "unidentified"})`;
+    }
+  }
+
+  const docReport = check.reports?.find(r => r.name === "document");
+  const checks: EkycCheck[] = [{
+    id:       "onfido_document",
+    label:    "Vérification document Onfido",
+    status:   status === "PASS" ? "PASS" : status === "REVIEW" ? "WARN" : "FAIL",
+    score,
+    weight:   100,
+    blocking: status === "FAIL",
+    detail:   `${detail} | Check: ${check.id} | Applicant: ${applicantId}` +
+              (docReport ? ` | Report: ${docReport.result ?? "pending"}` : ""),
+  }];
+
+  return {
+    status,
+    score,
+    checks,
+    provider:    "onfido",
+    processedAt: new Date(),
+    ...(ocr.firstName      ? { extractedFirstName: ocr.firstName }      : {}),
+    ...(ocr.lastName       ? { extractedLastName:  ocr.lastName  }      : {}),
+    ...(ocr.dateOfBirth    ? { extractedDob:       ocr.dateOfBirth }    : {}),
+    ...(ocr.documentNumber ? { extractedDocNumber: ocr.documentNumber } : {}),
+    ...(ocr.expiryDate     ? { extractedExpiry:    ocr.expiryDate }     : {}),
+    ...(ocr.issuingCountry ? { extractedCountry:   ocr.issuingCountry } : {}),
+  };
+}
+
+async function runOnfidoEkyc(
+  ocr:      OcrData,
+  docType:  string,
+  customer: Pick<Customer, "firstName" | "lastName" | "dateOfBirth"> & { id?: number },
+  buffer?:  Buffer,
+): Promise<EkycResult> {
+  const apiToken = ENV.ONFIDO_API_TOKEN;
+  if (!apiToken) throw new Error("ONFIDO_API_TOKEN non configuré");
+
+  const baseUrl = ENV.ONFIDO_BASE_URL ?? "https://api.eu.onfido.com/v3.6";
+  const authHeaders = buildOnfidoHeaders(apiToken);
+
+  // 1. Créer l'applicant
+  const applicantRes = await fetch(`${baseUrl}/applicants`, {
+    method:  "POST",
+    headers: authHeaders,
+    body:    JSON.stringify({
+      first_name: customer.firstName,
+      last_name:  customer.lastName,
+      ...(customer.dateOfBirth ? { dob: customer.dateOfBirth.slice(0, 10) } : {}),
+    }),
+  });
+  if (!applicantRes.ok) {
+    const err = await applicantRes.text();
+    throw new Error(`Onfido create applicant: ${applicantRes.status} — ${err}`);
+  }
+  const applicant = await applicantRes.json() as { id: string };
+
+  // 2. Upload du document (si fichier disponible)
+  let documentId: string | undefined;
+  if (buffer) {
+    const onfidoType = mapDocTypeToOnfido(docType);
+    const form = new FormData();
+    form.append("applicant_id", applicant.id);
+    form.append("type",         onfidoType);
+    form.append("side",         "front");
+    form.append("file",         new Blob([new Uint8Array(buffer)]), "document.jpg");
+
+    const docRes = await fetch(`${baseUrl}/documents`, {
+      method:  "POST",
+      headers: { "Authorization": `Token token=${apiToken}` },
+      body:    form,
+    });
+    if (!docRes.ok) {
+      const err = await docRes.text();
+      throw new Error(`Onfido upload document: ${docRes.status} — ${err}`);
+    }
+    const doc = await docRes.json() as { id: string };
+    documentId = doc.id;
+  }
+
+  // 3. Créer le check
+  const checkRes = await fetch(`${baseUrl}/checks`, {
+    method:  "POST",
+    headers: authHeaders,
+    body:    JSON.stringify({
+      applicant_id:  applicant.id,
+      report_names:  ["document"],
+      ...(documentId ? { document_ids: [documentId] } : {}),
+    }),
+  });
+  if (!checkRes.ok) {
+    const err = await checkRes.text();
+    throw new Error(`Onfido create check: ${checkRes.status} — ${err}`);
+  }
+  let check = await checkRes.json() as OnfidoCheck;
+
+  // 4. Polling (max 60 s, toutes les 3 s)
+  if (check.status !== "complete") {
+    const deadline = Date.now() + 60_000;
+    while (Date.now() < deadline && check.status !== "complete") {
+      await new Promise(r => setTimeout(r, 3_000));
+      const poll = await fetch(`${baseUrl}/checks/${check.id}`, {
+        headers: { "Authorization": `Token token=${apiToken}` },
+      });
+      if (poll.ok) check = await poll.json() as OnfidoCheck;
+    }
+  }
+
+  return mapOnfidoCheckToResult(check, applicant.id, ocr);
+}
+
+// ─── Provider Sum Sub ─────────────────────────────────────────────────────────
+// Docs : https://docs.sumsub.com/reference/introduction
+// Chaque requête porte une signature HMAC-SHA256 :
+//   message = ts (epoch s) + MÉTHODE + chemin + corps (bytes ou "" pour multipart)
+//   X-App-Token, X-App-Access-Ts, X-App-Access-Sig
+
+function sumsubSign(
+  secretKey: string,
+  method:    string,
+  urlPath:   string,
+  body:      string | Buffer,
+): { ts: string; sig: string } {
+  const ts  = Math.floor(Date.now() / 1000).toString();
+  const msg = Buffer.concat([
+    Buffer.from(ts + method.toUpperCase() + urlPath),
+    Buffer.isBuffer(body) ? body : Buffer.from(body),
+  ]);
+  const sig = crypto.createHmac("sha256", secretKey).update(msg).digest("hex");
+  return { ts, sig };
+}
+
+function sumsubHeaders(
+  appToken:  string,
+  secretKey: string,
+  method:    string,
+  urlPath:   string,
+  body:      string | Buffer,
+  extraHeaders?: Record<string, string>,
+): Record<string, string> {
+  const { ts, sig } = sumsubSign(secretKey, method, urlPath, body);
+  return {
+    "X-App-Token":      appToken,
+    "X-App-Access-Ts":  ts,
+    "X-App-Access-Sig": sig,
+    ...extraHeaders,
+  };
+}
+
+interface SumsubReviewResult {
+  reviewAnswer:    "GREEN" | "RED" | "YELLOW";
+  reviewRejectType?: string;
+  label?:          string;
+}
+
+interface SumsubApplicantStatus {
+  id:           string;
+  reviewStatus: "init" | "pending" | "prechecked" | "queued" | "completed" | "onHold";
+  reviewResult?: SumsubReviewResult;
+}
+
+function mapSumsubStatusToResult(status: SumsubApplicantStatus, applicantId: string, ocr: OcrData): EkycResult {
+  let ekycStatus: EkycResult["status"];
+  let score: number;
+  let detail: string;
+
+  const review = status.reviewResult;
+  if (status.reviewStatus !== "completed" || !review) {
+    ekycStatus = "REVIEW";
+    score      = 50;
+    detail     = `Vérification en cours (applicant: ${applicantId}, reviewStatus: ${status.reviewStatus})`;
+  } else {
+    switch (review.reviewAnswer) {
+      case "GREEN":
+        ekycStatus = "PASS";
+        score      = 95;
+        detail     = "Identité validée par Sum Sub";
+        break;
+      case "YELLOW":
+        ekycStatus = "REVIEW";
+        score      = 45;
+        detail     = `Révision manuelle requise (Sum Sub: ${review.label ?? "YELLOW"})`;
+        break;
+      default: // RED
+        ekycStatus = "FAIL";
+        score      = 5;
+        detail     = `Vérification refusée (Sum Sub: ${review.reviewRejectType ?? "RED"})`;
+    }
+  }
+
+  const checks: EkycCheck[] = [{
+    id:       "sumsub_document",
+    label:    "Vérification document Sum Sub",
+    status:   ekycStatus === "PASS" ? "PASS" : ekycStatus === "REVIEW" ? "WARN" : "FAIL",
+    score,
+    weight:   100,
+    blocking: ekycStatus === "FAIL",
+    detail:   `${detail} | Applicant: ${applicantId}`,
+  }];
+
+  return {
+    status:      ekycStatus,
+    score,
+    checks,
+    provider:    "sumsub",
+    processedAt: new Date(),
+    ...(ocr.firstName      ? { extractedFirstName: ocr.firstName }      : {}),
+    ...(ocr.lastName       ? { extractedLastName:  ocr.lastName  }      : {}),
+    ...(ocr.dateOfBirth    ? { extractedDob:       ocr.dateOfBirth }    : {}),
+    ...(ocr.documentNumber ? { extractedDocNumber: ocr.documentNumber } : {}),
+    ...(ocr.expiryDate     ? { extractedExpiry:    ocr.expiryDate }     : {}),
+    ...(ocr.issuingCountry ? { extractedCountry:   ocr.issuingCountry } : {}),
+  };
+}
+
+async function runSumsubEkyc(
+  ocr:      OcrData,
+  docType:  string,
+  customer: Pick<Customer, "firstName" | "lastName" | "dateOfBirth"> & { id?: number },
+  buffer?:  Buffer,
+): Promise<EkycResult> {
+  const appToken  = ENV.SUMSUB_APP_TOKEN;
+  const secretKey = ENV.SUMSUB_SECRET_KEY;
+  if (!appToken || !secretKey) throw new Error("SUMSUB_APP_TOKEN / SUMSUB_SECRET_KEY non configurés");
+
+  const BASE     = "https://api.sumsub.com";
+  const extUserId = `customer_${customer.id ?? Date.now()}`;
+
+  // 1. Créer l'applicant
+  const createPath = "/resources/applicants?levelName=basic-kyc-level";
+  const createBody = JSON.stringify({ externalUserId: extUserId });
+  const createRes  = await fetch(`${BASE}${createPath}`, {
+    method:  "POST",
+    headers: sumsubHeaders(appToken, secretKey, "POST", createPath, createBody, { "Content-Type": "application/json" }),
+    body:    createBody,
+  });
+  if (!createRes.ok) {
+    const err = await createRes.text();
+    throw new Error(`Sum Sub create applicant: ${createRes.status} — ${err}`);
+  }
+  const applicant = await createRes.json() as { id: string };
+
+  // 2. Patch info applicant (prénom / nom / date de naissance)
+  const infoPath = `/resources/applicants/${applicant.id}/info`;
+  const infoBody = JSON.stringify({
+    firstName:   customer.firstName,
+    lastName:    customer.lastName,
+    ...(customer.dateOfBirth ? { dob: customer.dateOfBirth.slice(0, 10) } : {}),
+  });
+  await fetch(`${BASE}${infoPath}`, {
+    method:  "PATCH",
+    headers: sumsubHeaders(appToken, secretKey, "PATCH", infoPath, infoBody, { "Content-Type": "application/json" }),
+    body:    infoBody,
+  }); // Erreur non bloquante — les données sont enrichissantes mais facultatives
+
+  // 3. Upload du document (si fichier disponible)
+  if (buffer) {
+    const docPath = `/resources/applicants/${applicant.id}/info/idDoc`;
+    const form    = new FormData();
+    form.append("metadata", new Blob([JSON.stringify({
+      idDocType: mapDocTypeToSumsub(docType),
+      country:   ocr.issuingCountry ?? "FRA",
+    })], { type: "application/json" }), "metadata.json");
+    form.append("content", new Blob([new Uint8Array(buffer)]), "document.jpg");
+
+    // Pour multipart Sum Sub : corps de signature = chaîne vide
+    const docRes = await fetch(`${BASE}${docPath}`, {
+      method:  "POST",
+      headers: sumsubHeaders(appToken, secretKey, "POST", docPath, ""),
+      body:    form,
+    });
+    if (!docRes.ok) {
+      const err = await docRes.text();
+      throw new Error(`Sum Sub upload document: ${docRes.status} — ${err}`);
+    }
+  }
+
+  // 4. Lancer la révision
+  const reviewPath = `/resources/applicants/${applicant.id}/status/pending`;
+  await fetch(`${BASE}${reviewPath}`, {
+    method:  "POST",
+    headers: sumsubHeaders(appToken, secretKey, "POST", reviewPath, ""),
+  });
+
+  // 5. Polling du statut (max 60 s)
+  const statusPath = `/resources/applicants/${applicant.id}/status`;
+  let apStatus: SumsubApplicantStatus = { id: applicant.id, reviewStatus: "pending" };
+  const deadline   = Date.now() + 60_000;
+
+  while (Date.now() < deadline && apStatus.reviewStatus !== "completed") {
+    await new Promise(r => setTimeout(r, 4_000));
+    const poll = await fetch(`${BASE}${statusPath}`, {
+      headers: sumsubHeaders(appToken, secretKey, "GET", statusPath, ""),
+    });
+    if (poll.ok) apStatus = await poll.json() as SumsubApplicantStatus;
+  }
+
+  return mapSumsubStatusToResult(apStatus, applicant.id, ocr);
 }
 
 // ─── API publique ─────────────────────────────────────────────────────────────
@@ -279,15 +633,16 @@ async function runSumsubEkyc(_ocr: OcrData, _docType: string): Promise<EkycResul
 export async function runEkyc(
   ocr:      OcrData,
   docType:  string,
-  customer: Pick<Customer, "firstName" | "lastName" | "dateOfBirth">,
-  provider  = "local",
+  customer: Pick<Customer, "firstName" | "lastName" | "dateOfBirth"> & { id?: number },
+  provider  = ENV.EKYC_PROVIDER as string,
+  buffer?:  Buffer,
 ): Promise<EkycResult> {
   log.info({ docType, provider }, "Démarrage vérification eKYC");
 
   let result: EkycResult;
   switch (provider) {
-    case "onfido": result = await runOnfidoEkyc(ocr, docType); break;
-    case "sumsub": result = await runSumsubEkyc(ocr, docType); break;
+    case "onfido": result = await runOnfidoEkyc(ocr, docType, customer, buffer); break;
+    case "sumsub": result = await runSumsubEkyc(ocr, docType, customer, buffer); break;
     default:       result = await runLocalEkyc(ocr, docType, customer); break;
   }
 

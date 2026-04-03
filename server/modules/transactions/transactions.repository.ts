@@ -1,4 +1,4 @@
-import { eq, desc, gte, lte, and, count, sum } from "drizzle-orm";
+import { eq, desc, gte, lte, and, or, count, sum, ilike } from "drizzle-orm";
 import { db } from "../../_core/db";
 import {
   transactions,
@@ -21,6 +21,7 @@ export interface ListTransactionsInput {
   dateTo?: Date | undefined;
   amountMin?: number | undefined;
   amountMax?: number | undefined;
+  search?: string | undefined;
 }
 
 // ─── Transactions ─────────────────────────────────────────────────────────────
@@ -36,6 +37,13 @@ export async function findManyTransactions(input: ListTransactionsInput) {
   if (input.dateTo)        conditions.push(lte(transactions.transactionDate, input.dateTo));
   if (input.amountMin !== undefined) conditions.push(gte(transactions.amount, String(input.amountMin)));
   if (input.amountMax !== undefined) conditions.push(lte(transactions.amount, String(input.amountMax)));
+  if (input.search) {
+    const term = `%${input.search}%`;
+    conditions.push(or(
+      ilike(transactions.counterparty, term),
+      ilike(transactions.transactionId, term),
+    )!);
+  }
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 

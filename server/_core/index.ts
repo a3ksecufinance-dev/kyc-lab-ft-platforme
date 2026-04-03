@@ -8,10 +8,12 @@ import { checkRedisHealth, closeRedis, redis } from "./redis";
 import { createLogger } from "./logger";
 import { ENV } from "./env";
 import { startSanctionsScheduler, stopSanctionsScheduler } from "../modules/screening/screening.scheduler";
+import { startMlRetrainScheduler, stopMlRetrainScheduler } from "../modules/aml/ml-retrain.scheduler";
+import { startPkycScheduler, stopPkycScheduler }           from "../modules/customers/pkyc.scheduler";
 import { handleTransactionWebhook } from "../modules/transactions/transactions.webhook";
 import { uploadAndProcessDocument } from "../modules/documents/documents.service";
-import { verifyAccessToken } from "../modules/auth/auth.service";
-// @ts-ignore — pnpm add multer @types/multer si documents upload utilisé
+import { verifyAccessToken }         from "../modules/auth/auth.service";
+import { checkS3Health, validateStorageConfig } from "./upload";
 import multerPkg from "multer";
 import fs from "fs";
 import path from "path";
@@ -24,6 +26,7 @@ const app = express();
 
 // ─── Métriques Prometheus (optionnel) ────────────────────────────────────────
 
+// eslint-disable-next-line no-useless-assignment
 let _metricsMiddleware: ((req: import("express").Request, res: import("express").Response, next: import("express").NextFunction) => void) | null = null;
 let _metricsRegistry: { contentType: string; metrics: () => Promise<string> } | null = null;
 let _dbConnected: { set: (v: number) => void } | null = null;
@@ -100,9 +103,10 @@ app.use(express.urlencoded({ extended: true }));
 // ─── Health check ─────────────────────────────────────────────────────────────
 
 app.get("/health", async (_, res) => {
-  const [db, redisHealth] = await Promise.all([
+  const [db, redisHealth, s3] = await Promise.all([
     checkDbHealth(),
     checkRedisHealth(),
+    checkS3Health(),
   ]);
 
   _dbConnected?.set(db.status === "healthy" ? 1 : 0);
@@ -113,7 +117,7 @@ app.get("/health", async (_, res) => {
   res.status(healthy ? 200 : 503).json({
     status:    healthy ? "healthy" : "degraded",
     timestamp: new Date().toISOString(),
-    services:  { database: db, redis: redisHealth },
+    services:  { database: db, redis: redisHealth, storage: s3 },
     version:   "2.0.0",
     env:       ENV.NODE_ENV,
   });
@@ -147,11 +151,9 @@ app.use(
 
 // ─── Upload documents (REST multipart) ───────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const multer: any = multerPkg ?? {
   memoryStorage: () => ({}),
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  single: () => (_: any, __: any, next: any) => next(),
+  single: () => (_: unknown, __: unknown, next: () => void) => next(),
 };
 
 const upload = multer({
@@ -170,7 +172,6 @@ app.post(
     const user = await verifyAccessToken(authHeader.slice(7)).catch(() => null);
     if (!user) { res.status(401).json({ error: "Token invalide" }); return; }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const r = req as any;
     if (!r.file) { res.status(400).json({ error: "Fichier manquant" }); return; }
 
@@ -217,8 +218,13 @@ if (ENV.NODE_ENV === "production") {
 // ─── Démarrage ────────────────────────────────────────────────────────────────
 
 async function start() {
+  // Valider la config de stockage avant de démarrer (échoue si S3 inaccessible)
+  await validateStorageConfig();
+
   await redis.connect();
   startSanctionsScheduler();
+  startMlRetrainScheduler();
+  startPkycScheduler();
 
   const server = app.listen(ENV.PORT, () => {
     log.info(`🚀 KYC-AML v2 démarré sur http://localhost:${ENV.PORT}`);
@@ -230,6 +236,8 @@ async function start() {
   const shutdown = async (signal: string) => {
     log.info({ signal }, "Arrêt gracieux en cours...");
     stopSanctionsScheduler();
+    stopMlRetrainScheduler();
+    stopPkycScheduler();
     server.close(async () => {
       await Promise.all([closeDb(), closeRedis()]);
       log.info("Serveur arrêté proprement");

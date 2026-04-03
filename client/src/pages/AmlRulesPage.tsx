@@ -16,11 +16,12 @@ import { AppLayout }    from "../components/layout/AppLayout";
 import { trpc }         from "../lib/trpc";
 import { useAuth }      from "../hooks/useAuth";
 import { hasRole }      from "../lib/auth";
+import { useI18n }      from "../hooks/useI18n";
 import {
   Shield, Plus, Trash2, FlaskConical,
   ChevronDown, ChevronRight, Zap, AlertTriangle,
   Play, Copy, CheckCircle, ToggleLeft, ToggleRight,
-  GitBranch, TrendingUp, ThumbsDown, Code,
+  GitBranch, TrendingUp, ThumbsDown, Code, Globe, Pencil,
 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -411,6 +412,7 @@ function RuleModal({
     conditions: Condition; threshold: string; window: string;
   }>;
 }) {
+  const { t } = useI18n();
   const utils = trpc.useUtils();
   const [tab, setTab] = useState<"builder" | "simulate" | "json" | "templates">("builder");
 
@@ -629,7 +631,7 @@ function RuleModal({
           {mutation.error && (
             <p className="text-xs font-mono text-red-400 mr-auto self-center">{mutation.error.message}</p>
           )}
-          <button onClick={onClose} className={btnGhost}>Annuler</button>
+          <button onClick={onClose} className={btnGhost}>{t.common.cancel}</button>
           <button
             disabled={!isValid || mutation.isPending}
             onClick={() => mutation.mutate({
@@ -646,7 +648,7 @@ function RuleModal({
             })}
             className={`${btnBlue} disabled:opacity-40`}
           >
-            {mutation.isPending ? "Création..." : "Créer la règle"}
+            {mutation.isPending ? "Création..." : t.amlRules.addRule}
           </button>
         </div>
       </div>
@@ -657,6 +659,7 @@ function RuleModal({
 // ─── Carte de règle ───────────────────────────────────────────────────────────
 
 function RuleCard({ rule, canEdit, canDelete }: { rule: AmlRule; canEdit: boolean; canDelete: boolean }) {
+  const { t } = useI18n();
   const utils  = trpc.useUtils();
   const [open, setOpen] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -788,7 +791,7 @@ function RuleCard({ rule, canEdit, canDelete }: { rule: AmlRule; canEdit: boolea
             className={`${inputCls} mb-2 text-[11px]`}
           />
           <div className="flex gap-2">
-            <button onClick={() => setShowFeedback(false)} className={btnGhost}>Annuler</button>
+            <button onClick={() => setShowFeedback(false)} className={btnGhost}>{t.common.cancel}</button>
             <button
               onClick={() => feedbackMut.mutate({ ruleId: rule.id, note: feedbackNote })}
               disabled={feedbackNote.length < 10 || feedbackMut.isPending}
@@ -830,8 +833,8 @@ function RuleCard({ rule, canEdit, canDelete }: { rule: AmlRule; canEdit: boolea
                   <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#484f58", fontFamily: "monospace" }} />
                   <YAxis tick={{ fontSize: 9, fill: "#484f58", fontFamily: "monospace" }} width={20} />
                   <Tooltip
-                    contentStyle={{ background: "#161b22", border: "1px solid #30363d", borderRadius: 4, fontSize: 10, fontFamily: "monospace" }}
-                    labelStyle={{ color: "#7d8590" }}
+                    contentStyle={{ background: "var(--wr-card)", border: "1px solid var(--wr-border)", borderRadius: 4, fontSize: 10, fontFamily: "monospace", color: "var(--wr-text-1)" }}
+                    labelStyle={{ color: "var(--wr-text-2)" }}
                   />
                   <Line type="monotone" dataKey="triggered" stroke="#f97316" strokeWidth={1.5} dot={false} name="Déclenchés" />
                   <Line type="monotone" dataKey="total" stroke="#30363d" strokeWidth={1} dot={false} name="Analysés" />
@@ -855,11 +858,342 @@ function RuleCard({ rule, canEdit, canDelete }: { rule: AmlRule; canEdit: boolea
 
 // ─── Page principale ──────────────────────────────────────────────────────────
 
+// ─── Jurisdiction types ───────────────────────────────────────────────────────
+
+type JurisdictionProfile = {
+  id: number;
+  jurisdictionCode: string;
+  jurisdictionName: string;
+  isActive: boolean;
+  currencyCode: string;
+  thresholdSingleTx: string | null;
+  thresholdStructuring: string | null;
+  strMandatoryAbove: string | null;
+  strDelayHours: number;
+  sarDelayHours: number;
+  enhancedDdPep: boolean;
+  enhancedDdHighRisk: boolean;
+  regulatorName: string | null;
+  regulatorCode: string | null;
+  reportingFormat: string;
+  coveredCountries: string[] | null;
+};
+
+// ─── Jurisdictions panel ──────────────────────────────────────────────────────
+
+function JurisdictionsPanel({ canEdit }: { canEdit: boolean }) {
+  const utils = trpc.useUtils();
+  const invalidate = () => utils.jurisdictions.list.invalidate();
+  const { data: jurisdictions, isLoading } = trpc.jurisdictions.list.useQuery();
+  const toggleMut = trpc.jurisdictions.toggle.useMutation({ onSuccess: invalidate });
+  const upsertMut = trpc.jurisdictions.upsert.useMutation({ onSuccess: () => { invalidate(); setEditing(null); } });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [editing, setEditing] = useState<Partial<JurisdictionProfile> | Record<string, any> | null>(null);
+
+  const activeCount   = jurisdictions?.filter(j => j.isActive).length ?? 0;
+  const inactiveCount = (jurisdictions?.length ?? 0) - activeCount;
+
+  return (
+    <div className="space-y-5">
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-4">
+        {[
+          { label: "Juridictions actives", val: activeCount,   color: "text-emerald-400" },
+          { label: "Désactivées",          val: inactiveCount, color: "text-[#484f58]"   },
+          { label: "Total configuré",      val: jurisdictions?.length ?? 0, color: "text-[#58a6ff]" },
+        ].map(({ label, val, color }) => (
+          <div key={label} className="bg-[#161b22] border border-[#21262d] rounded-lg p-4">
+            <div className={`text-xl font-mono font-bold ${color}`}>{val}</div>
+            <div className="text-xs font-mono text-[#e6edf3] mt-0.5">{label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Add new */}
+      {canEdit && (
+        <div className="flex justify-end">
+          <button
+            onClick={() => setEditing({ jurisdictionCode: "", jurisdictionName: "", isActive: true, currencyCode: "EUR", strDelayHours: 24, sarDelayHours: 72, enhancedDdPep: true, enhancedDdHighRisk: true, reportingFormat: "GOAML_2" })}
+            className={`${btnBlue} flex items-center gap-1.5`}>
+            <Plus size={12} /> Nouvelle juridiction
+          </button>
+        </div>
+      )}
+
+      {/* Table */}
+      {isLoading ? (
+        <div className="text-center py-12 text-[11px] font-mono text-[#484f58]">Chargement…</div>
+      ) : !jurisdictions?.length ? (
+        <div className="text-center py-16 border border-dashed border-[#21262d] rounded-lg">
+          <Globe size={32} className="mx-auto text-[#21262d] mb-3" />
+          <p className="text-sm font-mono text-[#484f58]">Aucune juridiction configurée</p>
+        </div>
+      ) : (
+        <div className="bg-[#0d1117] border border-[#21262d] rounded-lg overflow-hidden">
+          <table className="w-full text-[11px] font-mono">
+            <thead>
+              <tr className="border-b border-[#21262d] text-[#484f58] text-[10px] uppercase tracking-wider">
+                <th className="text-left px-4 py-2.5">Code</th>
+                <th className="text-left px-4 py-2.5">Juridiction</th>
+                <th className="text-left px-4 py-2.5">Devise</th>
+                <th className="text-right px-4 py-2.5">Seuil tx</th>
+                <th className="text-right px-4 py-2.5">Seuil struct.</th>
+                <th className="text-left px-4 py-2.5">Délai STR</th>
+                <th className="text-left px-4 py-2.5">Régulateur</th>
+                <th className="text-left px-4 py-2.5">Statut</th>
+                {canEdit && <th className="text-right px-4 py-2.5">Actions</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#21262d]/50">
+              {jurisdictions.map((j) => (
+                <tr key={j.id} className={`hover:bg-[#161b22] transition-colors ${!j.isActive ? "opacity-50" : ""}`}>
+                  <td className="px-4 py-2.5">
+                    <span className="bg-[#1f6feb]/15 text-[#58a6ff] border border-[#1f6feb]/30 px-1.5 py-0.5 rounded text-[10px]">
+                      {j.jurisdictionCode}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5 text-[#e6edf3]">{j.jurisdictionName}</td>
+                  <td className="px-4 py-2.5 text-[#7d8590]">{j.currencyCode}</td>
+                  <td className="px-4 py-2.5 text-right text-[#e6edf3]">
+                    {j.thresholdSingleTx ? Number(j.thresholdSingleTx).toLocaleString() : "—"}
+                  </td>
+                  <td className="px-4 py-2.5 text-right text-[#e6edf3]">
+                    {j.thresholdStructuring ? Number(j.thresholdStructuring).toLocaleString() : "—"}
+                  </td>
+                  <td className="px-4 py-2.5 text-[#7d8590]">{j.strDelayHours}h</td>
+                  <td className="px-4 py-2.5 text-[#7d8590] truncate max-w-[120px]">
+                    {j.regulatorCode ?? j.regulatorName ?? "—"}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <span className={`px-1.5 py-0.5 rounded text-[9px] border ${j.isActive ? "text-emerald-400 bg-emerald-400/10 border-emerald-400/20" : "text-[#484f58] bg-[#21262d] border-[#30363d]"}`}>
+                      {j.isActive ? "ACTIVE" : "OFF"}
+                    </span>
+                  </td>
+                  {canEdit && (
+                    <td className="px-4 py-2.5 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => setEditing(j)}
+                          className="text-[#7d8590] hover:text-[#58a6ff] transition-colors">
+                          <Pencil size={11} />
+                        </button>
+                        <button
+                          onClick={() => toggleMut.mutate({ id: j.id, isActive: !j.isActive })}
+                          disabled={toggleMut.isPending}
+                          className={`transition-colors disabled:opacity-50 ${j.isActive ? "text-emerald-400 hover:text-[#7d8590]" : "text-[#484f58] hover:text-emerald-400"}`}>
+                          {j.isActive ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
+                        </button>
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Edit / Create modal */}
+      {editing !== null && (
+        <JurisdictionModal
+          initial={editing}
+          onClose={() => setEditing(null)}
+          onSave={(data) => upsertMut.mutate(data as Parameters<typeof upsertMut.mutate>[0])}
+          saving={upsertMut.isPending}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Jurisdiction modal ───────────────────────────────────────────────────────
+
+function JurisdictionModal({
+  initial, onClose, onSave, saving,
+}: {
+  initial: Partial<JurisdictionProfile>;
+  onClose: () => void;
+  onSave: (data: unknown) => void;
+  saving: boolean;
+}) {
+  const [form, setForm] = useState({
+    jurisdictionCode:     initial.jurisdictionCode ?? "",
+    jurisdictionName:     initial.jurisdictionName ?? "",
+    isActive:             initial.isActive ?? true,
+    currencyCode:         initial.currencyCode ?? "EUR",
+    thresholdSingleTx:    initial.thresholdSingleTx ?? "",
+    thresholdStructuring: initial.thresholdStructuring ?? "",
+    strMandatoryAbove:    initial.strMandatoryAbove ?? "",
+    strDelayHours:        initial.strDelayHours ?? 24,
+    sarDelayHours:        initial.sarDelayHours ?? 72,
+    enhancedDdPep:        initial.enhancedDdPep ?? true,
+    enhancedDdHighRisk:   initial.enhancedDdHighRisk ?? true,
+    regulatorName:        initial.regulatorName ?? "",
+    regulatorCode:        initial.regulatorCode ?? "",
+    reportingFormat:      initial.reportingFormat ?? "GOAML_2",
+    coveredCountries:     (initial.coveredCountries ?? []).join(","),
+  });
+
+  const field = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setForm(prev => ({ ...prev, [key]: e.target.type === "checkbox" ? (e.target as HTMLInputElement).checked : e.target.value }));
+
+  const handleSave = () => {
+    const data = {
+      jurisdictionCode:     form.jurisdictionCode.toUpperCase(),
+      jurisdictionName:     form.jurisdictionName,
+      isActive:             form.isActive,
+      currencyCode:         form.currencyCode,
+      thresholdSingleTx:    form.thresholdSingleTx || undefined,
+      thresholdStructuring: form.thresholdStructuring || undefined,
+      strMandatoryAbove:    form.strMandatoryAbove || undefined,
+      strDelayHours:        Number(form.strDelayHours),
+      sarDelayHours:        Number(form.sarDelayHours),
+      enhancedDdPep:        form.enhancedDdPep,
+      enhancedDdHighRisk:   form.enhancedDdHighRisk,
+      regulatorName:        form.regulatorName || undefined,
+      regulatorCode:        form.regulatorCode || undefined,
+      reportingFormat:      form.reportingFormat,
+      coveredCountries:     form.coveredCountries ? form.coveredCountries.split(",").map(s => s.trim().toUpperCase()).filter(Boolean) : [],
+    };
+    onSave(data);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-4 border-b border-[#21262d] flex items-center justify-between">
+          <h2 className="text-sm font-semibold font-mono text-[#e6edf3] flex items-center gap-2">
+            <Globe size={14} className="text-[#58a6ff]" />
+            {initial.id ? "Modifier juridiction" : "Nouvelle juridiction"}
+          </h2>
+          <button onClick={onClose} className="text-[#484f58] hover:text-[#7d8590]">✕</button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] font-mono text-[#7d8590] uppercase tracking-wider block mb-1">Code ISO *</label>
+              <input value={form.jurisdictionCode} onChange={field("jurisdictionCode")} maxLength={10}
+                placeholder="FR, MA, UK…" disabled={!!initial.id}
+                className="w-full bg-[#0d1117] border border-[#30363d] rounded px-2.5 py-1.5 text-xs font-mono text-[#e6edf3] focus:outline-none focus:border-[#58a6ff]/50 disabled:opacity-50" />
+            </div>
+            <div>
+              <label className="text-[10px] font-mono text-[#7d8590] uppercase tracking-wider block mb-1">Devise</label>
+              <input value={form.currencyCode} onChange={field("currencyCode")} maxLength={3}
+                placeholder="EUR, MAD, GBP…"
+                className="w-full bg-[#0d1117] border border-[#30363d] rounded px-2.5 py-1.5 text-xs font-mono text-[#e6edf3] focus:outline-none focus:border-[#58a6ff]/50" />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-[10px] font-mono text-[#7d8590] uppercase tracking-wider block mb-1">Nom de la juridiction *</label>
+            <input value={form.jurisdictionName} onChange={field("jurisdictionName")}
+              placeholder="France, Maroc, Royaume-Uni…"
+              className="w-full bg-[#0d1117] border border-[#30363d] rounded px-2.5 py-1.5 text-xs font-mono text-[#e6edf3] focus:outline-none focus:border-[#58a6ff]/50" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] font-mono text-[#7d8590] uppercase tracking-wider block mb-1">Seuil tx unique</label>
+              <input value={form.thresholdSingleTx} onChange={field("thresholdSingleTx")}
+                placeholder="10000"
+                className="w-full bg-[#0d1117] border border-[#30363d] rounded px-2.5 py-1.5 text-xs font-mono text-[#e6edf3] focus:outline-none focus:border-[#58a6ff]/50" />
+            </div>
+            <div>
+              <label className="text-[10px] font-mono text-[#7d8590] uppercase tracking-wider block mb-1">Seuil structuring</label>
+              <input value={form.thresholdStructuring} onChange={field("thresholdStructuring")}
+                placeholder="3000"
+                className="w-full bg-[#0d1117] border border-[#30363d] rounded px-2.5 py-1.5 text-xs font-mono text-[#e6edf3] focus:outline-none focus:border-[#58a6ff]/50" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] font-mono text-[#7d8590] uppercase tracking-wider block mb-1">Délai STR (heures)</label>
+              <input type="number" value={form.strDelayHours} onChange={field("strDelayHours")}
+                className="w-full bg-[#0d1117] border border-[#30363d] rounded px-2.5 py-1.5 text-xs font-mono text-[#e6edf3] focus:outline-none focus:border-[#58a6ff]/50" />
+            </div>
+            <div>
+              <label className="text-[10px] font-mono text-[#7d8590] uppercase tracking-wider block mb-1">Délai SAR (heures)</label>
+              <input type="number" value={form.sarDelayHours} onChange={field("sarDelayHours")}
+                className="w-full bg-[#0d1117] border border-[#30363d] rounded px-2.5 py-1.5 text-xs font-mono text-[#e6edf3] focus:outline-none focus:border-[#58a6ff]/50" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] font-mono text-[#7d8590] uppercase tracking-wider block mb-1">Code régulateur</label>
+              <input value={form.regulatorCode} onChange={field("regulatorCode")}
+                placeholder="BAM, ACPR, FCA…"
+                className="w-full bg-[#0d1117] border border-[#30363d] rounded px-2.5 py-1.5 text-xs font-mono text-[#e6edf3] focus:outline-none focus:border-[#58a6ff]/50" />
+            </div>
+            <div>
+              <label className="text-[10px] font-mono text-[#7d8590] uppercase tracking-wider block mb-1">Format rapport</label>
+              <select value={form.reportingFormat} onChange={field("reportingFormat")}
+                className="w-full bg-[#0d1117] border border-[#30363d] rounded px-2.5 py-1.5 text-xs font-mono text-[#e6edf3] focus:outline-none">
+                {["GOAML_2", "GOAML_3", "TRACFIN_V3", "CUSTOM"].map(f => (
+                  <option key={f} value={f}>{f}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-[10px] font-mono text-[#7d8590] uppercase tracking-wider block mb-1">
+              Pays couverts (ISO 2 séparés par virgules)
+            </label>
+            <input value={form.coveredCountries} onChange={field("coveredCountries")}
+              placeholder="GP, MQ, RE, PM…"
+              className="w-full bg-[#0d1117] border border-[#30363d] rounded px-2.5 py-1.5 text-xs font-mono text-[#e6edf3] focus:outline-none focus:border-[#58a6ff]/50" />
+          </div>
+
+          <div className="flex items-center gap-6 pt-1">
+            <label className="flex items-center gap-2 text-[11px] font-mono text-[#7d8590] cursor-pointer">
+              <input type="checkbox" checked={form.enhancedDdPep}
+                onChange={e => setForm(p => ({ ...p, enhancedDdPep: e.target.checked }))}
+                className="rounded" />
+              DD renforcée PPE
+            </label>
+            <label className="flex items-center gap-2 text-[11px] font-mono text-[#7d8590] cursor-pointer">
+              <input type="checkbox" checked={form.enhancedDdHighRisk}
+                onChange={e => setForm(p => ({ ...p, enhancedDdHighRisk: e.target.checked }))}
+                className="rounded" />
+              DD renforcée haut risque
+            </label>
+            <label className="flex items-center gap-2 text-[11px] font-mono text-[#7d8590] cursor-pointer">
+              <input type="checkbox" checked={form.isActive}
+                onChange={e => setForm(p => ({ ...p, isActive: e.target.checked }))}
+                className="rounded" />
+              Active
+            </label>
+          </div>
+        </div>
+
+        <div className="px-5 py-4 border-t border-[#21262d] flex justify-end gap-2">
+          <button onClick={onClose} className={btnGhost}>Annuler</button>
+          <button
+            onClick={handleSave}
+            disabled={saving || !form.jurisdictionCode || !form.jurisdictionName}
+            className={`${btnBlue} disabled:opacity-50`}>
+            {saving ? "Enregistrement…" : "Enregistrer"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
+
 export function AmlRulesPage() {
+  const { t }       = useI18n();
   const { user }    = useAuth();
   const canEdit     = hasRole(user, "supervisor");
   const canDelete   = hasRole(user, "admin");
   const [showCreate, setShowCreate] = useState(false);
+  const [pageTab, setPageTab] = useState<"rules" | "jurisdictions">("rules");
 
   const utils = trpc.useUtils();
   const { data: rules, isLoading } = trpc.amlRules.list.useQuery();
@@ -883,64 +1217,92 @@ export function AmlRulesPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-semibold text-[#e6edf3] font-mono flex items-center gap-2">
-              <Shield size={18} className="text-[#58a6ff]" /> Moteur de règles AML
+              <Shield size={18} className="text-[#58a6ff]" /> {t.amlRules.title}
             </h1>
             <p className="text-[11px] font-mono text-[#7d8590] mt-0.5">
-              No-code — règles actives immédiatement sans redéploiement
+              {t.amlRules.subtitle}
             </p>
           </div>
           <div className="flex gap-2">
-            {canEdit && rules?.length === 0 && (
+            {pageTab === "rules" && canEdit && rules?.length === 0 && (
               <button onClick={() => seedMut.mutate()} disabled={seedMut.isPending}
                 className={`${btnGhost} flex items-center gap-1.5`}>
                 <FlaskConical size={12} />
                 {seedMut.isPending ? "Chargement..." : "Charger règles BAM"}
               </button>
             )}
-            {canEdit && (
+            {pageTab === "rules" && canEdit && (
               <button onClick={() => setShowCreate(true)}
                 className={`${btnBlue} flex items-center gap-1.5`}>
-                <Plus size={12} /> Nouvelle règle
+                <Plus size={12} /> {t.amlRules.addRule}
               </button>
             )}
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-4 gap-4">
-          {[
-            { label: "Actives",          val: active,   sub: "en production",     color: "text-emerald-400" },
-            { label: "En test A/B",      val: testing,  sub: "sans alerte réelle",color: "text-amber-400"  },
-            { label: "Inactives",        val: inactive, sub: "désactivées",       color: "text-[#484f58]"  },
-            { label: "Score moyen",      val: avgScore, sub: "sur 100",           color: "text-[#58a6ff]"  },
-          ].map(({ label, val, sub, color }) => (
-            <div key={label} className="bg-[#161b22] border border-[#21262d] rounded-lg p-4">
-              <div className={`text-xl font-mono font-bold ${color}`}>{val}</div>
-              <div className="text-xs font-mono text-[#e6edf3] mt-0.5">{label}</div>
-              <div className="text-[9px] font-mono text-[#484f58]">{sub}</div>
-            </div>
+        {/* Page-level tabs */}
+        <div className="flex gap-0 border-b border-[#21262d]">
+          {([
+            ["rules",         "Règles AML",     Shield],
+            ["jurisdictions", "Juridictions",   Globe ],
+          ] as [typeof pageTab, string, React.ElementType][]).map(([t, label, Icon]) => (
+            <button key={t} onClick={() => setPageTab(t)}
+              className={`flex items-center gap-1.5 px-4 py-2 text-xs font-mono border-b-2 transition-colors ${
+                pageTab === t
+                  ? "border-[#58a6ff] text-[#58a6ff]"
+                  : "border-transparent text-[#7d8590] hover:text-[#e6edf3]"
+              }`}>
+              <Icon size={12} />
+              {label}
+            </button>
           ))}
         </div>
 
-        {/* Liste */}
-        {isLoading ? (
-          <div className="text-center py-12 text-[11px] font-mono text-[#484f58]">
-            Chargement des règles...
-          </div>
-        ) : !rules?.length ? (
-          <div className="text-center py-16 border border-dashed border-[#21262d] rounded-lg">
-            <Shield size={32} className="mx-auto text-[#21262d] mb-3" />
-            <p className="text-sm font-mono text-[#484f58]">Aucune règle AML configurée</p>
-            <p className="text-[10px] font-mono text-[#484f58] mt-1">
-              Cliquez sur "Charger règles BAM" pour démarrer avec les règles BAM Maroc pré-configurées
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {rules.map((rule: AmlRule) => (
-              <RuleCard key={rule.id} rule={rule} canEdit={canEdit} canDelete={canDelete} />
-            ))}
-          </div>
+        {/* ── Tab: Règles AML ── */}
+        {pageTab === "rules" && (
+          <>
+            {/* Stats */}
+            <div className="grid grid-cols-4 gap-4">
+              {[
+                { label: "Actives",     val: active,   sub: "en production",      color: "text-emerald-400" },
+                { label: "En test A/B", val: testing,  sub: "sans alerte réelle", color: "text-amber-400"  },
+                { label: "Inactives",   val: inactive, sub: "désactivées",        color: "text-[#484f58]"  },
+                { label: "Score moyen", val: avgScore, sub: "sur 100",            color: "text-[#58a6ff]"  },
+              ].map(({ label, val, sub, color }) => (
+                <div key={label} className="bg-[#161b22] border border-[#21262d] rounded-lg p-4">
+                  <div className={`text-xl font-mono font-bold ${color}`}>{val}</div>
+                  <div className="text-xs font-mono text-[#e6edf3] mt-0.5">{label}</div>
+                  <div className="text-[9px] font-mono text-[#484f58]">{sub}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Liste */}
+            {isLoading ? (
+              <div className="text-center py-12 text-[11px] font-mono text-[#484f58]">
+                Chargement des règles...
+              </div>
+            ) : !rules?.length ? (
+              <div className="text-center py-16 border border-dashed border-[#21262d] rounded-lg">
+                <Shield size={32} className="mx-auto text-[#21262d] mb-3" />
+                <p className="text-sm font-mono text-[#484f58]">{t.amlRules.noRules}</p>
+                <p className="text-[10px] font-mono text-[#484f58] mt-1">
+                  Cliquez sur "Charger règles BAM" pour démarrer avec les règles BAM Maroc pré-configurées
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {rules.map((rule: AmlRule) => (
+                  <RuleCard key={rule.id} rule={rule} canEdit={canEdit} canDelete={canDelete} />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── Tab: Juridictions ── */}
+        {pageTab === "jurisdictions" && (
+          <JurisdictionsPanel canEdit={canEdit} />
         )}
       </div>
 

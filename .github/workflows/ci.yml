@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Typecheck + Lint + Tests ─────────────────────────────────────────────────
+  check:
+    name: Typecheck · Lint · Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: kyc_user
+          POSTGRES_PASSWORD: kyc_password
+          POSTGRES_DB: kyc_aml_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://kyc_user:kyc_password@localhost:5432/kyc_aml_test
+      REDIS_URL: redis://localhost:6379
+      JWT_ACCESS_SECRET: ci_access_secret_min_32_chars_long_enough
+      JWT_REFRESH_SECRET: ci_refresh_secret_min_32_chars_long_enough
+      ADMIN_PASSWORD: CiAdmin!Pass123
+      ML_SERVICE_URL: http://localhost:8000
+      ML_INTERNAL_API_KEY: ci_ml_key_dev
+      PKYC_ENABLED: "false"
+      SCREENING_AUTO_UPDATE: "false"
+      ML_RETRAIN_AUTO: "false"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: TypeScript check
+        run: pnpm check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Run migrations
+        run: pnpm db:migrate
+
+      - name: Unit & integration tests
+        run: pnpm test --reporter=verbose
+
+  # ── Build Docker image (vérification uniquement, sans push) ─────────────────
+  build:
+    name: Docker build check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: check
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: false
+          tags: kyc-aml:ci-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -225,3 +225,105 @@ export async function addUBO(input: AddUBOInput) {
 }
 
 export { getCustomerStats };
+
+// ─── Gel des avoirs ───────────────────────────────────────────────────────────
+
+export async function freezeCustomer(
+  id: number,
+  reason: string,
+  frozenBy: number,
+): Promise<Customer> {
+  const customer = await getCustomerOrThrow(id);
+
+  if (customer.frozenAt) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Client déjà gelé",
+    });
+  }
+
+  return updateCustomer(id, {
+    frozenAt:     new Date(),
+    frozenReason: reason,
+    frozenBy,
+  });
+}
+
+export async function unfreezeCustomer(
+  id: number,
+  _unfrozenBy: number,
+): Promise<Customer> {
+  const customer = await getCustomerOrThrow(id);
+
+  if (!customer.frozenAt) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Client non gelé",
+    });
+  }
+
+  return updateCustomer(id, {
+    frozenAt:     null,
+    frozenReason: null,
+    frozenBy:     null,
+  });
+}
+
+// ─── RGPD — Droit à l'effacement ─────────────────────────────────────────────
+
+export async function requestErasure(
+  id: number,
+  requestedBy: number,
+): Promise<Customer> {
+  const customer = await getCustomerOrThrow(id);
+
+  if (customer.erasureRequestedAt) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Demande d'effacement déjà en cours",
+    });
+  }
+
+  return updateCustomer(id, {
+    erasureRequestedAt: new Date(),
+    erasureRequestedBy: requestedBy,
+  });
+}
+
+export async function processErasure(
+  id: number,
+  processedBy: number,
+): Promise<Customer> {
+  const customer = await getCustomerOrThrow(id);
+
+  if (!customer.erasureRequestedAt) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Aucune demande d'effacement en attente",
+    });
+  }
+  if (customer.erasureCompletedAt) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Effacement déjà effectué",
+    });
+  }
+
+  // Anonymiser les données PII (conservation légale 5 ans : données financières gardées)
+  const ANON = "[ANONYMISÉ]";
+  return updateCustomer(id, {
+    firstName:          ANON,
+    lastName:           ANON,
+    email:              null,
+    phone:              null,
+    dateOfBirth:        null,
+    address:            null,
+    city:               null,
+    profession:         null,
+    employer:           null,
+    sourceOfFunds:      ANON,
+    notes:              null,
+    erasureCompletedAt: new Date(),
+    erasureCompletedBy: processedBy,
+  });
+}

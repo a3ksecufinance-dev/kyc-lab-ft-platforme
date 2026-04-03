@@ -1,12 +1,25 @@
 version: "3.9"
 
 services:
+  # ─── Migration (s'exécute une fois au déploiement, puis s'arrête) ────────────
+  migrate:
+    image: ghcr.io/${GITHUB_REPOSITORY:-kyc-aml/kyc-aml-v2}:${IMAGE_TAG:-latest}
+    container_name: kyc_migrate
+    restart: "no"
+    env_file: .env.production
+    environment:
+      NODE_ENV: production
+    command: ["sh", "-c", "pnpm db:migrate"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   # ─── Application ─────────────────────────────────────────────────────────────
   app:
     image: ghcr.io/${GITHUB_REPOSITORY:-kyc-aml/kyc-aml-v2}:${IMAGE_TAG:-latest}
     container_name: kyc_app
     restart: unless-stopped
-    env_file: .env
+    env_file: .env.production
     environment:
       NODE_ENV: production
     ports:
@@ -16,6 +29,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 30s
@@ -80,6 +95,24 @@ services:
       - certbot_www:/var/www/certbot
     depends_on:
       - app
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ─── Certbot — renouvellement automatique TLS ─────────────────────────────────
+  certbot:
+    image: certbot/certbot:latest
+    container_name: kyc_certbot
+    restart: unless-stopped
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    # Renouvellement toutes les 12h — Certbot ne renouvelle que si < 30j restants
+    entrypoint: ["/bin/sh", "-c", "trap exit TERM; while :; do certbot renew --quiet; sleep 12h & wait $${!}; done"]
+    depends_on:
+      - nginx
 
   # ─── ML Scoring Service (Python FastAPI) ─────────────────────────────────────
   ml:
@@ -89,7 +122,7 @@ services:
     image: kyc-ml:${IMAGE_TAG:-latest}
     container_name: kyc_ml
     restart: unless-stopped
-    env_file: .env
+    env_file: .env.production
     environment:
       ML_DATABASE_URL:      postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
       ML_INTERNAL_API_KEY:  ${ML_INTERNAL_API_KEY}
@@ -138,6 +171,7 @@ services:
       - "--web.enable-lifecycle"
     volumes:
       - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./docker/alerts.yml:/etc/prometheus/alerts.yml:ro
       - prometheus_data:/prometheus
     # Pas exposé publiquement — accès via Grafana uniquement
     healthcheck:

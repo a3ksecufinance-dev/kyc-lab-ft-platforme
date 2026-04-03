@@ -139,6 +139,7 @@ async function buildContext(tx: Transaction, customer: Customer): Promise<EvalCo
 // ─── Évaluation d'une règle ───────────────────────────────────────────────────
 
 function evaluateRule(rule: AmlRule, ctx: EvalContext): DynamicRuleResult {
+  // eslint-disable-next-line no-useless-assignment
   let triggered = false;
   let details: Record<string, unknown> = {};
 

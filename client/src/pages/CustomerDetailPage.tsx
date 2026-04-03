@@ -4,19 +4,24 @@ import { AppLayout } from "../components/layout/AppLayout";
 import { Badge } from "../components/ui/Badge";
 import { trpc } from "../lib/trpc";
 import { formatDate, formatDateTime, formatAmount } from "../lib/utils";
-import { User, Building2, MapPin, Shield, FileText, Network, Upload, CheckCircle, AlertTriangle, Clock, RefreshCw } from "lucide-react";
+import { User, Building2, MapPin, Shield, FileText, Network, Upload, CheckCircle, AlertTriangle, Clock, RefreshCw, Lock, Unlock, Trash2, Download } from "lucide-react";
 import { getAccessToken } from "../lib/auth";
 import { useAuth } from "../hooks/useAuth";
 import { hasRole } from "../lib/auth";
+import { useI18n } from "../hooks/useI18n";
 
 export function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const customerId = parseInt(id ?? "0");
   const { user } = useAuth();
-  const canVerifyDoc = hasRole(user, "supervisor");
+  const { t } = useI18n();
+  const canVerifyDoc  = hasRole(user, "supervisor");
+  const canFreeze     = hasRole(user, "supervisor");
+  const canErasure    = hasRole(user, "compliance_officer");
 
   const [activeTab, setActiveTab] = useState<"info" | "documents" | "network">("info");
   const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [freezeReason, setFreezeReason] = useState("");
   const [docType, setDocType] = useState("PASSPORT");
   const [uploadError, setUploadError] = useState<string | null>(null);
 
@@ -38,12 +43,21 @@ export function CustomerDetailPage() {
       { enabled: !!customerId && activeTab === "documents" }
     );
 
+  const utils = trpc.useUtils();
+  const invalidateCustomer = () => utils.customers.getById.invalidate({ id: customerId });
+
   const verifyDocMutation = trpc.documents.verify.useMutation({
     onSuccess: () => refetchDocs(),
   });
   const rejectDocMutation = trpc.documents.reject.useMutation({
     onSuccess: () => refetchDocs(),
   });
+
+  const freezeMut    = trpc.customers.freeze.useMutation({ onSuccess: invalidateCustomer });
+  const unfreezeMut  = trpc.customers.unfreeze.useMutation({ onSuccess: invalidateCustomer });
+  const reqErasureMut = trpc.customers.requestErasure.useMutation({ onSuccess: invalidateCustomer });
+  const procErasureMut = trpc.customers.processErasure.useMutation({ onSuccess: invalidateCustomer });
+  const exportKycPdfMutation = trpc.reports.exportKycPdf.useMutation();
 
   if (isLoading) {
     return (
@@ -60,7 +74,7 @@ export function CustomerDetailPage() {
   if (!customer) {
     return (
       <AppLayout>
-        <div className="text-center py-16 text-[#7d8590] font-mono text-sm">Client introuvable</div>
+        <div className="text-center py-16 text-[#7d8590] font-mono text-sm">{t.customerDetail.notFound}</div>
       </AppLayout>
     );
   }
@@ -88,15 +102,40 @@ export function CustomerDetailPage() {
           {customer.pepStatus && (
             <span className="text-[11px] font-mono bg-amber-400/10 border border-amber-400/20 text-amber-400 px-2 py-0.5 rounded">PPE</span>
           )}
+          {customer.frozenAt && (
+            <span className="flex items-center gap-1 text-[11px] font-mono bg-red-400/10 border border-red-400/20 text-red-400 px-2 py-0.5 rounded">
+              <Lock size={10} /> GEL
+            </span>
+          )}
+          <button
+            onClick={() => exportKycPdfMutation.mutate({ customerId }, {
+              onSuccess: (data: { base64: string; filename: string; sizeKb: number }) => {
+                const arr  = Uint8Array.from(atob(data.base64), c => c.charCodeAt(0));
+                const blob = new Blob([arr], { type: "application/pdf" });
+                const url  = URL.createObjectURL(blob);
+                const a    = document.createElement("a");
+                a.href     = url;
+                a.download = data.filename;
+                a.click();
+                URL.revokeObjectURL(url);
+              },
+            })}
+            disabled={exportKycPdfMutation.isPending}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono border border-[#30363d] text-[#7d8590] hover:text-[#e6edf3] hover:border-[#484f58] rounded-md transition-colors disabled:opacity-40"
+            title="Exporter fiche KYC PDF"
+          >
+            <Download size={12} />
+            {exportKycPdfMutation.isPending ? "…" : "KYC PDF"}
+          </button>
         </div>
       </div>
 
       {/* Onglets */}
       <div className="flex gap-0 border-b border-[#21262d] mb-5">
         {([
-          ["info",      "Profil",          Shield   ],
-          ["documents", "Documents KYC",   FileText ],
-          ["network",   "Réseau",          Network  ],
+          ["info",      t.customerDetail.identity,     Shield   ],
+          ["documents", t.customerDetail.kycDocuments, FileText ],
+          ["network",   t.customerDetail.network,      Network  ],
         ] as [typeof activeTab, string, React.ElementType][]).map(([tab, label, Icon]) => (
           <button key={tab} onClick={() => setActiveTab(tab)}
             className={`flex items-center gap-1.5 px-4 py-2 text-xs font-mono border-b-2 transition-colors ${
@@ -115,17 +154,17 @@ export function CustomerDetailPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2 space-y-4">
             <div className="bg-[#0d1117] border border-[#21262d] rounded-lg p-4">
-              <h2 className="text-[11px] font-mono text-[#7d8590] tracking-widest uppercase mb-3">Identité</h2>
+              <h2 className="text-[11px] font-mono text-[#7d8590] tracking-widest uppercase mb-3">{t.customerDetail.identity}</h2>
               <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
-                <InfoRow label="Type" value={<Badge label={customer.customerType} />} />
-                <InfoRow label="Nationalité" value={customer.nationality ?? "—"} />
-                <InfoRow label="Date de naissance" value={formatDate(customer.dateOfBirth)} />
-                <InfoRow label="Email" value={customer.email ?? "—"} />
-                <InfoRow label="Téléphone" value={customer.phone ?? "—"} />
-                <InfoRow label="Enregistré le" value={formatDateTime(customer.createdAt)} />
-                {customer.profession && <InfoRow label="Profession" value={customer.profession} />}
-                {customer.employer   && <InfoRow label="Employeur"  value={customer.employer} />}
-                {customer.sourceOfFunds && <InfoRow label="Source des fonds" value={customer.sourceOfFunds} />}
+                <InfoRow label={t.common.status} value={<Badge label={customer.customerType} />} />
+                <InfoRow label={t.customers.nationality} value={customer.nationality ?? "—"} />
+                <InfoRow label={t.customerDetail.dateOfBirth} value={formatDate(customer.dateOfBirth)} />
+                <InfoRow label={t.customerDetail.email} value={customer.email ?? "—"} />
+                <InfoRow label={t.customerDetail.phone} value={customer.phone ?? "—"} />
+                <InfoRow label={t.customerDetail.registeredOn} value={formatDateTime(customer.createdAt)} />
+                {customer.profession && <InfoRow label={t.customerDetail.occupation} value={customer.profession} />}
+                {customer.employer   && <InfoRow label={t.customerDetail.employer}  value={customer.employer} />}
+                {customer.sourceOfFunds && <InfoRow label={t.customerDetail.sourceOfFunds} value={customer.sourceOfFunds} />}
               </div>
             </div>
 
@@ -133,7 +172,7 @@ export function CustomerDetailPage() {
               <div className="bg-[#0d1117] border border-[#21262d] rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <MapPin size={12} className="text-[#7d8590]" />
-                  <h2 className="text-[11px] font-mono text-[#7d8590] tracking-widest uppercase">Adresse</h2>
+                  <h2 className="text-[11px] font-mono text-[#7d8590] tracking-widest uppercase">{t.customerDetail.address}</h2>
                 </div>
                 <p className="text-sm font-mono text-[#e6edf3]">
                   {[customer.address, customer.city, customer.residenceCountry].filter(Boolean).join(", ")}
@@ -143,11 +182,11 @@ export function CustomerDetailPage() {
 
             <div className="bg-[#0d1117] border border-[#21262d] rounded-lg overflow-hidden">
               <div className="px-4 py-3 border-b border-[#21262d]">
-                <h2 className="text-[11px] font-mono text-[#7d8590] tracking-widest uppercase">Transactions récentes</h2>
+                <h2 className="text-[11px] font-mono text-[#7d8590] tracking-widest uppercase">{t.customerDetail.recentTransactions}</h2>
               </div>
               <div className="divide-y divide-[#21262d]/50">
                 {!transactions?.length ? (
-                  <p className="px-4 py-6 text-xs font-mono text-[#484f58] text-center">Aucune transaction</p>
+                  <p className="px-4 py-6 text-xs font-mono text-[#484f58] text-center">{t.customerDetail.noTransactions}</p>
                 ) : (
                   transactions.map((tx: {
                     id: number; transactionId: string; amount: string;
@@ -182,7 +221,7 @@ export function CustomerDetailPage() {
             <div className="bg-[#0d1117] border border-[#21262d] rounded-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Shield size={12} className="text-[#7d8590]" />
-                <h2 className="text-[11px] font-mono text-[#7d8590] tracking-widest uppercase">Score de risque</h2>
+                <h2 className="text-[11px] font-mono text-[#7d8590] tracking-widest uppercase">{t.customerDetail.riskScore}</h2>
               </div>
               <div className="flex items-end gap-3 mb-3">
                 <span className={`text-4xl font-mono font-semibold tabular-nums ${
@@ -207,9 +246,97 @@ export function CustomerDetailPage() {
             <div className="bg-[#0d1117] border border-[#21262d] rounded-lg p-4">
               <h2 className="text-[11px] font-mono text-[#7d8590] tracking-widest uppercase mb-3">KYC</h2>
               <div className="space-y-2">
-                <InfoRow label="Statut" value={<Badge label={customer.kycStatus} variant="status" />} />
-                {customer.nextReviewDate && <InfoRow label="Prochaine révision" value={formatDate(customer.nextReviewDate)} />}
+                <InfoRow label={t.common.status} value={<Badge label={customer.kycStatus} variant="status" />} />
+                {customer.nextReviewDate && <InfoRow label={t.customerDetail.nextReview} value={formatDate(customer.nextReviewDate)} />}
               </div>
+            </div>
+
+            {/* ── Gel des avoirs ── */}
+            <div className={`bg-[#0d1117] border rounded-lg p-4 ${
+              customer.frozenAt ? "border-red-500/40" : "border-[#21262d]"
+            }`}>
+              <div className="flex items-center gap-2 mb-3">
+                {customer.frozenAt
+                  ? <Lock size={12} className="text-red-400" />
+                  : <Unlock size={12} className="text-[#7d8590]" />}
+                <h2 className="text-[11px] font-mono text-[#7d8590] tracking-widest uppercase">
+                  {t.customerDetail.assetFreeze}
+                </h2>
+              </div>
+
+              {customer.frozenAt ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5 text-[11px] font-mono text-red-400">
+                    <Lock size={10} />
+                    <span>{t.customerDetail.frozenSince} {formatDate(customer.frozenAt)}</span>
+                  </div>
+                  {customer.frozenReason && (
+                    <p className="text-[10px] font-mono text-[#7d8590] break-words">{customer.frozenReason}</p>
+                  )}
+                  {canFreeze && (
+                    <button
+                      onClick={() => unfreezeMut.mutate({ id: customerId })}
+                      disabled={unfreezeMut.isPending}
+                      className="w-full mt-2 text-[11px] font-mono py-1.5 rounded border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-50 transition-colors">
+                      {unfreezeMut.isPending ? t.common.loading : t.customerDetail.liftFreeze}
+                    </button>
+                  )}
+                </div>
+              ) : (
+                canFreeze ? (
+                  <div className="space-y-2">
+                    <textarea
+                      value={freezeReason}
+                      onChange={(e) => setFreezeReason(e.target.value)}
+                      placeholder={t.customerDetail.freezeReason}
+                      rows={2}
+                      className="w-full bg-[#161b22] border border-[#30363d] rounded px-2 py-1.5 text-[11px] font-mono text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff]/50 resize-none"
+                    />
+                    <button
+                      onClick={() => { if (freezeReason.trim().length >= 5) { freezeMut.mutate({ id: customerId, reason: freezeReason }); setFreezeReason(""); } }}
+                      disabled={freezeMut.isPending || freezeReason.trim().length < 5}
+                      className="w-full text-[11px] font-mono py-1.5 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10 disabled:opacity-40 transition-colors">
+                      {freezeMut.isPending ? t.common.loading : t.customerDetail.freezeAssets}
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-[10px] font-mono text-[#484f58]">{t.customerDetail.noActiveFreeze}</p>
+                )
+              )}
+            </div>
+
+            {/* ── RGPD — Effacement ── */}
+            <div className="bg-[#0d1117] border border-[#21262d] rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Trash2 size={12} className="text-[#7d8590]" />
+                <h2 className="text-[11px] font-mono text-[#7d8590] tracking-widest uppercase">RGPD — Effacement</h2>
+              </div>
+              {customer.erasureCompletedAt ? (
+                <p className="text-[10px] font-mono text-emerald-400">
+                  Données anonymisées le {formatDate(customer.erasureCompletedAt)}
+                </p>
+              ) : customer.erasureRequestedAt ? (
+                <div className="space-y-2">
+                  <p className="text-[10px] font-mono text-amber-400">
+                    Demande du {formatDate(customer.erasureRequestedAt)}
+                  </p>
+                  {canErasure && (
+                    <button
+                      onClick={() => procErasureMut.mutate({ id: customerId })}
+                      disabled={procErasureMut.isPending}
+                      className="w-full text-[11px] font-mono py-1.5 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10 disabled:opacity-50 transition-colors">
+                      {procErasureMut.isPending ? "Traitement…" : "Anonymiser les données PII"}
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <button
+                  onClick={() => reqErasureMut.mutate({ id: customerId })}
+                  disabled={reqErasureMut.isPending}
+                  className="w-full text-[11px] font-mono py-1.5 rounded border border-[#30363d] text-[#7d8590] hover:text-[#e6edf3] hover:border-[#484f58] disabled:opacity-50 transition-colors">
+                  {reqErasureMut.isPending ? "En cours…" : "Demander l'effacement"}
+                </button>
+              )}
             </div>
 
             {screenings && screenings.length > 0 && (
@@ -247,19 +374,19 @@ export function CustomerDetailPage() {
           <div className="bg-[#0d1117] border border-[#21262d] rounded-lg p-4">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-[11px] font-mono text-[#7d8590] tracking-widest uppercase">
-                Uploader un document
+                {t.customerDetail.uploadDocument}
               </h2>
               <select value={docType}
                 onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
                   setDocType(e.target.value)}
                 className="bg-[#161b22] border border-[#30363d] rounded px-2 py-1 text-xs font-mono text-[#e6edf3] focus:outline-none">
                 {[
-                  ["PASSPORT", "Passeport"],
-                  ["ID_CARD", "Carte d'identité"],
-                  ["DRIVING_LICENSE", "Permis de conduire"],
-                  ["PROOF_OF_ADDRESS", "Justificatif domicile"],
-                  ["SELFIE", "Selfie"],
-                  ["OTHER", "Autre"],
+                  ["PASSPORT",         t.documents.typePassport],
+                  ["ID_CARD",          t.documents.typeIdCard],
+                  ["DRIVING_LICENSE",  t.documents.typeDrivingLicense],
+                  ["PROOF_OF_ADDRESS", t.documents.typeProofAddress],
+                  ["SELFIE",           t.documents.typeSelfie],
+                  ["OTHER",            t.documents.typeOther],
                 ].map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </div>
@@ -267,7 +394,7 @@ export function CustomerDetailPage() {
             <label className="flex items-center justify-center gap-2 border-2 border-dashed border-[#30363d] hover:border-[#58a6ff]/50 rounded-lg py-4 cursor-pointer transition-colors">
               <Upload size={16} className="text-[#484f58]" />
               <span className="text-xs font-mono text-[#7d8590]">
-                {uploadingDoc ? "Upload en cours…" : "Cliquer pour sélectionner (JPG, PNG, PDF — max 10 Mo)"}
+                {uploadingDoc ? t.common.uploading : "JPG, PNG, PDF — max 10 Mo"}
               </span>
               <input type="file" className="hidden" accept=".jpg,.jpeg,.png,.webp,.pdf"
                 disabled={uploadingDoc}
@@ -287,9 +414,9 @@ export function CustomerDetailPage() {
                       body: fd,
                     });
                     const data = await res.json() as { success?: boolean; error?: string };
-                    if (!data.success) setUploadError(data.error ?? "Erreur upload");
+                    if (!data.success) setUploadError(data.error ?? t.common.uploadError);
                     else { void refetchDocs(); }
-                  } catch { setUploadError("Erreur réseau"); }
+                  } catch { setUploadError(t.common.networkError); }
                   finally { setUploadingDoc(false); (e.target as HTMLInputElement).value = ""; }
                 }}
               />
@@ -380,7 +507,7 @@ export function CustomerDetailPage() {
                             onClick={() => rejectDocMutation.mutate({ id: doc.id, reason: "Rejeté manuellement" })}
                             disabled={rejectDocMutation.isPending}
                             className="text-[10px] font-mono text-red-400 hover:underline disabled:opacity-50">
-                            Rejeter
+                            {t.customerDetail.rejectKyc}
                           </button>
                         )}
                       </div>

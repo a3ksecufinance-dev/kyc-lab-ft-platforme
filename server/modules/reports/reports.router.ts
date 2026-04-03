@@ -1,6 +1,6 @@
 import type { Transaction } from "../../../drizzle/schema";
 import { computeAmld6Kpis, kpisToCsv } from "./reports.amld6";
-import { generateAmld6Pdf } from "./reports.pdf";
+import { generateAmld6Pdf, generateReportPdf, generateKycPdf } from "./reports.pdf";
 import { permissionProc } from "../../_core/trpc";
 import { z } from "zod";
 import { router, analystProc, supervisorProc, complianceProc } from "../../_core/trpc";
@@ -16,6 +16,7 @@ import {
   updateReportContent,
   getReportStats,
 } from "./reports.service";
+import { updateReport } from "./reports.repository";
 import { generateGoAmlXml } from "./reports.goaml";
 import { transmitReport, getTransmissionStatus, getTransmissionMode } from "./reports.tracfin";
 import { findCustomerById } from "../customers/customers.repository";
@@ -286,9 +287,9 @@ export const reportsRouter = router({
       // Transmettre
       const result = await transmitReport(report.reportId, goaml.xml, goaml.checksum);
 
-      // Mettre à jour le rapport avec la référence régulateur
+      // Mettre à jour le rapport avec la référence régulateur (sans changer le statut)
       if (result.fiuRefNumber) {
-        await approveAndSubmit(input.id, ctx.user.id, result.fiuRefNumber);
+        await updateReport(input.id, { regulatoryRef: result.fiuRefNumber });
       }
 
       await log({
@@ -405,6 +406,45 @@ export const reportsRouter = router({
         csv,
         filename: `AMLD6_KPIs_${from.toISOString().slice(0,10)}_${to.toISOString().slice(0,10)}.csv`,
         generatedAt: kpis.generatedAt,
+      };
+    }),
+
+  /**
+   * Export PDF d'un rapport SAR/STR individuel — compliance+
+   */
+  exportReportPdf: complianceProc
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input }) => {
+      const report = await getReportOrThrow(input.id);
+      if (!report.customerId) throw new Error("customerId manquant sur le rapport");
+      const customer = await findCustomerById(report.customerId);
+      if (!customer) throw new Error(`Client #${report.customerId} introuvable`);
+
+      const buffer = await generateReportPdf(report, customer);
+      return {
+        base64:   buffer.toString("base64"),
+        filename: `${report.reportId}_${report.reportType}.pdf`,
+        sizeKb:   Math.round(buffer.length / 1024),
+      };
+    }),
+
+  /**
+   * Export PDF fiche KYC client — compliance+
+   */
+  exportKycPdf: complianceProc
+    .input(z.object({ customerId: z.number().int().positive() }))
+    .mutation(async ({ input }) => {
+      const customer = await findCustomerById(input.customerId);
+      if (!customer) throw new Error(`Client #${input.customerId} introuvable`);
+
+      const transactions = await findTransactionsByCustomer(input.customerId, 50);
+
+      const buffer = await generateKycPdf(customer, transactions);
+      const name   = `${customer.lastName}_${customer.firstName}`.replace(/\s+/g, "_");
+      return {
+        base64:   buffer.toString("base64"),
+        filename: `KYC_${name}_${new Date().toISOString().slice(0, 10)}.pdf`,
+        sizeKb:   Math.round(buffer.length / 1024),
       };
     }),
 

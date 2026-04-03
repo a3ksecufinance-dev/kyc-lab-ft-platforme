@@ -156,7 +156,7 @@ export async function computeAmld6Kpis(period: Amld6KpiPeriod): Promise<Amld6Kpi
     avgDays: avg(
       sql`EXTRACT(EPOCH FROM (${alerts.resolvedAt} - ${alerts.createdAt})) / 86400`
     ),
-  }).from(alerts).where(and(alertFilter, ne(alerts.status, "OPEN" as "OPEN")));
+  }).from(alerts).where(and(alertFilter, ne(alerts.status, "OPEN" as const)));
 
   const avgResolutionDays = Number(resolutionStats?.avgDays ?? 0);
 

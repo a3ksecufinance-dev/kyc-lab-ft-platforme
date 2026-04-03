@@ -2,6 +2,7 @@ import { AppLayout }  from "../components/layout/AppLayout";
 import { StatCard }   from "../components/ui/StatCard";
 import { Badge }      from "../components/ui/Badge";
 import { trpc }       from "../lib/trpc";
+import { useI18n }    from "../hooks/useI18n";
 import { formatAmount, formatRelative, formatNumber } from "../lib/utils";
 import {
   Users, AlertTriangle, FolderOpen, ArrowLeftRight,
@@ -11,23 +12,23 @@ import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
 import { format } from "date-fns";
-import { fr } from "date-fns/locale";
+import { fr, enUS } from "date-fns/locale";
 
 // ─── Palette cohérente WatchReg ───────────────────────────────────────────────
 const C = {
-  surface:  "#1E2A40",
-  border:   "rgba(255,255,255,0.06)",
-  border2:  "rgba(255,255,255,0.1)",
-  text1:    "#C8D8EC",
-  text2:    "#5A7490",
-  text3:    "#3A5070",
-  gold:     "#D4AF37",
-  red:      "#F87171",
-  amber:    "#FB923C",
-  green:    "#34D399",
-  blue:     "#60A5FA",
-  mono:     "'JetBrains Mono','Courier New',monospace",
-  serif:    "'Playfair Display',Georgia,serif",
+  surface:  "var(--wr-card)",
+  border:   "var(--wr-border)",
+  border2:  "var(--wr-border2)",
+  text1:    "var(--wr-text-1)",
+  text2:    "var(--wr-text-2)",
+  text3:    "var(--wr-text-3)",
+  gold:     "var(--wr-gold)",
+  red:      "var(--wr-red)",
+  amber:    "var(--wr-amber)",
+  green:    "var(--wr-green)",
+  blue:     "var(--wr-blue)",
+  mono:     "var(--wr-font-mono)",
+  serif:    "var(--wr-font-serif)",
 };
 
 const RISK_COLORS: Record<string, string> = {
@@ -39,15 +40,17 @@ function TrendChart({ days }: { days: number }) {
   const { data, isLoading } = trpc.dashboard.trends.useQuery({ days }, {
     refetchInterval: 60_000,
   });
+  const { lang } = useI18n();
 
   if (isLoading) return (
-    <div style={{ height: 200, background: "rgba(255,255,255,0.02)", borderRadius: 8, animation: "pulse 2s infinite" }} />
+    <div style={{ height: 200, background: "var(--wr-hover)", borderRadius: 8, animation: "pulse 2s infinite" }} />
   );
   if (!data) return null;
 
+  const dateLocale = lang === "en" ? enUS : fr;
   const chartData = data.series.map((s: { date: string; transactions: number; suspicious: number }) => ({
     ...s,
-    dateLabel: format(new Date(s.date), "dd/MM", { locale: fr }),
+    dateLabel: format(new Date(s.date), "dd/MM", { locale: dateLocale }),
   }));
 
   return (
@@ -63,7 +66,7 @@ function TrendChart({ days }: { days: number }) {
             <stop offset="95%" stopColor={C.red}   stopOpacity={0} />
           </linearGradient>
         </defs>
-        <CartesianGrid stroke="rgba(255,255,255,0.04)" vertical={false} />
+        <CartesianGrid stroke="var(--wr-border)" vertical={false} />
         <XAxis
           dataKey="dateLabel"
           tick={{ fill: C.text3, fontSize: 10, fontFamily: C.mono }}
@@ -76,7 +79,7 @@ function TrendChart({ days }: { days: number }) {
         />
         <Tooltip
           contentStyle={{
-            background: "#172035",
+            background: "var(--wr-card)",
             border: `1px solid ${C.border2}`,
             borderRadius: 8,
             fontSize: 12,
@@ -189,6 +192,8 @@ export function DashboardPage() {
     { refetchInterval: 30_000 }
   );
 
+  const { t } = useI18n();
+
   return (
     <AppLayout>
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -204,10 +209,10 @@ export function DashboardPage() {
               letterSpacing: "-0.4px",
               margin: "0 0 4px",
             }}>
-              Tableau de bord
+              {t.dashboard.title}
             </h1>
             <p style={{ fontSize: 11, fontFamily: C.mono, color: C.text3, margin: 0 }}>
-              Vue d'ensemble · Données en temps réel
+              {t.dashboard.subtitle}
             </p>
           </div>
           <button
@@ -216,7 +221,7 @@ export function DashboardPage() {
             style={{
               display: "flex", alignItems: "center", gap: 6,
               padding: "8px 14px",
-              background: "rgba(255,255,255,0.04)",
+              background: "var(--wr-hover)",
               border: `1px solid ${C.border2}`,
               borderRadius: 8,
               fontSize: 11, fontFamily: C.mono,
@@ -224,39 +229,39 @@ export function DashboardPage() {
               cursor: "pointer",
               transition: "all 0.15s",
             }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(212,175,55,0.3)"; (e.currentTarget as HTMLElement).style.color = C.gold; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = C.border2; (e.currentTarget as HTMLElement).style.color = C.text2; }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "var(--wr-accent-border)"; (e.currentTarget as HTMLElement).style.color = "var(--wr-gold)"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "var(--wr-border2)"; (e.currentTarget as HTMLElement).style.color = "var(--wr-text-2)"; }}
           >
             <RefreshCw size={12} style={{ animation: isRefetching ? "spin 1s linear infinite" : "none" }} />
-            Actualiser
+            {t.common.refresh}
           </button>
         </div>
 
         {/* ── KPIs ────────────────────────────────────────────────────────── */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
           <StatCard
-            label="Clients actifs"
+            label={t.dashboard.totalCustomers}
             value={isLoading ? "—" : formatNumber(overview?.customers.total ?? 0)}
-            sub={`${overview?.customers.byStatus?.["APPROVED"] ?? 0} approuvés`}
+            sub={`${overview?.customers.byStatus?.["APPROVED"] ?? 0} ${t.kyc.approved.toLowerCase()}`}
             icon={Users}
             accent="default"
           />
           <StatCard
-            label="Alertes ouvertes"
+            label={t.dashboard.activeAlerts}
             value={isLoading ? "—" : formatNumber(overview?.alerts.open ?? 0)}
-            sub={`${overview?.alerts.byPriority?.["CRITICAL"] ?? 0} critiques`}
+            sub={`${overview?.alerts.byPriority?.["CRITICAL"] ?? 0} ${t.alerts.critical.toLowerCase()}`}
             icon={AlertTriangle}
             accent={(overview?.alerts.byPriority?.["CRITICAL"] ?? 0) > 0 ? "danger" : "default"}
           />
           <StatCard
-            label="Dossiers en cours"
+            label={t.dashboard.openCases}
             value={isLoading ? "—" : formatNumber(overview?.cases.byStatus?.["OPEN"] ?? 0)}
             sub={`${overview?.cases.byStatus?.["PENDING_APPROVAL"] ?? 0} en approbation`}
             icon={FolderOpen}
             accent={(overview?.cases.byStatus?.["PENDING_APPROVAL"] ?? 0) > 0 ? "warning" : "default"}
           />
           <StatCard
-            label="Transactions aujourd'hui"
+            label={t.dashboard.totalTransactions}
             value={isLoading ? "—" : formatNumber(overview?.transactions.todayCount ?? 0)}
             sub={formatAmount(overview?.transactions.todayVolume ?? 0)}
             icon={ArrowLeftRight}
@@ -269,12 +274,12 @@ export function DashboardPage() {
 
           {/* Graphe tendances */}
           <Card
-            title="Activité — 30 derniers jours"
+            title={t.dashboard.trendsTitle}
             right={
               <div style={{ display: "flex", gap: 14 }}>
                 {[
-                  { label: "Transactions", color: C.blue },
-                  { label: "Alertes", color: C.red },
+                  { label: t.nav.transactions, color: C.blue },
+                  { label: t.nav.alerts,        color: C.red  },
                 ].map(({ label, color }) => (
                   <div key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
                     <div style={{ width: 8, height: 2, background: color, borderRadius: 1 }} />
@@ -291,22 +296,22 @@ export function DashboardPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
             {/* Risque clients */}
-            <Card title="Répartition du risque clients">
+            <Card title={t.dashboard.riskDistribution}>
               {overview?.customers.byRisk
                 ? <RiskBar data={overview.customers.byRisk} />
-                : <p style={{ fontSize: 11, color: C.text3, fontFamily: C.mono }}>Chargement…</p>
+                : <p style={{ fontSize: 11, color: C.text3, fontFamily: C.mono }}>{t.common.loading}</p>
               }
             </Card>
 
             {/* Rapports SAR/STR */}
-            <Card title="Rapports réglementaires">
+            <Card title={t.reports.regulatoryExport}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                 {[
                   { label: "SAR", val: overview?.reports.byType?.["SAR"] ?? 0, icon: FileText, color: C.amber },
                   { label: "STR", val: overview?.reports.byType?.["STR"] ?? 0, icon: Shield,   color: C.red   },
                 ].map(({ label, val, icon: Icon, color }) => (
                   <div key={label} style={{
-                    background: "rgba(255,255,255,0.03)",
+                    background: "var(--wr-hover)",
                     border: `1px solid ${C.border}`,
                     borderRadius: 8, padding: "12px",
                   }}>
@@ -329,13 +334,13 @@ export function DashboardPage() {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
 
           {/* Alertes récentes */}
-          <Card title="Alertes récentes" right={
+          <Card title={t.dashboard.recentAlerts} right={
             <span style={{ fontSize: 9, fontFamily: C.mono, color: C.text3, letterSpacing: "0.1em", textTransform: "uppercase" }}>24h</span>
           } noPad>
             <div>
               {!recent?.recentAlerts.length ? (
                 <p style={{ padding: "20px 18px", fontSize: 12, fontFamily: C.mono, color: C.text3, textAlign: "center" }}>
-                  Aucune alerte récente
+                  {t.dashboard.noAlerts}
                 </p>
               ) : recent.recentAlerts.map((a: {
                 id: number; alertId: string; scenario: string;
@@ -343,11 +348,11 @@ export function DashboardPage() {
               }) => (
                 <div key={a.id} style={{
                   padding: "10px 18px",
-                  borderBottom: `1px solid rgba(255,255,255,0.03)`,
+                  borderBottom: `1px solid var(--wr-border)`,
                   display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
                   transition: "background 0.15s", cursor: "pointer",
                 }}
-                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.02)")}
+                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = "var(--wr-hover)")}
                 onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = "transparent")}
                 >
                   {/* Dot priorité */}
@@ -382,13 +387,13 @@ export function DashboardPage() {
           </Card>
 
           {/* Transactions suspectes */}
-          <Card title="Transactions suspectes" right={
+          <Card title={t.nav.transactions} right={
             <span style={{ fontSize: 9, fontFamily: C.mono, color: C.text3, letterSpacing: "0.1em", textTransform: "uppercase" }}>24h</span>
           } noPad>
             <div>
               {!recent?.recentTransactions.length ? (
                 <p style={{ padding: "20px 18px", fontSize: 12, fontFamily: C.mono, color: C.text3, textAlign: "center" }}>
-                  Aucune transaction suspecte
+                  {t.common.noData}
                 </p>
               ) : recent.recentTransactions.map((t: {
                 id: number; transactionId: string; amount: string;
@@ -397,11 +402,11 @@ export function DashboardPage() {
               }) => (
                 <div key={t.id} style={{
                   padding: "10px 18px",
-                  borderBottom: `1px solid rgba(255,255,255,0.03)`,
+                  borderBottom: `1px solid var(--wr-border)`,
                   display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
                   transition: "background 0.15s", cursor: "pointer",
                 }}
-                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.02)")}
+                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = "var(--wr-hover)")}
                 onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = "transparent")}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>

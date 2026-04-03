@@ -9,24 +9,24 @@ interface StatCardProps {
 }
 
 const ACCENT_TOP: Record<string, string> = {
-  default: "linear-gradient(90deg, #D4AF37, rgba(212,175,55,0.05))",
+  default: "linear-gradient(90deg, var(--wr-gold), rgba(212,175,55,0.05))",
   danger:  "linear-gradient(90deg, #F87171, rgba(248,113,113,0.05))",
   warning: "linear-gradient(90deg, #FB923C, rgba(251,146,60,0.05))",
   success: "linear-gradient(90deg, #34D399, rgba(52,211,153,0.05))",
 };
 
 const ICON_COLORS: Record<string, { bg: string; color: string }> = {
-  default: { bg: "rgba(212,175,55,0.1)",  color: "#D4AF37" },
-  danger:  { bg: "rgba(248,113,113,0.1)", color: "#F87171" },
-  warning: { bg: "rgba(251,146,60,0.1)",  color: "#FB923C" },
-  success: { bg: "rgba(52,211,153,0.1)",  color: "#34D399" },
+  default: { bg: "var(--wr-accent-muted)",     color: "var(--wr-gold)" },
+  danger:  { bg: "rgba(248,113,113,0.1)",       color: "var(--wr-red)" },
+  warning: { bg: "rgba(251,146,60,0.1)",        color: "var(--wr-amber)" },
+  success: { bg: "rgba(52,211,153,0.1)",        color: "var(--wr-green)" },
 };
 
 const VALUE_COLORS: Record<string, string> = {
-  default: "#D8E8F8",
-  danger:  "#F87171",
-  warning: "#FB923C",
-  success: "#34D399",
+  default: "var(--wr-text-1)",
+  danger:  "var(--wr-red)",
+  warning: "var(--wr-amber)",
+  success: "var(--wr-green)",
 };
 
 export function StatCard({ label, value, sub, icon: Icon, accent = "default" }: StatCardProps) {
@@ -34,16 +34,23 @@ export function StatCard({ label, value, sub, icon: Icon, accent = "default" }: 
   return (
     <div style={{
       position: "relative",
-      background: "#1E2A40",
-      border: "1px solid rgba(255,255,255,0.06)",
+      background: "var(--wr-card)",
+      border: "1px solid var(--wr-border)",
       borderRadius: 10,
       padding: "16px 18px",
       overflow: "hidden",
       cursor: "default",
-      transition: "border-color 0.2s",
+      transition: "border-color 0.2s, box-shadow 0.2s",
+      boxShadow: "var(--wr-shadow-sm)",
     }}
-    onMouseEnter={e => ((e.currentTarget as HTMLElement).style.borderColor = "rgba(212,175,55,0.18)")}
-    onMouseLeave={e => ((e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.06)")}
+    onMouseEnter={e => {
+      (e.currentTarget as HTMLElement).style.borderColor = "var(--wr-accent-border)";
+      (e.currentTarget as HTMLElement).style.boxShadow = "var(--wr-shadow-md)";
+    }}
+    onMouseLeave={e => {
+      (e.currentTarget as HTMLElement).style.borderColor = "var(--wr-border)";
+      (e.currentTarget as HTMLElement).style.boxShadow = "var(--wr-shadow-sm)";
+    }}
     >
       {/* Barre accent haut */}
       <div style={{
@@ -56,10 +63,10 @@ export function StatCard({ label, value, sub, icon: Icon, accent = "default" }: 
           {/* Label */}
           <p style={{
             fontSize: 10,
-            fontFamily: "monospace",
+            fontFamily: "var(--wr-font-mono)",
             letterSpacing: "0.14em",
             textTransform: "uppercase",
-            color: "#3A5070",
+            color: "var(--wr-text-3)",
             margin: "0 0 10px",
           }}>
             {label}
@@ -69,7 +76,7 @@ export function StatCard({ label, value, sub, icon: Icon, accent = "default" }: 
           <p style={{
             fontSize: 28,
             fontWeight: 600,
-            fontFamily: "'Playfair Display', Georgia, serif",
+            fontFamily: "var(--wr-font-serif)",
             color: VALUE_COLORS[accent],
             lineHeight: 1,
             margin: "0 0 6px",
@@ -82,8 +89,8 @@ export function StatCard({ label, value, sub, icon: Icon, accent = "default" }: 
           {sub && (
             <p style={{
               fontSize: 11,
-              fontFamily: "monospace",
-              color: "#2E4260",
+              fontFamily: "var(--wr-font-mono)",
+              color: "var(--wr-text-4)",
               margin: 0,
             }}>
               {sub}

@@ -17,6 +17,7 @@ import { Amld6Page }          from "./pages/Amld6Page";
 import { MfaSettingsPage }    from "./pages/MfaSettingsPage";
 import { DocumentsPage }      from "./pages/DocumentsPage";
 import { NetworkPage }        from "./pages/NetworkPage";
+import { PkycPage }           from "./pages/PkycPage";
 import { ResetPasswordPage }  from "./pages/ResetPasswordPage";
 
 function PrivateRoute({ component: Component, minRole }: {
@@ -53,6 +54,7 @@ export function App() {
       <Route path="/amld6"         component={() => <PrivateRoute component={Amld6Page} minRole="compliance_officer" />} />
       <Route path="/documents"     component={() => <PrivateRoute component={DocumentsPage} />} />
       <Route path="/network"       component={() => <PrivateRoute component={NetworkPage} minRole="analyst" />} />
+      <Route path="/pkyc"          component={() => <PrivateRoute component={PkycPage} minRole="analyst" />} />
       <Route path="/mfa"           component={() => <PrivateRoute component={MfaSettingsPage} />} />
       <Route path="/admin"        component={() => <PrivateRoute component={AdminPage} minRole="admin" />} />
 

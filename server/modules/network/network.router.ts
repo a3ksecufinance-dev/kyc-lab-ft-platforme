@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { router, analystProc, supervisorProc } from "../../_core/trpc";
-import { buildGraph } from "./network.graph";
+import { buildGraph, findRiskPath } from "./network.graph";
 import { db } from "../../_core/db";
 import { sql } from "drizzle-orm";
 
@@ -180,6 +180,54 @@ export const networkRouter = router({
         message: paths.length === 0
           ? "Aucun chemin direct trouvé"
           : `${paths.length} chemin(s) trouvé(s)`,
+      };
+    }),
+
+  /**
+   * Chemin le plus risqué entre deux clients (Dijkstra pondéré) — analyst+
+   * Contrairement à findPaths (BFS hop-count), ici le chemin minimise
+   * la "distance de risque" : gros montants suspects = chemin préféré.
+   */
+  riskPath: analystProc
+    .input(z.object({
+      fromCustomerId: z.number().int().positive(),
+      toCustomerId:   z.number().int().positive(),
+      maxDepth:       z.number().int().min(1).max(4).default(3),
+      minAmount:      z.number().min(0).default(0),
+    }))
+    .query(async ({ input }) => {
+      const { fromCustomerId, toCustomerId, maxDepth, minAmount } = input;
+
+      if (fromCustomerId === toCustomerId) {
+        return { path: null, message: "Source et destination identiques" };
+      }
+
+      const graph  = await buildGraph(fromCustomerId, maxDepth, minAmount);
+      const fromId = `c:${fromCustomerId}`;
+      const toId   = `c:${toCustomerId}`;
+
+      const result = findRiskPath(graph.nodes, graph.edges, fromId, toId);
+      if (!result) {
+        return {
+          path:    null,
+          message: `Aucun chemin trouvé entre #${fromCustomerId} et #${toCustomerId} (profondeur ${maxDepth})`,
+        };
+      }
+
+      const nodeMap = new Map(graph.nodes.map(n => [n.id, n]));
+      const edgeMap = new Map(
+        graph.edges.map(e => [`${e.from}→${e.to}`, e])
+      );
+
+      return {
+        path: {
+          nodes: result.path.map(id => nodeMap.get(id) ?? { id, type: "counterparty" as const, label: id }),
+          edges: result.path.slice(1).map((id, i) => edgeMap.get(`${result.path[i]}→${id}`) ?? null).filter(Boolean),
+          riskScore:   result.riskScore,
+          totalAmount: result.totalAmount,
+          hops:        result.hops,
+        },
+        message: `Chemin le plus risqué : ${result.hops} saut(s) · risque ${result.riskScore}/100`,
       };
     }),
 

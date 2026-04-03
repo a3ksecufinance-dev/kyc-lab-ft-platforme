@@ -107,6 +107,14 @@ export async function createTransaction(input: CreateTransactionInput) {
     });
   }
 
+  // Vérifier le gel des avoirs
+  if (customer.frozenAt) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: `Transaction refusée : client sous gel des avoirs depuis le ${new Date(customer.frozenAt).toLocaleDateString("fr-FR")} — Motif : ${customer.frozenReason ?? "non précisé"}`,
+    });
+  }
+
   const transactionId = `TXN-${nanoid(10).toUpperCase()}`;
 
   // Insérer en statut PENDING avant analyse AML

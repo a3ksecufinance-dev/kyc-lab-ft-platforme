@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { Shield, Mail, Lock, CheckCircle, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { trpc } from "../lib/trpc";
+import { useI18n } from "../hooks/useI18n";
 
 type Step = "request" | "sent" | "confirm" | "done" | "error";
 
 export function ResetPasswordPage() {
+  const { t } = useI18n();
   const [step, setStep]         = useState<Step>("request");
   const [email, setEmail]       = useState("");
   const [token, setToken]       = useState("");
@@ -71,7 +73,7 @@ export function ResetPasswordPage() {
             <Shield size={22} className="text-[#58a6ff]" />
           </div>
           <h1 className="text-xl font-semibold text-[#e6edf3] font-mono">LabFT</h1>
-          <p className="text-[#7d8590] text-sm mt-1 font-mono">Réinitialisation du mot de passe</p>
+          <p className="text-[#7d8590] text-sm mt-1 font-mono">{t.auth.resetPassword}</p>
         </div>
 
         <div className="bg-[#0d1117] border border-[#21262d] rounded-xl p-6">
@@ -88,7 +90,7 @@ export function ResetPasswordPage() {
 
               <div>
                 <label className="block text-[11px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">
-                  Adresse email
+                  {t.auth.email}
                 </label>
                 <input
                   type="email" value={email} required autoFocus
@@ -108,12 +110,12 @@ export function ResetPasswordPage() {
 
               <button type="submit" disabled={requestMutation.isPending}
                 className="w-full py-2.5 bg-[#1f6feb] hover:bg-[#388bfd] disabled:opacity-50 text-white text-sm font-medium rounded-md transition-colors font-mono">
-                {requestMutation.isPending ? "Envoi..." : "Envoyer le lien"}
+                {requestMutation.isPending ? t.common.loading : t.auth.sendResetLink}
               </button>
 
               <a href="/login"
                 className="block text-center text-xs font-mono text-[#484f58] hover:text-[#7d8590] mt-2">
-                ← Retour à la connexion
+                ← {t.auth.backToLogin}
               </a>
             </form>
           )}
@@ -125,18 +127,17 @@ export function ResetPasswordPage() {
                 <Mail size={24} className="text-emerald-400" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-[#e6edf3] font-mono">Email envoyé</p>
+                <p className="text-sm font-semibold text-[#e6edf3] font-mono">{t.auth.resetEmailSent}</p>
                 <p className="text-xs font-mono text-[#7d8590] mt-1">
-                  Si l'adresse <span className="text-[#e6edf3]">{email}</span> est enregistrée,
-                  vous recevrez un lien dans les prochaines secondes.
+                  {t.auth.resetEmailHint}
                 </p>
               </div>
               <p className="text-[10px] font-mono text-[#484f58]">
-                Vérifiez aussi vos spams — lien valable 15 minutes
+                {t.auth.resetSpamHint}
               </p>
               <a href="/login"
                 className="block text-xs font-mono text-[#58a6ff] hover:underline">
-                Retour à la connexion
+                {t.auth.backToLogin}
               </a>
             </div>
           )}
@@ -153,7 +154,7 @@ export function ResetPasswordPage() {
 
               <div>
                 <label className="block text-[11px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">
-                  Nouveau mot de passe
+                  {t.auth.newPassword}
                 </label>
                 <div className="relative">
                   <input
@@ -162,7 +163,7 @@ export function ResetPasswordPage() {
                     onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
                       setNewPwd(e.target.value)}
                     className={`${inputCls} pr-10`}
-                    placeholder="Min. 8 caractères, 1 maj., 1 chiffre"
+                    placeholder={t.auth.passwordHint}
                   />
                   <button type="button" onClick={() => setShowPwd(!showPwd)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-[#484f58] hover:text-[#7d8590]">
@@ -173,7 +174,7 @@ export function ResetPasswordPage() {
 
               <div>
                 <label className="block text-[11px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">
-                  Confirmer le mot de passe
+                  {t.auth.confirmPasswordLabel}
                 </label>
                 <input
                   type={showPwd ? "text" : "password"}
@@ -189,9 +190,9 @@ export function ResetPasswordPage() {
               {newPwd.length > 0 && (
                 <div className="space-y-1">
                   {[
-                    { ok: newPwd.length >= 8,   label: "8 caractères minimum" },
-                    { ok: /[A-Z]/.test(newPwd), label: "Au moins 1 majuscule" },
-                    { ok: /[0-9]/.test(newPwd), label: "Au moins 1 chiffre"   },
+                    { ok: newPwd.length >= 8,   label: t.auth.passwordMin8 },
+                    { ok: /[A-Z]/.test(newPwd), label: t.auth.passwordUppercase },
+                    { ok: /[0-9]/.test(newPwd), label: t.auth.passwordDigit },
                   ].map(({ ok, label }) => (
                     <div key={label} className="flex items-center gap-2">
                       <span className={`w-1.5 h-1.5 rounded-full ${ok ? "bg-emerald-400" : "bg-[#30363d]"}`} />
@@ -213,7 +214,7 @@ export function ResetPasswordPage() {
               <button type="submit"
                 disabled={confirmMutation.isPending || newPwd.length < 8}
                 className="w-full py-2.5 bg-[#1f6feb] hover:bg-[#388bfd] disabled:opacity-50 text-white text-sm font-medium rounded-md transition-colors font-mono">
-                {confirmMutation.isPending ? "Mise à jour..." : "Mettre à jour le mot de passe"}
+                {confirmMutation.isPending ? t.common.loading : t.auth.updatePassword}
               </button>
             </form>
           )}
@@ -225,14 +226,14 @@ export function ResetPasswordPage() {
                 <CheckCircle size={24} className="text-emerald-400" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-[#e6edf3] font-mono">Mot de passe mis à jour</p>
+                <p className="text-sm font-semibold text-[#e6edf3] font-mono">{t.auth.passwordUpdated}</p>
                 <p className="text-xs font-mono text-[#7d8590] mt-1">
-                  Votre mot de passe a été modifié avec succès.
+                  {t.auth.passwordUpdatedDesc}
                 </p>
               </div>
               <a href="/login"
                 className="block w-full py-2.5 bg-[#1f6feb] hover:bg-[#388bfd] text-white text-sm font-medium rounded-md transition-colors font-mono text-center">
-                Se connecter
+                {t.auth.login}
               </a>
             </div>
           )}
@@ -244,16 +245,16 @@ export function ResetPasswordPage() {
                 <AlertCircle size={24} className="text-red-400" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-red-400 font-mono">Lien invalide ou expiré</p>
+                <p className="text-sm font-semibold text-red-400 font-mono">{t.auth.invalidLink}</p>
                 <p className="text-xs font-mono text-[#7d8590] mt-1">{error}</p>
               </div>
               <button onClick={() => { setStep("request"); setError(null); setToken(""); }}
                 className="block w-full py-2.5 border border-[#30363d] text-[#7d8590] hover:text-[#e6edf3] text-sm font-mono rounded-md transition-colors">
-                Demander un nouveau lien
+                {t.auth.requestNewLink}
               </button>
               <a href="/login"
                 className="block text-xs font-mono text-[#484f58] hover:text-[#7d8590]">
-                Retour à la connexion
+                {t.auth.backToLogin}
               </a>
             </div>
           )}

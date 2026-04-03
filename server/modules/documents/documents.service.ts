@@ -62,11 +62,11 @@ export async function uploadAndProcessDocument(input: {
 }
 
 async function processDocumentAsync(
-  docId:       number,
-  buffer:      Buffer,
-  mimeType:    string,
+  docId:        number,
+  buffer:       Buffer,
+  mimeType:     string,
   documentType: string,
-  customer:    { firstName: string; lastName: string; dateOfBirth: string | null },
+  customer:     { id: number; firstName: string; lastName: string; dateOfBirth: string | null },
 ): Promise<void> {
   try {
     // Étape 1 : OCR
@@ -89,10 +89,11 @@ async function processDocumentAsync(
     // Étape 2 : eKYC
     log.info({ docId }, "Démarrage eKYC");
     const ekyc = await runEkyc(ocr, documentType, {
+      id:          customer.id,
       firstName:   customer.firstName,
       lastName:    customer.lastName,
       dateOfBirth: customer.dateOfBirth,
-    });
+    }, undefined, buffer);
 
     const docStatus: "VERIFIED" | "PENDING" | "REJECTED" =
       ekyc.status === "PASS"   ? "VERIFIED"

@@ -1,0 +1,217 @@
+groups:
+
+  # ─── Disponibilité ────────────────────────────────────────────────────────────
+  - name: kyc_availability
+    interval: 30s
+    rules:
+
+      - alert: AppDown
+        expr: absent(http_requests_total{app="kyc-aml-v2"})
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Application KYC-AML indisponible"
+          description: "Aucune métrique reçue depuis l'application depuis 2 minutes."
+
+      - alert: DatabaseDown
+        expr: db_connected{app="kyc-aml-v2"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "PostgreSQL hors ligne"
+          description: "La sonde db_connected indique une perte de connexion PostgreSQL."
+
+      - alert: RedisDown
+        expr: redis_connected{app="kyc-aml-v2"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Redis hors ligne"
+          description: "La sonde redis_connected indique une perte de connexion Redis."
+
+      - alert: MlServiceDown
+        expr: absent(up{job="kyc_ml"}) or up{job="kyc_ml"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          team: data
+        annotations:
+          summary: "Service ML Python indisponible"
+          description: "Le service de scoring ML ({{ $labels.instance }}) ne répond plus depuis 5 minutes."
+
+  # ─── Performance HTTP ──────────────────────────────────────────────────────────
+  - name: kyc_http_performance
+    interval: 60s
+    rules:
+
+      - alert: HighErrorRate
+        expr: >
+          sum(rate(http_requests_total{app="kyc-aml-v2",status_code=~"5.."}[5m]))
+          /
+          sum(rate(http_requests_total{app="kyc-aml-v2"}[5m]))
+          > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Taux d'erreur HTTP > 5%"
+          description: "Taux d'erreur HTTP 5xx : {{ printf \"%.1f\" (mul $value 100) }}% sur les 5 dernières minutes."
+
+      - alert: HighClientErrorRate
+        expr: >
+          sum(rate(http_requests_total{app="kyc-aml-v2",status_code=~"4.."}[5m]))
+          /
+          sum(rate(http_requests_total{app="kyc-aml-v2"}[5m]))
+          > 0.20
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Taux d'erreurs client HTTP > 20%"
+          description: "Taux d'erreur HTTP 4xx : {{ printf \"%.1f\" (mul $value 100) }}% — vérifier les intégrations CBS."
+
+      - alert: SlowRequests
+        expr: >
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket{app="kyc-aml-v2"}[5m])) by (le)
+          ) > 1
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Latence HTTP p95 > 1 s"
+          description: "P95 = {{ printf \"%.2f\" $value }}s — dégradation des performances API."
+
+      - alert: VerySlowRequests
+        expr: >
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket{app="kyc-aml-v2"}[5m])) by (le)
+          ) > 3
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Latence HTTP p95 > 3 s — SLA en danger"
+          description: "P95 = {{ printf \"%.2f\" $value }}s — dégradation critique. Vérifier la base de données et le service ML."
+
+  # ─── tRPC ─────────────────────────────────────────────────────────────────────
+  - name: kyc_trpc
+    interval: 60s
+    rules:
+
+      - alert: HighTrpcErrorRate
+        expr: >
+          sum(rate(trpc_errors_total{app="kyc-aml-v2"}[5m]))
+          /
+          sum(rate(trpc_request_duration_seconds_count{app="kyc-aml-v2"}[5m]))
+          > 0.10
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Taux d'erreurs tRPC > 10%"
+          description: "Taux d'erreurs tRPC : {{ printf \"%.1f\" (mul $value 100) }}%."
+
+  # ─── AML métier ───────────────────────────────────────────────────────────────
+  - name: kyc_aml_business
+    interval: 60s
+    rules:
+
+      - alert: CriticalAmlAlertSpike
+        expr: >
+          increase(aml_alerts_total{app="kyc-aml-v2",priority="CRITICAL"}[10m]) > 5
+        for: 0m
+        labels:
+          severity: critical
+          team: compliance
+        annotations:
+          summary: "Pic d'alertes AML CRITICAL"
+          description: "{{ printf \"%.0f\" $value }} alertes CRITICAL générées en 10 minutes — vérification immédiate requise."
+
+      - alert: AmlAlertBurst
+        expr: >
+          sum(rate(aml_alerts_total{app="kyc-aml-v2"}[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          team: compliance
+        annotations:
+          summary: "Rafale d'alertes AML (> 0.5/s)"
+          description: "Taux d'alertes AML : {{ printf \"%.2f\" $value }}/s — possible transaction structurée ou attaque."
+
+      - alert: SanctionsMatchDetected
+        expr: >
+          increase(screening_checks_total{app="kyc-aml-v2",status="MATCH"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          team: compliance
+        annotations:
+          summary: "Match liste de sanctions détecté"
+          description: "{{ printf \"%.0f\" $value }} correspondance(s) sanctions détectée(s) dans les 5 dernières minutes."
+
+      - alert: MlScoringSlowdown
+        expr: >
+          histogram_quantile(0.95,
+            sum(rate(aml_ml_score_duration_seconds_bucket{app="kyc-aml-v2"}[5m])) by (le)
+          ) > 2
+        for: 10m
+        labels:
+          severity: warning
+          team: data
+        annotations:
+          summary: "Scoring ML lent (p95 > 2 s)"
+          description: "Latence ML p95 = {{ printf \"%.2f\" $value }}s — le service Python ralentit."
+
+      - alert: MlScoringCritical
+        expr: >
+          histogram_quantile(0.95,
+            sum(rate(aml_ml_score_duration_seconds_bucket{app="kyc-aml-v2"}[5m])) by (le)
+          ) > 5
+        for: 5m
+        labels:
+          severity: critical
+          team: data
+        annotations:
+          summary: "Scoring ML critique (p95 > 5 s)"
+          description: "Latence ML p95 = {{ printf \"%.2f\" $value }}s — risque de timeout sur les transactions en cours."
+
+  # ─── Node.js runtime ──────────────────────────────────────────────────────────
+  - name: kyc_nodejs_runtime
+    interval: 30s
+    rules:
+
+      - alert: HighHeapUsage
+        expr: >
+          nodejs_heap_size_used_bytes{app="kyc-aml-v2"}
+          /
+          nodejs_heap_size_total_bytes{app="kyc-aml-v2"}
+          > 0.90
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Heap Node.js > 90%"
+          description: "Utilisation heap : {{ printf \"%.0f\" (mul $value 100) }}% — risque de crash OOM."
+
+      - alert: HighEventLoopLag
+        expr: nodejs_eventloop_lag_p99_seconds{app="kyc-aml-v2"} > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Event loop lag p99 > 100 ms"
+          description: "Event loop lag p99 = {{ printf \"%.0f\" (mul $value 1000) }}ms — le serveur est surchargé."

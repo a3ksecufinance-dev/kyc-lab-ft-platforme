@@ -10,6 +10,7 @@ import {
   Shield, Activity, Plus, Key, ToggleLeft, ToggleRight,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+import { useI18n } from "../hooks/useI18n";
 
 type User = {
   id: number; email: string; name: string;
@@ -24,12 +25,7 @@ type AuditLog = {
   details: unknown; ipAddress: string | null; createdAt: Date;
 };
 
-const ROLE_OPTIONS = [
-  { value: "analyst",            label: "Analyste" },
-  { value: "supervisor",         label: "Superviseur" },
-  { value: "compliance_officer", label: "Compliance Officer" },
-  { value: "admin",              label: "Administrateur" },
-];
+// ROLE_OPTIONS is now generated inside components using t.admin.roles.*
 
 const ACTION_COLORS: Record<string, string> = {
   AUTH_LOGIN:          "text-emerald-400",
@@ -52,6 +48,7 @@ const ACTION_COLORS: Record<string, string> = {
 type Tab = "users" | "audit";
 
 export function AdminPage() {
+  const { t } = useI18n();
   const { user: me } = useAuth();
   const [tab, setTab] = useState<Tab>("users");
 
@@ -59,9 +56,9 @@ export function AdminPage() {
     <AppLayout>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-lg font-semibold text-[#e6edf3] font-mono">Administration</h1>
+          <h1 className="text-lg font-semibold text-[#e6edf3] font-mono">{t.admin.title}</h1>
           <p className="text-xs font-mono text-[#7d8590] mt-0.5">
-            Gestion des utilisateurs · Journaux d'audit
+            {t.admin.subtitle}
           </p>
         </div>
         <div className="flex items-center gap-1.5 px-2 py-1 bg-red-400/10 border border-red-400/20 rounded-md">
@@ -72,17 +69,17 @@ export function AdminPage() {
 
       {/* Onglets */}
       <div className="flex gap-0 border-b border-[#21262d] mb-6">
-        {(["users", "audit"] as Tab[]).map((t) => (
+        {(["users", "audit"] as Tab[]).map((tabId) => (
           <button
-            key={t}
-            onClick={() => setTab(t)}
+            key={tabId}
+            onClick={() => setTab(tabId)}
             className={`px-4 py-2 text-xs font-mono border-b-2 transition-colors ${
-              tab === t
+              tab === tabId
                 ? "border-[#58a6ff] text-[#58a6ff]"
                 : "border-transparent text-[#7d8590] hover:text-[#e6edf3]"
             }`}
           >
-            {t === "users" ? "Utilisateurs" : "Journaux d'audit"}
+            {tabId === "users" ? t.admin.users : t.admin.auditLog}
           </button>
         ))}
       </div>
@@ -95,6 +92,13 @@ export function AdminPage() {
 // ─── Tab Utilisateurs ─────────────────────────────────────────────────────────
 
 function UsersTab({ meId }: { meId?: number | undefined }) {
+  const { t } = useI18n();
+  const ROLE_OPTIONS = [
+    { value: "analyst",            label: t.admin.roles.analyst },
+    { value: "supervisor",         label: t.admin.roles.supervisor },
+    { value: "compliance_officer", label: t.admin.roles.compliance_officer },
+    { value: "admin",              label: t.admin.roles.admin },
+  ];
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("");
@@ -120,7 +124,7 @@ function UsersTab({ meId }: { meId?: number | undefined }) {
 
   const COLUMNS: Column<User>[] = [
     {
-      key: "name", header: "Utilisateur",
+      key: "name", header: t.common.name,
       render: (r) => (
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-full bg-[#1f6feb]/20 border border-[#1f6feb]/30 flex items-center justify-center flex-shrink-0">
@@ -134,7 +138,7 @@ function UsersTab({ meId }: { meId?: number | undefined }) {
       ),
     },
     {
-      key: "role", header: "Rôle", width: "w-40",
+      key: "role", header: t.admin.role, width: "w-40",
       render: (r) => (
         <div>
           <Badge label={r.role} />
@@ -143,17 +147,17 @@ function UsersTab({ meId }: { meId?: number | undefined }) {
       ),
     },
     {
-      key: "status", header: "Statut", width: "w-24",
+      key: "status", header: t.common.status, width: "w-24",
       render: (r) => r.isActive
-        ? <span className="flex items-center gap-1 text-[11px] font-mono text-emerald-400"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse-dot" />Actif</span>
-        : <span className="flex items-center gap-1 text-[11px] font-mono text-[#484f58]"><span className="w-1.5 h-1.5 rounded-full bg-[#484f58]" />Inactif</span>,
+        ? <span className="flex items-center gap-1 text-[11px] font-mono text-emerald-400"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse-dot" />{t.admin.active}</span>
+        : <span className="flex items-center gap-1 text-[11px] font-mono text-[#484f58]"><span className="w-1.5 h-1.5 rounded-full bg-[#484f58]" />{t.admin.inactive}</span>,
     },
     {
-      key: "lastSeen", header: "Dernière connexion", width: "w-36",
+      key: "lastSeen", header: t.admin.lastLogin, width: "w-36",
       render: (r) => <span className="font-mono text-[10px] text-[#7d8590]">{r.lastSignedIn ? formatRelative(r.lastSignedIn) : "Jamais"}</span>,
     },
     {
-      key: "created", header: "Créé le", width: "w-28",
+      key: "created", header: t.common.date, width: "w-28",
       render: (r) => <span className="font-mono text-[10px] text-[#7d8590]">{formatDateTime(r.createdAt)}</span>,
     },
     {
@@ -163,7 +167,7 @@ function UsersTab({ meId }: { meId?: number | undefined }) {
       ) : (
         <div className="flex gap-2">
           <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setEditTarget(r); }}
-            className="text-[10px] font-mono text-[#58a6ff] hover:underline">Modifier</button>
+            className="text-[10px] font-mono text-[#58a6ff] hover:underline">{t.admin.editUser}</button>
           <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setResetTarget(r); }}
             className="text-[10px] font-mono text-amber-400/70 hover:text-amber-400 hover:underline">MDP</button>
         </div>
@@ -177,7 +181,7 @@ function UsersTab({ meId }: { meId?: number | undefined }) {
         <input
           value={search}
           onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => { setSearch(e.target.value); setPage(1); }}
-          placeholder="Rechercher un utilisateur..."
+          placeholder={`${t.common.search}...`}
           className="flex-1 min-w-48 bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff]/40"
         />
         <select
@@ -185,14 +189,14 @@ function UsersTab({ meId }: { meId?: number | undefined }) {
           onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => { setRoleFilter(e.target.value); setPage(1); }}
           className="bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#7d8590] focus:outline-none focus:border-[#58a6ff]/40"
         >
-          <option value="">Tous les rôles</option>
+          <option value="">{t.common.all}</option>
           {ROLE_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
         </select>
         <button
           onClick={() => setShowCreate(true)}
           className="flex items-center gap-2 px-3 py-2 text-xs font-mono bg-[#1f6feb]/20 border border-[#1f6feb]/30 hover:bg-[#1f6feb]/30 text-[#58a6ff] rounded-md transition-colors"
         >
-          <Plus size={12} /> Nouvel utilisateur
+          <Plus size={12} /> {t.admin.addUser}
         </button>
       </div>
 
@@ -206,7 +210,7 @@ function UsersTab({ meId }: { meId?: number | undefined }) {
           page={page}
           limit={20}
           onPageChange={setPage}
-          emptyMessage="Aucun utilisateur"
+          emptyMessage={t.common.noData}
         />
       </div>
 
@@ -247,7 +251,7 @@ function UsersTab({ meId }: { meId?: number | undefined }) {
             />
             <div className="flex gap-2">
               <button onClick={() => { setResetTarget(null); setNewPassword(""); }}
-                className="flex-1 py-2 text-xs font-mono border border-[#30363d] text-[#7d8590] rounded-md">Annuler</button>
+                className="flex-1 py-2 text-xs font-mono border border-[#30363d] text-[#7d8590] rounded-md">{t.common.cancel}</button>
               <button
                 disabled={newPassword.length < 8 || resetMutation.isPending}
                 onClick={() => resetMutation.mutate({ id: resetTarget.id, newPassword })}
@@ -269,6 +273,13 @@ function EditUserForm({ user, onSave, onClose, isPending }: {
   onClose: () => void;
   isPending: boolean;
 }) {
+  const { t } = useI18n();
+  const ROLE_OPTIONS = [
+    { value: "analyst",            label: t.admin.roles.analyst },
+    { value: "supervisor",         label: t.admin.roles.supervisor },
+    { value: "compliance_officer", label: t.admin.roles.compliance_officer },
+    { value: "admin",              label: t.admin.roles.admin },
+  ];
   const [name, setName]         = useState(user.name);
   const [role, setRole]         = useState<User["role"]>(user.role);
   const [dept, setDept]         = useState(user.department ?? "");
@@ -277,12 +288,12 @@ function EditUserForm({ user, onSave, onClose, isPending }: {
   return (
     <div className="space-y-3">
       <div>
-        <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">Nom</label>
+        <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">{t.common.name}</label>
         <input value={name} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setName(e.target.value)}
           className="w-full bg-[#161b22] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#e6edf3] focus:outline-none focus:border-[#58a6ff]/40" />
       </div>
       <div>
-        <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">Rôle</label>
+        <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">{t.admin.role}</label>
         <select value={role} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setRole(e.target.value as User["role"])}
           className="w-full bg-[#161b22] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#7d8590] focus:outline-none focus:border-[#58a6ff]/40">
           {ROLE_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
@@ -304,7 +315,7 @@ function EditUserForm({ user, onSave, onClose, isPending }: {
       </div>
       <div className="flex gap-2 pt-2">
         <button onClick={onClose}
-          className="flex-1 py-2 text-xs font-mono border border-[#30363d] text-[#7d8590] rounded-md">Annuler</button>
+          className="flex-1 py-2 text-xs font-mono border border-[#30363d] text-[#7d8590] rounded-md">{t.common.cancel}</button>
         <button
           disabled={isPending}
           onClick={() => onSave({
@@ -315,7 +326,7 @@ function EditUserForm({ user, onSave, onClose, isPending }: {
           })}
           className="flex-1 py-2 text-xs font-mono bg-[#1f6feb]/20 border border-[#1f6feb]/30 text-[#58a6ff] hover:bg-[#1f6feb]/30 rounded-md disabled:opacity-40"
         >
-          {isPending ? "Enregistrement..." : "Enregistrer"}
+          {isPending ? "Enregistrement..." : t.common.save}
         </button>
       </div>
     </div>
@@ -323,6 +334,13 @@ function EditUserForm({ user, onSave, onClose, isPending }: {
 }
 
 function CreateUserModal({ onClose }: { onClose: () => void }) {
+  const { t } = useI18n();
+  const ROLE_OPTIONS = [
+    { value: "analyst",            label: t.admin.roles.analyst },
+    { value: "supervisor",         label: t.admin.roles.supervisor },
+    { value: "compliance_officer", label: t.admin.roles.compliance_officer },
+    { value: "admin",              label: t.admin.roles.admin },
+  ];
   const utils = trpc.useUtils();
   const [form, setForm] = useState({
     email: "", name: "", password: "", role: "analyst" as User["role"], department: "",
@@ -352,7 +370,7 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
             </div>
           ))}
           <div>
-            <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">Rôle *</label>
+            <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">{t.admin.role} *</label>
             <select value={form.role} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setForm((f: typeof form) => ({ ...f, role: e.target.value as User["role"] }))}
               className="w-full bg-[#161b22] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#7d8590] focus:outline-none focus:border-[#58a6ff]/40">
               {ROLE_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
@@ -362,7 +380,7 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
         {mutation.error && <p className="mt-3 text-xs font-mono text-red-400">{mutation.error.message}</p>}
         <div className="flex gap-2 mt-5">
           <button onClick={onClose}
-            className="flex-1 py-2 text-xs font-mono border border-[#30363d] text-[#7d8590] rounded-md">Annuler</button>
+            className="flex-1 py-2 text-xs font-mono border border-[#30363d] text-[#7d8590] rounded-md">{t.common.cancel}</button>
           <button
             disabled={!form.email || !form.name || form.password.length < 8 || mutation.isPending}
             onClick={() => mutation.mutate({

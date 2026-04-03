@@ -40,7 +40,11 @@ const mockCustomer = {
   sourceOfFunds: "Salaire", monthlyIncome: "5000.00",
   customerType: "INDIVIDUAL" as const, kycStatus: "APPROVED" as const,
   riskLevel: "HIGH" as const, riskScore: 75, pepStatus: false,
-  sanctionStatus: "CLEAR" as const, lastReviewDate: null, nextReviewDate: null,
+  sanctionStatus: "CLEAR" as const,
+  frozenAt: null, frozenReason: null, frozenBy: null,
+  erasureRequestedAt: null, erasureCompletedAt: null,
+  erasureRequestedBy: null, erasureCompletedBy: null,
+  lastReviewDate: null, nextReviewDate: null,
   assignedAnalyst: null, notes: null,
   createdAt: new Date("2024-01-01"), updatedAt: new Date("2024-01-01"),
 };

@@ -9,6 +9,7 @@
  */
 
 import type { Amld6KpiResult } from "./reports.amld6";
+import type { Report, Customer, Transaction } from "../../../drizzle/schema";
 import { createLogger } from "../../_core/logger";
 
 const log = createLogger("reports-pdf");
@@ -302,6 +303,432 @@ export async function generateAmld6Pdf(kpis: Amld6KpiResult): Promise<Buffer> {
       });
     } catch (err) {
       log.error({ err }, "Erreur génération PDF");
+      reject(err);
+    }
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PDF — Rapport SAR / STR individuel
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function generateReportPdf(report: Report, customer: Customer): Promise<Buffer> {
+  const pdfMake  = (await import("pdfmake/build/pdfmake")).default;
+  const vfsFonts = (await import("pdfmake/build/vfs_fonts")).default;
+  (pdfMake as unknown as { vfs: unknown }).vfs = (vfsFonts as unknown as { pdfMake: { vfs: unknown } }).pdfMake.vfs;
+
+  const orgName  = process.env["ORG_NAME"] ?? "Établissement Financier";
+  const genDate  = fmtDate(new Date());
+  const isSar    = report.reportType === "SAR";
+  const content  = (report.content ?? {}) as Record<string, unknown>;
+
+  const C = COLORS;
+
+  function row(label: string, value: string) {
+    return [
+      { text: label, style: "tableCell",      fillColor: "#f6f8fa" },
+      { text: value, style: "tableCellRight", bold: true },
+    ];
+  }
+
+  function section(title: string) {
+    return {
+      columns: [
+        { canvas: [{ type: "rect", x: 0, y: 0, w: 3, h: 14, color: C.blue, r: 1 }], width: 8 },
+        { text: title, style: "sectionTitle", margin: [4, 0, 0, 0] },
+      ],
+      margin: [0, 14, 0, 6],
+    };
+  }
+
+  const narrativeText = typeof content["narrativeSummary"] === "string"
+    ? content["narrativeSummary"]
+    : "—";
+  const evidenceText = typeof content["evidenceSummary"] === "string"
+    ? content["evidenceSummary"]
+    : "—";
+
+  const activitiesList = Array.isArray(content["suspiciousActivities"])
+    ? (content["suspiciousActivities"] as string[]).map(a => ({ text: `• ${a}`, style: "bodyText", margin: [0, 2, 0, 2] }))
+    : [];
+  const partiesList = Array.isArray(content["involvedParties"])
+    ? (content["involvedParties"] as string[]).map(p => ({ text: `• ${p}`, style: "bodyText", margin: [0, 2, 0, 2] }))
+    : [];
+
+  const dd = {
+    pageSize: "A4",
+    pageMargins: [50, 60, 50, 60],
+
+    styles: {
+      cover:         { fontSize: 24, bold: true, color: C.primary },
+      coverSub:      { fontSize: 11, color: C.muted, margin: [0, 3, 0, 0] },
+      sectionTitle:  { fontSize: 12, bold: true, color: C.primary },
+      tableCell:     { fontSize: 10, color: C.primary },
+      tableCellRight:{ fontSize: 10, color: C.primary },
+      bodyText:      { fontSize: 10, color: C.primary, lineHeight: 1.5 },
+      labelText:     { fontSize: 9, color: C.muted, bold: true, margin: [0, 0, 0, 3] },
+      footer:        { fontSize: 8, color: C.muted },
+    },
+
+    header: (p: number) => p === 1 ? {} : {
+      columns: [
+        { text: `${report.reportType} ${report.reportId} — ${orgName}`, style: "footer", margin: [50, 20, 0, 0] },
+        { text: `Page ${p}`, style: "footer", alignment: "right", margin: [0, 20, 50, 0] },
+      ],
+    },
+    footer: () => ({
+      columns: [
+        { text: `Généré le ${genDate} — CONFIDENTIEL`, style: "footer", margin: [50, 0, 0, 0] },
+        { text: "Document à usage interne", style: "footer", alignment: "right", margin: [0, 0, 50, 0] },
+      ],
+    }),
+
+    content: [
+      // ── Couverture
+      { text: isSar ? "DÉCLARATION D'ACTIVITÉ SUSPECTE" : "DÉCLARATION DE TRANSACTION SUSPECTE", style: "cover", margin: [0, 50, 0, 0] },
+      { text: isSar ? "Suspicious Activity Report (SAR)" : "Suspicious Transaction Report (STR)", style: "coverSub" },
+      { text: orgName, style: "coverSub", bold: true },
+      { canvas: [{ type: "line", x1: 0, y1: 0, x2: 495, y2: 0, lineWidth: 1, lineColor: C.border }], margin: [0, 16, 0, 16] },
+      { text: `Réf. : ${report.reportId}`, style: "coverSub" },
+      { text: `Statut : ${report.status}`, style: "coverSub" },
+      { text: `Créé le : ${fmtDate(report.createdAt)}`, style: "coverSub" },
+      { text: "CONFIDENTIEL — Document à usage interne", style: "coverSub", color: C.red },
+      { text: "", pageBreak: "after" },
+
+      // ── Identité du rapport
+      section("1. IDENTIFICATION DU RAPPORT"),
+      {
+        table: {
+          widths: ["35%", "*"],
+          body: [
+            row("Référence", report.reportId),
+            row("Type", report.reportType),
+            row("Statut", report.status),
+            row("Type de suspicion", report.suspicionType ?? "—"),
+            row("Montant impliqué", report.amountInvolved ? `${report.amountInvolved} ${report.currency ?? "EUR"}` : "—"),
+            row("Date de création", fmtDate(report.createdAt)),
+            row("Dernière mise à jour", fmtDate(report.updatedAt)),
+          ],
+        },
+        layout: {
+          fillColor: (i: number) => i % 2 === 0 ? "#f6f8fa" : C.white,
+          hLineWidth: () => 0.5,
+          vLineWidth: () => 0,
+          hLineColor: () => C.border,
+          paddingLeft: () => 10,
+          paddingRight: () => 10,
+          paddingTop: () => 6,
+          paddingBottom: () => 6,
+        },
+        margin: [0, 4, 0, 16],
+      },
+
+      // ── Identité du client
+      section("2. SUJET DE LA DÉCLARATION"),
+      {
+        table: {
+          widths: ["35%", "*"],
+          body: [
+            row("Client ID",    String(customer.id)),
+            row("Nom complet",  `${customer.firstName} ${customer.lastName}`),
+            row("Date de naissance", customer.dateOfBirth ? fmtDate(customer.dateOfBirth) : "—"),
+            row("Nationalité",  customer.nationality ?? "—"),
+            row("Niveau de risque", customer.riskLevel ?? "—"),
+            row("Score de risque",  String(customer.riskScore ?? "—")),
+            row("Statut PPE", customer.pepStatus ? "OUI" : "NON"),
+          ],
+        },
+        layout: {
+          fillColor: (i: number) => i % 2 === 0 ? "#f6f8fa" : C.white,
+          hLineWidth: () => 0.5,
+          vLineWidth: () => 0,
+          hLineColor: () => C.border,
+          paddingLeft: () => 10,
+          paddingRight: () => 10,
+          paddingTop: () => 6,
+          paddingBottom: () => 6,
+        },
+        margin: [0, 4, 0, 16],
+      },
+
+      // ── Activités suspectes (SAR) ou détails transaction (STR)
+      ...(isSar ? [
+        section("3. ACTIVITÉS SUSPECTES"),
+        { text: "Description du sujet :", style: "labelText" },
+        { text: String(content["subjectDescription"] ?? "—"), style: "bodyText", margin: [0, 0, 0, 12] },
+        ...(activitiesList.length > 0 ? [
+          { text: "Activités suspectes identifiées :", style: "labelText" },
+          ...activitiesList,
+          { text: "", margin: [0, 8, 0, 0] },
+        ] : []),
+      ] : [
+        section("3. DÉTAILS DE LA TRANSACTION SUSPECTE"),
+        {
+          table: {
+            widths: ["35%", "*"],
+            body: [
+              row("ID Transaction",  String(content["transactionId"] ?? "—")),
+              row("Date",            content["transactionDate"] ? fmtDate(String(content["transactionDate"])) : "—"),
+              row("Montant",         String(content["transactionAmount"] ?? "—")),
+              row("Type",            String(content["transactionType"] ?? "—")),
+              row("Motif",           String(content["suspicionBasis"] ?? "—")),
+            ],
+          },
+          layout: {
+            fillColor: (i: number) => i % 2 === 0 ? "#f6f8fa" : C.white,
+            hLineWidth: () => 0.5,
+            vLineWidth: () => 0,
+            hLineColor: () => C.border,
+            paddingLeft: () => 10,
+            paddingRight: () => 10,
+            paddingTop: () => 6,
+            paddingBottom: () => 6,
+          },
+          margin: [0, 4, 0, 12],
+        },
+        ...(partiesList.length > 0 ? [
+          { text: "Parties impliquées :", style: "labelText" },
+          ...partiesList,
+          { text: "", margin: [0, 8, 0, 0] },
+        ] : []),
+      ]),
+
+      // ── Preuves & narration
+      section("4. PREUVES ET SYNTHÈSE NARRATIVE"),
+      { text: "Résumé des preuves :", style: "labelText" },
+      { text: evidenceText, style: "bodyText", margin: [0, 0, 0, 12] },
+      { text: "Synthèse narrative :", style: "labelText" },
+      { text: narrativeText, style: "bodyText" },
+    ],
+  };
+
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = pdfMake.createPdf(dd as unknown as Parameters<typeof pdfMake.createPdf>[0]);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (doc as any).getBuffer((buffer: Uint8Array) => resolve(Buffer.from(buffer)));
+    } catch (err) {
+      log.error({ err }, "Erreur génération PDF rapport");
+      reject(err);
+    }
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PDF — Fiche KYC client
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function generateKycPdf(
+  customer: Customer,
+  transactions: Transaction[],
+): Promise<Buffer> {
+  const pdfMake  = (await import("pdfmake/build/pdfmake")).default;
+  const vfsFonts = (await import("pdfmake/build/vfs_fonts")).default;
+  (pdfMake as unknown as { vfs: unknown }).vfs = (vfsFonts as unknown as { pdfMake: { vfs: unknown } }).pdfMake.vfs;
+
+  const orgName = process.env["ORG_NAME"] ?? "Établissement Financier";
+  const genDate = fmtDate(new Date());
+  const C = COLORS;
+
+  function row(label: string, value: string) {
+    return [
+      { text: label, style: "tableCell", fillColor: "#f6f8fa" },
+      { text: value, style: "tableCellRight", bold: true },
+    ];
+  }
+
+  function section(title: string) {
+    return {
+      columns: [
+        { canvas: [{ type: "rect", x: 0, y: 0, w: 3, h: 14, color: C.blue, r: 1 }], width: 8 },
+        { text: title, style: "sectionTitle", margin: [4, 0, 0, 0] },
+      ],
+      margin: [0, 14, 0, 6],
+    };
+  }
+
+  const RISK_COLORS: Record<string, string> = {
+    CRITICAL: C.red, HIGH: C.amber, MEDIUM: C.amber, LOW: C.green,
+  };
+  const riskColor = RISK_COLORS[customer.riskLevel ?? "LOW"] ?? C.muted;
+
+  const recentTx = transactions.slice(0, 10);
+  const suspiciousCount = transactions.filter(t => t.isSuspicious).length;
+  const totalAmount = transactions
+    .filter(t => t.status === "COMPLETED")
+    .reduce((sum, t) => sum + Number(t.amount), 0);
+
+  const dd = {
+    pageSize: "A4",
+    pageMargins: [50, 60, 50, 60],
+
+    styles: {
+      cover:         { fontSize: 22, bold: true, color: C.primary },
+      coverSub:      { fontSize: 11, color: C.muted, margin: [0, 3, 0, 0] },
+      sectionTitle:  { fontSize: 12, bold: true, color: C.primary },
+      tableCell:     { fontSize: 10, color: C.primary },
+      tableCellRight:{ fontSize: 10, color: C.primary },
+      bodyText:      { fontSize: 10, color: C.primary, lineHeight: 1.5 },
+      labelText:     { fontSize: 9, color: C.muted, bold: true, margin: [0, 0, 0, 3] },
+      txHeader:      { fontSize: 9, bold: true, color: C.white, fillColor: C.primary },
+      txCell:        { fontSize: 9, color: C.primary },
+      footer:        { fontSize: 8, color: C.muted },
+    },
+
+    header: (p: number) => p === 1 ? {} : {
+      columns: [
+        { text: `Fiche KYC — ${customer.firstName} ${customer.lastName} — ${orgName}`, style: "footer", margin: [50, 20, 0, 0] },
+        { text: `Page ${p}`, style: "footer", alignment: "right", margin: [0, 20, 50, 0] },
+      ],
+    },
+    footer: () => ({
+      columns: [
+        { text: `Généré le ${genDate} — CONFIDENTIEL`, style: "footer", margin: [50, 0, 0, 0] },
+        { text: "Document à usage interne", style: "footer", alignment: "right", margin: [0, 0, 50, 0] },
+      ],
+    }),
+
+    content: [
+      // ── Couverture
+      { text: "FICHE KYC CLIENT", style: "cover", margin: [0, 50, 0, 0] },
+      { text: "Know Your Customer — Synthèse de conformité", style: "coverSub" },
+      { text: orgName, style: "coverSub", bold: true },
+      { canvas: [{ type: "line", x1: 0, y1: 0, x2: 495, y2: 0, lineWidth: 1, lineColor: C.border }], margin: [0, 16, 0, 16] },
+      { text: `Client : ${customer.firstName} ${customer.lastName}`, style: "coverSub", bold: true },
+      { text: `Généré le : ${genDate}`, style: "coverSub" },
+      {
+        text: `Niveau de risque : ${customer.riskLevel ?? "—"}`,
+        style: "coverSub",
+        color: riskColor,
+        bold: true,
+      },
+      { text: "CONFIDENTIEL — Document à usage interne", style: "coverSub", color: C.red },
+      { text: "", pageBreak: "after" },
+
+      // ── Identité
+      section("1. IDENTITÉ DU CLIENT"),
+      {
+        table: {
+          widths: ["35%", "*"],
+          body: [
+            row("ID Client",        String(customer.id)),
+            row("Prénom",           customer.firstName),
+            row("Nom",              customer.lastName),
+            row("Date de naissance", customer.dateOfBirth ? fmtDate(customer.dateOfBirth) : "—"),
+            row("Nationalité",      customer.nationality ?? "—"),
+            row("Pays de résidence", customer.residenceCountry ?? "—"),
+            row("Email",            customer.email ?? "—"),
+            row("Téléphone",        customer.phone ?? "—"),
+            row("Type de client",   customer.customerType ?? "—"),
+          ],
+        },
+        layout: {
+          fillColor: (i: number) => i % 2 === 0 ? "#f6f8fa" : C.white,
+          hLineWidth: () => 0.5, vLineWidth: () => 0,
+          hLineColor: () => C.border,
+          paddingLeft: () => 10, paddingRight: () => 10,
+          paddingTop: () => 6, paddingBottom: () => 6,
+        },
+        margin: [0, 4, 0, 16],
+      },
+
+      // ── Profil de risque
+      section("2. PROFIL DE RISQUE AML"),
+      {
+        table: {
+          widths: ["35%", "*"],
+          body: [
+            row("Niveau de risque",  customer.riskLevel ?? "—"),
+            row("Score de risque",   String(customer.riskScore ?? 0)),
+            row("Statut PPE",        customer.pepStatus ? "OUI" : "NON"),
+            row("Correspondance sanctions", customer.sanctionStatus === "MATCH" ? "OUI — VÉRIFICATION REQUISE" : "NON"),
+            row("Actifs gelés",      customer.frozenAt ? `OUI — ${customer.frozenReason ?? ""}`.trim() : "NON"),
+            row("Statut KYC",        customer.kycStatus ?? "—"),
+            row("Dernière revue",    customer.lastReviewDate ? fmtDate(customer.lastReviewDate) : "—"),
+            row("Prochaine revue",   customer.nextReviewDate ? fmtDate(customer.nextReviewDate) : "—"),
+          ],
+        },
+        layout: {
+          fillColor: (i: number) => i % 2 === 0 ? "#f6f8fa" : C.white,
+          hLineWidth: () => 0.5, vLineWidth: () => 0,
+          hLineColor: () => C.border,
+          paddingLeft: () => 10, paddingRight: () => 10,
+          paddingTop: () => 6, paddingBottom: () => 6,
+        },
+        margin: [0, 4, 0, 16],
+      },
+
+      // ── Résumé transactions
+      section("3. RÉSUMÉ DES TRANSACTIONS"),
+      {
+        table: {
+          widths: ["35%", "*"],
+          body: [
+            row("Total transactions",     String(transactions.length)),
+            row("Transactions suspectes", String(suspiciousCount)),
+            row("Volume total (complétées)", fmtEur(totalAmount)),
+          ],
+        },
+        layout: {
+          fillColor: (i: number) => i % 2 === 0 ? "#f6f8fa" : C.white,
+          hLineWidth: () => 0.5, vLineWidth: () => 0,
+          hLineColor: () => C.border,
+          paddingLeft: () => 10, paddingRight: () => 10,
+          paddingTop: () => 6, paddingBottom: () => 6,
+        },
+        margin: [0, 4, 0, 12],
+      },
+
+      ...(recentTx.length > 0 ? [
+        { text: "10 dernières transactions :", style: "labelText", margin: [0, 4, 0, 6] },
+        {
+          table: {
+            widths: ["*", "auto", "auto", "auto", "auto"],
+            headerRows: 1,
+            body: [
+              [
+                { text: "Réf.",        style: "txHeader" },
+                { text: "Date",        style: "txHeader" },
+                { text: "Montant",     style: "txHeader", alignment: "right" },
+                { text: "Type",        style: "txHeader" },
+                { text: "Statut",      style: "txHeader" },
+              ],
+              ...recentTx.map(tx => ([
+                { text: tx.transactionId,  style: "txCell" },
+                { text: fmtDate(tx.transactionDate), style: "txCell" },
+                { text: fmtEur(Number(tx.amount)), style: "txCell", alignment: "right", color: tx.isSuspicious ? C.amber : C.primary },
+                { text: tx.transactionType, style: "txCell" },
+                { text: tx.status, style: "txCell", color: tx.status === "FLAGGED" || tx.status === "BLOCKED" ? C.red : C.green },
+              ])),
+            ],
+          },
+          layout: {
+            fillColor: (i: number) => i === 0 ? C.primary : i % 2 === 0 ? "#f6f8fa" : C.white,
+            hLineWidth: () => 0.5, vLineWidth: () => 0,
+            hLineColor: () => C.border,
+            paddingLeft: () => 8, paddingRight: () => 8,
+            paddingTop: () => 5, paddingBottom: () => 5,
+          },
+          margin: [0, 0, 0, 16],
+        },
+      ] : []),
+
+      // ── Déclaration
+      { canvas: [{ type: "line", x1: 0, y1: 0, x2: 495, y2: 0, lineWidth: 0.5, lineColor: C.border }], margin: [0, 8, 0, 16] },
+      {
+        text: `Fiche générée automatiquement le ${genDate} par la plateforme KYC/AML de ${orgName}. Document confidentiel à usage interne. Toute divulgation non autorisée est interdite.`,
+        fontSize: 8, color: C.muted, lineHeight: 1.5,
+      },
+    ],
+  };
+
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = pdfMake.createPdf(dd as unknown as Parameters<typeof pdfMake.createPdf>[0]);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (doc as any).getBuffer((buffer: Uint8Array) => resolve(Buffer.from(buffer)));
+    } catch (err) {
+      log.error({ err }, "Erreur génération PDF KYC");
       reject(err);
     }
   });

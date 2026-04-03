@@ -5,6 +5,8 @@ import { formatRelative } from "../lib/utils";
 import { getAccessToken } from "../lib/auth";
 import { useAuth } from "../hooks/useAuth";
 import { hasRole } from "../lib/auth";
+import { useI18n } from "../hooks/useI18n";
+import type { TDict } from "../hooks/useI18n";
 import {
   Upload, FileText, Eye, CheckCircle, XCircle,
   AlertTriangle, RefreshCw, ShieldCheck, ShieldAlert,
@@ -33,34 +35,17 @@ type KycDocument = {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const DOC_TYPE_LABELS: Record<string, string> = {
-  PASSPORT:         "Passeport",
-  ID_CARD:          "Carte d'identité",
-  DRIVING_LICENSE:  "Permis de conduire",
-  PROOF_OF_ADDRESS: "Justificatif de domicile",
-  SELFIE:           "Selfie",
-  BANK_STATEMENT:   "Relevé bancaire",
-  OTHER:            "Autre",
-};
-
-const EKYC_STATUS_CONFIG = {
-  PASS:       { color: "text-emerald-400", bg: "bg-emerald-400/10 border-emerald-400/20", icon: ShieldCheck, label: "Vérifié" },
-  REVIEW:     { color: "text-amber-400",   bg: "bg-amber-400/10 border-amber-400/20",   icon: AlertTriangle, label: "À réviser" },
-  FAIL:       { color: "text-red-400",     bg: "bg-red-400/10 border-red-400/20",       icon: ShieldAlert, label: "Échoué" },
-  PROCESSING: { color: "text-[#58a6ff]",   bg: "bg-[#1f6feb]/10 border-[#1f6feb]/20",  icon: RefreshCw, label: "En cours" },
-  PENDING:    { color: "text-[#7d8590]",   bg: "bg-[#161b22] border-[#21262d]",        icon: Clock, label: "En attente" },
-};
-
-function ekycBadge(status: string) {
-  const cfg = EKYC_STATUS_CONFIG[status as keyof typeof EKYC_STATUS_CONFIG]
-    ?? EKYC_STATUS_CONFIG.PENDING;
-  const Icon = cfg.icon;
-  return (
-    <span className={`inline-flex items-center gap-1.5 text-[10px] font-mono px-2 py-1 rounded border ${cfg.bg} ${cfg.color}`}>
-      <Icon size={11} className={status === "PROCESSING" ? "animate-spin" : ""} />
-      {cfg.label}
-    </span>
-  );
+function getDocTypeLabel(type: string, t: TDict): string {
+  const map: Record<string, string> = {
+    PASSPORT:         t.documents.typePassport,
+    ID_CARD:          t.documents.typeIdCard,
+    DRIVING_LICENSE:  t.documents.typeDrivingLicense,
+    PROOF_OF_ADDRESS: t.documents.typeProofAddress,
+    SELFIE:           t.documents.typeSelfie,
+    BANK_STATEMENT:   t.documents.typeBankStatement,
+    OTHER:            t.documents.typeOther,
+  };
+  return map[type] ?? type;
 }
 
 function checkIcon(status: EkycCheck["status"]) {
@@ -73,6 +58,7 @@ function checkIcon(status: EkycCheck["status"]) {
 // ─── Upload zone ─────────────────────────────────────────────────────────────
 
 function UploadZone({ customerId, onSuccess }: { customerId: number; onSuccess: () => void }) {
+  const { t } = useI18n();
   const [dragging, setDragging]   = useState(false);
   const [_uploading, setUploading] = useState(false);
   const [progress, setProgress]   = useState<string | null>(null);
@@ -83,7 +69,7 @@ function UploadZone({ customerId, onSuccess }: { customerId: number; onSuccess: 
   const doUpload = useCallback(async (file: File) => {
     setError(null);
     setUploading(true);
-    setProgress("Envoi en cours…");
+    setProgress(t.common.loading);
 
     try {
       const formData = new FormData();
@@ -100,19 +86,19 @@ function UploadZone({ customerId, onSuccess }: { customerId: number; onSuccess: 
 
       const data = await res.json() as { success?: boolean; error?: string };
       if (!res.ok || !data.success) {
-        setError(data.error ?? "Erreur upload");
+        setError(data.error ?? t.common.uploadError);
         return;
       }
 
-      setProgress("Fichier uploadé — OCR en cours en arrière-plan…");
+      setProgress(t.documents.uploadDone);
       setTimeout(() => { setProgress(null); onSuccess(); }, 2000);
 
     } catch {
-      setError("Erreur réseau — réessayer");
+      setError(t.common.networkError);
     } finally {
       setUploading(false);
     }
-  }, [customerId, docType, onSuccess]);
+  }, [customerId, docType, onSuccess, t]);
 
   const onDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -126,14 +112,14 @@ function UploadZone({ customerId, onSuccess }: { customerId: number; onSuccess: 
       {/* Sélecteur type de document */}
       <div>
         <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">
-          Type de document
+          {t.documents.docType}
         </label>
         <select value={docType}
           onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setDocType(e.target.value)}
           className="bg-[#161b22] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#e6edf3] focus:outline-none focus:border-[#58a6ff]/40 w-full"
         >
-          {Object.entries(DOC_TYPE_LABELS).map(([k, v]) => (
-            <option key={k} value={k}>{v}</option>
+          {(["PASSPORT","ID_CARD","DRIVING_LICENSE","PROOF_OF_ADDRESS","SELFIE","BANK_STATEMENT","OTHER"] as const).map((k) => (
+            <option key={k} value={k}>{getDocTypeLabel(k, t)}</option>
           ))}
         </select>
       </div>
@@ -158,7 +144,7 @@ function UploadZone({ customerId, onSuccess }: { customerId: number; onSuccess: 
         />
         <Upload size={24} className="text-[#484f58] mx-auto mb-2" />
         <p className="text-xs font-mono text-[#7d8590]">
-          Glisser-déposer ou <span className="text-[#58a6ff]">cliquer pour sélectionner</span>
+          {t.documents.dragDrop}
         </p>
         <p className="text-[10px] font-mono text-[#484f58] mt-1">
           JPG, PNG, WEBP, PDF — max {10} Mo
@@ -191,9 +177,30 @@ interface DocumentCardProps {
 }
 
 function DocumentCard({ doc, canVerify, onRefresh }: DocumentCardProps) {
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
   const [showViewer, setShowViewer] = useState(false);
   const utils = trpc.useUtils();
+
+  const EKYC_STATUS_CONFIG = {
+    PASS:       { color: "text-emerald-400", bg: "bg-emerald-400/10 border-emerald-400/20", icon: ShieldCheck, label: t.documents.ekycVerified },
+    REVIEW:     { color: "text-amber-400",   bg: "bg-amber-400/10 border-amber-400/20",   icon: AlertTriangle, label: t.documents.ekycReview },
+    FAIL:       { color: "text-red-400",     bg: "bg-red-400/10 border-red-400/20",       icon: ShieldAlert, label: t.documents.ekycFailed },
+    PROCESSING: { color: "text-[#58a6ff]",   bg: "bg-[#1f6feb]/10 border-[#1f6feb]/20",  icon: RefreshCw, label: t.documents.ekycProcessing },
+    PENDING:    { color: "text-[#7d8590]",   bg: "bg-[#161b22] border-[#21262d]",        icon: Clock, label: t.documents.ekycPending },
+  };
+
+  function ekycBadge(status: string) {
+    const cfg = EKYC_STATUS_CONFIG[status as keyof typeof EKYC_STATUS_CONFIG]
+      ?? EKYC_STATUS_CONFIG.PENDING;
+    const Icon = cfg.icon;
+    return (
+      <span className={`inline-flex items-center gap-1.5 text-[10px] font-mono px-2 py-1 rounded border ${cfg.bg} ${cfg.color}`}>
+        <Icon size={11} className={status === "PROCESSING" ? "animate-spin" : ""} />
+        {cfg.label}
+      </span>
+    );
+  }
 
   const verifyMutation = trpc.documents.verify.useMutation({
     onSuccess: () => { utils.documents.getByCustomer.invalidate(); onRefresh(); },
@@ -213,21 +220,21 @@ function DocumentCard({ doc, canVerify, onRefresh }: DocumentCardProps) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-mono font-medium text-[#e6edf3]">
-              {DOC_TYPE_LABELS[doc.documentType] ?? doc.documentType}
+              {getDocTypeLabel(doc.documentType, t)}
             </span>
             {ekycBadge(doc.ekycStatus)}
             {doc.ekycScore !== null && (
               <span className="text-[10px] font-mono text-[#484f58]">
-                Score {doc.ekycScore}/100
+                {t.documents.scoreLabel} {doc.ekycScore}/100
               </span>
             )}
           </div>
           <div className="flex items-center gap-3 mt-0.5">
             {doc.documentNumber && (
-              <span className="text-[10px] font-mono text-[#7d8590]">N° {doc.documentNumber}</span>
+              <span className="text-[10px] font-mono text-[#7d8590]">{t.documents.docNumber} {doc.documentNumber}</span>
             )}
             {doc.expiryDate && (
-              <span className="text-[10px] font-mono text-[#7d8590]">Exp. {doc.expiryDate}</span>
+              <span className="text-[10px] font-mono text-[#7d8590]">{t.documents.expiry} {doc.expiryDate}</span>
             )}
             <span className="text-[10px] font-mono text-[#484f58]">
               {formatRelative(doc.createdAt)}
@@ -239,7 +246,7 @@ function DocumentCard({ doc, canVerify, onRefresh }: DocumentCardProps) {
           {doc.fileUrl && (
             <button onClick={() => setShowViewer(true)}
               className="p-1.5 hover:bg-[#161b22] rounded text-[#484f58] hover:text-[#e6edf3]"
-              title="Voir le document">
+              title={t.documents.viewDocument}>
               <Eye size={13} />
             </button>
           )}
@@ -258,7 +265,7 @@ function DocumentCard({ doc, canVerify, onRefresh }: DocumentCardProps) {
           {checks.length > 0 && (
             <div>
               <p className="text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-2">
-                Contrôles eKYC
+                {t.documents.ekycChecks}
               </p>
               <div className="space-y-1.5">
                 {checks.map((c) => (
@@ -281,22 +288,22 @@ function DocumentCard({ doc, canVerify, onRefresh }: DocumentCardProps) {
           {ocrData && Object.keys(ocrData).length > 0 && (
             <div>
               <p className="text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-2">
-                Données OCR extraites
+                {t.documents.ocrData}
                 {doc.ocrConfidence !== null && (
                   <span className="ml-2 normal-case text-[#484f58]">
-                    (confiance {doc.ocrConfidence}%)
+                    ({t.documents.confidence} {doc.ocrConfidence}%)
                   </span>
                 )}
               </p>
               <div className="grid grid-cols-2 gap-x-6 gap-y-1">
                 {[
-                  ["Prénom",        ocrData["firstName"]],
-                  ["Nom",           ocrData["lastName"]],
-                  ["Date naissance", ocrData["dateOfBirth"]],
-                  ["N° document",   ocrData["documentNumber"]],
-                  ["Expiration",    ocrData["expiryDate"]],
-                  ["Nationalité",   ocrData["nationality"]],
-                  ["Pays émetteur", ocrData["issuingCountry"]],
+                  [t.documents.ocrFirstName,      ocrData["firstName"]],
+                  [t.documents.ocrLastName,        ocrData["lastName"]],
+                  [t.documents.ocrDateOfBirth,     ocrData["dateOfBirth"]],
+                  [t.documents.ocrDocNumber,       ocrData["documentNumber"]],
+                  [t.documents.ocrExpiry,          ocrData["expiryDate"]],
+                  [t.documents.ocrNationality,     ocrData["nationality"]],
+                  [t.documents.ocrIssuingCountry,  ocrData["issuingCountry"]],
                 ].filter(([, v]) => v).map(([label, value]) => (
                   <div key={String(label)} className="flex justify-between text-[10px] font-mono">
                     <span className="text-[#484f58]">{String(label)}</span>
@@ -316,7 +323,7 @@ function DocumentCard({ doc, canVerify, onRefresh }: DocumentCardProps) {
                 className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-mono bg-emerald-400/10 border border-emerald-400/30 text-emerald-400 hover:bg-emerald-400/20 rounded-md"
               >
                 <CheckCircle size={11} />
-                Vérifier manuellement
+                {t.documents.verifyManually}
               </button>
               {doc.ekycStatus !== "FAIL" && (
                 <button
@@ -325,7 +332,7 @@ function DocumentCard({ doc, canVerify, onRefresh }: DocumentCardProps) {
                   className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-mono bg-red-400/10 border border-red-400/30 text-red-400 hover:bg-red-400/20 rounded-md"
                 >
                   <XCircle size={11} />
-                  Rejeter
+                  {t.documents.reject}
                 </button>
               )}
             </div>
@@ -354,6 +361,7 @@ function DocumentCard({ doc, canVerify, onRefresh }: DocumentCardProps) {
 // ─── Page principale ──────────────────────────────────────────────────────────
 
 export function DocumentsPage() {
+  const { t } = useI18n();
   const { user } = useAuth();
   const canVerify = hasRole(user, "supervisor");
 
@@ -374,9 +382,9 @@ export function DocumentsPage() {
   return (
     <AppLayout>
       <div className="mb-6">
-        <h1 className="text-lg font-semibold text-[#e6edf3] font-mono">Documents KYC</h1>
+        <h1 className="text-lg font-semibold text-[#e6edf3] font-mono">{t.documents.title}</h1>
         <p className="text-xs font-mono text-[#7d8590] mt-0.5">
-          Upload, OCR automatique et vérification eKYC
+          {t.documents.subtitle}
         </p>
       </div>
 
@@ -385,7 +393,7 @@ export function DocumentsPage() {
         <div className="flex gap-3 items-end">
           <div className="flex-1">
             <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">
-              ID Client
+              {t.customers.clientId}
             </label>
             <input
               type="number" value={customerId}
@@ -401,7 +409,7 @@ export function DocumentsPage() {
               className="flex items-center gap-2 px-4 py-2 text-xs font-mono bg-[#1f6feb]/20 border border-[#1f6feb]/30 text-[#58a6ff] hover:bg-[#1f6feb]/30 rounded-md"
             >
               <Upload size={13} />
-              {showUpload ? "Fermer" : "Uploader un document"}
+              {showUpload ? t.common.close : t.documents.upload}
             </button>
           )}
         </div>
@@ -421,7 +429,7 @@ export function DocumentsPage() {
         <div className="text-center py-16">
           <FileText size={36} className="text-[#21262d] mx-auto mb-3" />
           <p className="text-xs font-mono text-[#484f58]">
-            Saisissez un ID client pour voir ses documents
+            {t.documents.noDocuments}
           </p>
         </div>
       )}
@@ -437,12 +445,12 @@ export function DocumentsPage() {
       {customerId && !isLoading && docs.length === 0 && (
         <div className="text-center py-12 bg-[#0d1117] border border-[#21262d] rounded-lg">
           <FileText size={28} className="text-[#30363d] mx-auto mb-2" />
-          <p className="text-xs font-mono text-[#484f58]">Aucun document pour ce client</p>
+          <p className="text-xs font-mono text-[#484f58]">{t.documents.noDocs}</p>
           <button
             onClick={() => setShowUpload(true)}
             className="mt-3 text-xs font-mono text-[#58a6ff] hover:underline"
           >
-            Uploader le premier document →
+            {t.documents.uploadFirst}
           </button>
         </div>
       )}
@@ -455,16 +463,16 @@ export function DocumentsPage() {
               {docs.length} document(s)
             </span>
             <span className="text-[10px] font-mono text-emerald-400">
-              {docs.filter(d => d.ekycStatus === "PASS").length} ✓ Vérifiés
+              {docs.filter(d => d.ekycStatus === "PASS").length} ✓ {t.documents.verified}
             </span>
             {docs.some(d => d.ekycStatus === "REVIEW") && (
               <span className="text-[10px] font-mono text-amber-400">
-                {docs.filter(d => d.ekycStatus === "REVIEW").length} ⚠ À réviser
+                {docs.filter(d => d.ekycStatus === "REVIEW").length} ⚠ {t.documents.ekycReview}
               </span>
             )}
             {docs.some(d => d.ekycStatus === "FAIL") && (
               <span className="text-[10px] font-mono text-red-400">
-                {docs.filter(d => d.ekycStatus === "FAIL").length} ✗ Échoués
+                {docs.filter(d => d.ekycStatus === "FAIL").length} ✗ {t.documents.ekycFailed}
               </span>
             )}
           </div>

@@ -7,6 +7,7 @@ import { trpc } from "../lib/trpc";
 import { formatRelative, formatNumber } from "../lib/utils";
 import { UserPlus } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+import { useI18n } from "../hooks/useI18n";
 
 type Alert = {
   id: number; alertId: string; scenario: string;
@@ -16,6 +17,7 @@ type Alert = {
 };
 
 export function AlertsPage() {
+  const { t } = useI18n();
   const { user } = useAuth();
   const [page, setPage] = useState(1);
   const [status, setStatus]   = useState<string>("");
@@ -40,11 +42,11 @@ export function AlertsPage() {
 
   const COLUMNS: Column<Alert>[] = [
     {
-      key: "id", header: "ID", width: "w-36",
+      key: "id", header: t.alerts.alertId, width: "w-36",
       render: (r) => <span className="font-mono text-xs text-[#58a6ff]">{r.alertId}</span>,
     },
     {
-      key: "scenario", header: "Scénario",
+      key: "scenario", header: t.alerts.scenario,
       render: (r) => (
         <div>
           <p className="text-xs text-[#e6edf3] font-mono">{r.scenario}</p>
@@ -57,15 +59,15 @@ export function AlertsPage() {
       render: (r) => <Badge label={r.alertType} />,
     },
     {
-      key: "priority", header: "Priorité", width: "w-28",
+      key: "priority", header: t.alerts.severity, width: "w-28",
       render: (r) => <Badge label={r.priority} variant="priority" />,
     },
     {
-      key: "status", header: "Statut", width: "w-32",
+      key: "status", header: t.common.status, width: "w-32",
       render: (r) => <Badge label={r.status} variant="status" />,
     },
     {
-      key: "score", header: "Score", width: "w-20",
+      key: "score", header: t.alerts.scoreLabel, width: "w-20",
       render: (r) => (
         <div className="flex items-center gap-1.5">
           <div className="w-16 h-1.5 bg-[#21262d] rounded-full overflow-hidden">
@@ -88,7 +90,7 @@ export function AlertsPage() {
           onClick={(e: React.MouseEvent) => { e.stopPropagation(); setSelected(r); }}
           className="text-[11px] font-mono text-[#58a6ff] hover:underline"
         >
-          Traiter
+          {t.common.submit}
         </button>
       ) : null,
     },
@@ -98,9 +100,9 @@ export function AlertsPage() {
     <AppLayout>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-lg font-semibold text-[#e6edf3] font-mono">Alertes AML</h1>
+          <h1 className="text-lg font-semibold text-[#e6edf3] font-mono">{t.alerts.title}</h1>
           <p className="text-xs font-mono text-[#7d8590] mt-0.5">
-            {data ? `${formatNumber(data.total)} alertes` : "—"}
+            {data ? t.alerts.subtitle.replace("{count}", formatNumber(data.total)) : "—"}
           </p>
         </div>
       </div>
@@ -112,23 +114,23 @@ export function AlertsPage() {
           onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => { setStatus(e.target.value); setPage(1); }}
           className="bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#7d8590] focus:outline-none focus:border-[#58a6ff]/40"
         >
-          <option value="">Tous les statuts</option>
-          <option value="OPEN">Ouvert</option>
-          <option value="IN_REVIEW">En révision</option>
-          <option value="ESCALATED">Escaladé</option>
-          <option value="CLOSED">Fermé</option>
-          <option value="FALSE_POSITIVE">Faux positif</option>
+          <option value="">{t.alerts.allStatuses}</option>
+          <option value="OPEN">{t.alerts.statusOpen}</option>
+          <option value="IN_REVIEW">{t.alerts.statusInReview}</option>
+          <option value="ESCALATED">{t.alerts.statusEscalated}</option>
+          <option value="CLOSED">{t.alerts.statusClosed}</option>
+          <option value="FALSE_POSITIVE">{t.alerts.statusFalsePositive}</option>
         </select>
         <select
           value={priority}
           onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => { setPriority(e.target.value); setPage(1); }}
           className="bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#7d8590] focus:outline-none focus:border-[#58a6ff]/40"
         >
-          <option value="">Toutes les priorités</option>
-          <option value="CRITICAL">Critique</option>
-          <option value="HIGH">Élevé</option>
-          <option value="MEDIUM">Moyen</option>
-          <option value="LOW">Bas</option>
+          <option value="">{t.alerts.allSeverities}</option>
+          <option value="CRITICAL">{t.alerts.critical}</option>
+          <option value="HIGH">{t.alerts.high}</option>
+          <option value="MEDIUM">{t.alerts.medium}</option>
+          <option value="LOW">{t.alerts.low}</option>
         </select>
       </div>
 
@@ -142,7 +144,7 @@ export function AlertsPage() {
           page={page}
           limit={20}
           onPageChange={setPage}
-          emptyMessage="Aucune alerte"
+          emptyMessage={t.alerts.noAlerts}
         />
       </div>
 
@@ -156,7 +158,7 @@ export function AlertsPage() {
             <div className="flex gap-2 mb-4">
               <Badge label={selected.priority} variant="priority" />
               <Badge label={selected.status} variant="status" />
-              <span className="text-[11px] font-mono text-[#7d8590]">Score : {selected.riskScore}</span>
+              <span className="text-[11px] font-mono text-[#7d8590]">{t.alerts.scoreLabel} : {selected.riskScore}</span>
             </div>
 
             {/* Assigner */}
@@ -167,20 +169,20 @@ export function AlertsPage() {
                 className="w-full flex items-center justify-center gap-2 py-2 px-4 mb-3 bg-[#1f6feb]/20 border border-[#1f6feb]/30 hover:bg-[#1f6feb]/30 text-[#58a6ff] text-xs font-mono rounded-md transition-colors"
               >
                 <UserPlus size={12} />
-                {assignMutation.isPending ? "En cours..." : "M'assigner cette alerte"}
+                {assignMutation.isPending ? t.common.loading : t.alerts.assignToMe}
               </button>
             )}
 
             {/* Résoudre */}
             <div className="space-y-2">
               <label className="text-[10px] font-mono text-[#7d8590] tracking-widest uppercase">
-                Note de résolution
+                {t.alerts.resolveNote}
               </label>
               <textarea
                 value={resolveNote}
                 onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setResolveNote(e.target.value)}
                 rows={3}
-                placeholder="Détaillez la raison de la résolution..."
+                placeholder={t.alerts.resolveNotePh}
                 className="w-full bg-[#161b22] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff]/40 resize-none"
               />
               <div className="flex gap-2">
@@ -192,7 +194,7 @@ export function AlertsPage() {
                     className="flex-1 py-1.5 text-[10px] font-mono border rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed
                       border-[#30363d] text-[#7d8590] hover:border-[#58a6ff]/40 hover:text-[#58a6ff]"
                   >
-                    {res === "CLOSED" ? "Fermer" : res === "FALSE_POSITIVE" ? "Faux positif" : "Escalader"}
+                    {res === "CLOSED" ? t.alerts.closeAction : res === "FALSE_POSITIVE" ? t.alerts.falsePositiveAction : t.alerts.escalate}
                   </button>
                 ))}
               </div>
@@ -202,7 +204,7 @@ export function AlertsPage() {
               onClick={() => { setSelected(null); setResolveNote(""); }}
               className="w-full mt-3 py-1.5 text-xs font-mono text-[#484f58] hover:text-[#7d8590] transition-colors"
             >
-              Annuler
+              {t.common.cancel}
             </button>
           </div>
         </div>

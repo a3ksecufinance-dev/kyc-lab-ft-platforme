@@ -64,7 +64,9 @@ export type AuditAction =
   // Admin
   | "USER_ROLE_CHANGED"
   | "USER_DEACTIVATED"
-  | "SYSTEM_HEALTH_CHECKED";
+  | "SYSTEM_HEALTH_CHECKED"
+  // ML
+  | "ML_RETRAIN_TRIGGERED";
 
 export type EntityType =
   | "user"

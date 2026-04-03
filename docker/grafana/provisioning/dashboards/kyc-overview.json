@@ -1,0 +1,233 @@
+{
+  "__inputs": [],
+  "__requires": [],
+  "annotations": { "list": [] },
+  "description": "Vue d'ensemble de la plateforme KYC-AML — santé système, trafic HTTP, performances Node.js",
+  "editable": false,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": ["kyc"],
+      "targetBlank": false,
+      "title": "AML Operations",
+      "tooltip": "",
+      "type": "dashboards",
+      "url": ""
+    }
+  ],
+  "panels": [
+
+    { "collapsed": false, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+      "id": 100, "title": "Santé Système", "type": "row" },
+
+    {
+      "id": 1, "gridPos": {"h": 4, "w": 3, "x": 0, "y": 1},
+      "type": "stat", "title": "PostgreSQL",
+      "datasource": {"type": "prometheus", "uid": "kyc-prometheus"},
+      "targets": [{"expr": "db_connected{app=\"kyc-aml-v2\"}", "legendFormat": "", "refId": "A"}],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "colorMode": "background", "graphMode": "none", "textMode": "auto",
+        "mappings": [
+          {"type": "value", "options": {"0": {"text": "DOWN", "color": "red"}, "1": {"text": "UP", "color": "green"}}}
+        ]
+      },
+      "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}}
+    },
+
+    {
+      "id": 2, "gridPos": {"h": 4, "w": 3, "x": 3, "y": 1},
+      "type": "stat", "title": "Redis",
+      "datasource": {"type": "prometheus", "uid": "kyc-prometheus"},
+      "targets": [{"expr": "redis_connected{app=\"kyc-aml-v2\"}", "legendFormat": "", "refId": "A"}],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "colorMode": "background", "graphMode": "none", "textMode": "auto",
+        "mappings": [
+          {"type": "value", "options": {"0": {"text": "DOWN", "color": "red"}, "1": {"text": "UP", "color": "green"}}}
+        ]
+      },
+      "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}}
+    },
+
+    {
+      "id": 3, "gridPos": {"h": 4, "w": 3, "x": 6, "y": 1},
+      "type": "stat", "title": "Connexions actives",
+      "datasource": {"type": "prometheus", "uid": "kyc-prometheus"},
+      "targets": [{"expr": "app_active_connections{app=\"kyc-aml-v2\"}", "legendFormat": "", "refId": "A"}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "value", "graphMode": "area", "textMode": "auto"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 50}, {"color": "red", "value": 100}]}}}
+    },
+
+    {
+      "id": 4, "gridPos": {"h": 4, "w": 3, "x": 9, "y": 1},
+      "type": "stat", "title": "Req/s (30 s)",
+      "datasource": {"type": "prometheus", "uid": "kyc-prometheus"},
+      "targets": [{"expr": "round(sum(rate(http_requests_total{app=\"kyc-aml-v2\"}[30s])), 0.01)", "legendFormat": "", "refId": "A"}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "value", "graphMode": "area", "textMode": "auto"},
+      "fieldConfig": {"defaults": {"unit": "reqps", "color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 50}, {"color": "red", "value": 200}]}}}
+    },
+
+    {
+      "id": 5, "gridPos": {"h": 4, "w": 3, "x": 12, "y": 1},
+      "type": "stat", "title": "Taux erreur HTTP",
+      "datasource": {"type": "prometheus", "uid": "kyc-prometheus"},
+      "targets": [{"expr": "sum(rate(http_requests_total{app=\"kyc-aml-v2\",status_code=~\"5..\"}[5m])) / sum(rate(http_requests_total{app=\"kyc-aml-v2\"}[5m])) * 100", "legendFormat": "", "refId": "A"}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background", "graphMode": "area", "textMode": "auto"},
+      "fieldConfig": {"defaults": {"unit": "percent", "decimals": 2, "color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 1}, {"color": "red", "value": 5}]}}}
+    },
+
+    {
+      "id": 6, "gridPos": {"h": 4, "w": 3, "x": 15, "y": 1},
+      "type": "stat", "title": "Latence p95 (5 m)",
+      "datasource": {"type": "prometheus", "uid": "kyc-prometheus"},
+      "targets": [{"expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{app=\"kyc-aml-v2\"}[5m])) by (le)) * 1000", "legendFormat": "", "refId": "A"}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background", "graphMode": "area", "textMode": "auto"},
+      "fieldConfig": {"defaults": {"unit": "ms", "decimals": 0, "color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 500}, {"color": "red", "value": 1000}]}}}
+    },
+
+    {
+      "id": 7, "gridPos": {"h": 4, "w": 6, "x": 18, "y": 1},
+      "type": "stat", "title": "CPU process (1 m)",
+      "datasource": {"type": "prometheus", "uid": "kyc-prometheus"},
+      "targets": [{"expr": "rate(process_cpu_seconds_total{app=\"kyc-aml-v2\"}[1m]) * 100", "legendFormat": "", "refId": "A"}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background", "graphMode": "area", "textMode": "auto"},
+      "fieldConfig": {"defaults": {"unit": "percent", "decimals": 1, "color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 70}, {"color": "red", "value": 90}]}}}
+    },
+
+    { "collapsed": false, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 5},
+      "id": 101, "title": "Trafic HTTP", "type": "row" },
+
+    {
+      "id": 10, "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6},
+      "type": "timeseries", "title": "Débit HTTP — req/s par statut",
+      "datasource": {"type": "prometheus", "uid": "kyc-prometheus"},
+      "targets": [
+        {"expr": "sum(rate(http_requests_total{app=\"kyc-aml-v2\",status_code=~\"2..\"}[1m]))", "legendFormat": "2xx OK", "refId": "A"},
+        {"expr": "sum(rate(http_requests_total{app=\"kyc-aml-v2\",status_code=~\"4..\"}[1m]))", "legendFormat": "4xx Client", "refId": "B"},
+        {"expr": "sum(rate(http_requests_total{app=\"kyc-aml-v2\",status_code=~\"5..\"}[1m]))", "legendFormat": "5xx Erreur", "refId": "C"}
+      ],
+      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "list", "placement": "bottom"}},
+      "fieldConfig": {
+        "defaults": {"unit": "reqps", "custom": {"lineWidth": 2, "fillOpacity": 10}},
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "5xx Erreur"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}]},
+          {"matcher": {"id": "byName", "options": "4xx Client"},  "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "orange"}}]},
+          {"matcher": {"id": "byName", "options": "2xx OK"},       "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}]}
+        ]
+      }
+    },
+
+    {
+      "id": 11, "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6},
+      "type": "timeseries", "title": "Latence HTTP — percentiles",
+      "datasource": {"type": "prometheus", "uid": "kyc-prometheus"},
+      "targets": [
+        {"expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{app=\"kyc-aml-v2\"}[5m])) by (le)) * 1000", "legendFormat": "p50", "refId": "A"},
+        {"expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{app=\"kyc-aml-v2\"}[5m])) by (le)) * 1000", "legendFormat": "p95", "refId": "B"},
+        {"expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{app=\"kyc-aml-v2\"}[5m])) by (le)) * 1000", "legendFormat": "p99", "refId": "C"}
+      ],
+      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "list", "placement": "bottom"}},
+      "fieldConfig": {"defaults": {"unit": "ms", "custom": {"lineWidth": 2}}}
+    },
+
+    { "collapsed": false, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 14},
+      "id": 102, "title": "tRPC", "type": "row" },
+
+    {
+      "id": 20, "gridPos": {"h": 8, "w": 12, "x": 0, "y": 15},
+      "type": "timeseries", "title": "tRPC — durée p95 par procédure (top 10)",
+      "datasource": {"type": "prometheus", "uid": "kyc-prometheus"},
+      "targets": [
+        {"expr": "topk(10, histogram_quantile(0.95, sum(rate(trpc_request_duration_seconds_bucket{app=\"kyc-aml-v2\"}[5m])) by (le, procedure))) * 1000", "legendFormat": "{{procedure}}", "refId": "A"}
+      ],
+      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "table", "placement": "right", "showLegend": true}},
+      "fieldConfig": {"defaults": {"unit": "ms", "custom": {"lineWidth": 1}}}
+    },
+
+    {
+      "id": 21, "gridPos": {"h": 8, "w": 12, "x": 12, "y": 15},
+      "type": "timeseries", "title": "tRPC — erreurs par code",
+      "datasource": {"type": "prometheus", "uid": "kyc-prometheus"},
+      "targets": [
+        {"expr": "sum(rate(trpc_errors_total{app=\"kyc-aml-v2\"}[5m])) by (code)", "legendFormat": "{{code}}", "refId": "A"}
+      ],
+      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "list", "placement": "bottom"}},
+      "fieldConfig": {"defaults": {"unit": "reqps", "custom": {"lineWidth": 2, "fillOpacity": 10}}}
+    },
+
+    { "collapsed": false, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 23},
+      "id": 103, "title": "Node.js Runtime", "type": "row" },
+
+    {
+      "id": 30, "gridPos": {"h": 8, "w": 8, "x": 0, "y": 24},
+      "type": "timeseries", "title": "Heap Node.js",
+      "datasource": {"type": "prometheus", "uid": "kyc-prometheus"},
+      "targets": [
+        {"expr": "nodejs_heap_size_used_bytes{app=\"kyc-aml-v2\"}", "legendFormat": "Utilisé", "refId": "A"},
+        {"expr": "nodejs_heap_size_total_bytes{app=\"kyc-aml-v2\"}", "legendFormat": "Total alloué", "refId": "B"}
+      ],
+      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "list", "placement": "bottom"}},
+      "fieldConfig": {"defaults": {"unit": "bytes", "custom": {"lineWidth": 2, "fillOpacity": 5}}}
+    },
+
+    {
+      "id": 31, "gridPos": {"h": 8, "w": 8, "x": 8, "y": 24},
+      "type": "timeseries", "title": "Event Loop Lag",
+      "datasource": {"type": "prometheus", "uid": "kyc-prometheus"},
+      "targets": [
+        {"expr": "nodejs_eventloop_lag_p50_seconds{app=\"kyc-aml-v2\"} * 1000", "legendFormat": "p50", "refId": "A"},
+        {"expr": "nodejs_eventloop_lag_p95_seconds{app=\"kyc-aml-v2\"} * 1000", "legendFormat": "p95", "refId": "B"},
+        {"expr": "nodejs_eventloop_lag_p99_seconds{app=\"kyc-aml-v2\"} * 1000", "legendFormat": "p99", "refId": "C"}
+      ],
+      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "list", "placement": "bottom"}},
+      "fieldConfig": {
+        "defaults": {"unit": "ms", "custom": {"lineWidth": 2}},
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "p99"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}]}
+        ]
+      }
+    },
+
+    {
+      "id": 32, "gridPos": {"h": 8, "w": 8, "x": 16, "y": 24},
+      "type": "timeseries", "title": "Handles & Requests actifs",
+      "datasource": {"type": "prometheus", "uid": "kyc-prometheus"},
+      "targets": [
+        {"expr": "nodejs_active_handles_total{app=\"kyc-aml-v2\"}", "legendFormat": "Handles", "refId": "A"},
+        {"expr": "nodejs_active_requests_total{app=\"kyc-aml-v2\"}", "legendFormat": "Requests", "refId": "B"}
+      ],
+      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "list", "placement": "bottom"}},
+      "fieldConfig": {"defaults": {"unit": "short", "custom": {"lineWidth": 2}}}
+    },
+
+    { "collapsed": false, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 32},
+      "id": 104, "title": "Logs Récents (Loki)", "type": "row" },
+
+    {
+      "id": 40, "gridPos": {"h": 10, "w": 24, "x": 0, "y": 33},
+      "type": "logs", "title": "Logs application (erreurs & warnings)",
+      "datasource": {"type": "loki", "uid": "kyc-loki"},
+      "targets": [
+        {"expr": "{container=\"kyc_app\"} |= `` | json | level =~ `error|warn`", "legendFormat": "", "refId": "A"}
+      ],
+      "options": {"showTime": true, "showLabels": false, "showCommonLabels": false, "wrapLogMessage": true, "prettifyLogMessage": false, "enableLogDetails": true, "dedupStrategy": "none", "sortOrder": "Descending"}
+    }
+
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["kyc", "aml", "platform"],
+  "templating": {"list": []},
+  "time": {"from": "now-3h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "KYC-AML — Vue d'ensemble",
+  "uid": "kyc-platform-overview",
+  "version": 1
+}

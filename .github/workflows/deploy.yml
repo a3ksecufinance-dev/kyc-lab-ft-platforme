@@ -1,0 +1,115 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: production
+        type: choice
+        options: [production, staging]
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false   # Ne jamais annuler un déploiement en cours
+
+jobs:
+  deploy:
+    name: Build · Push · Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ github.event.inputs.environment || 'production' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Build & push image Docker ──────────────────────────────────────────
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=staging,enable=${{ github.ref == 'refs/heads/develop' }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ── Déploiement SSH sur le VPS ─────────────────────────────────────────
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            set -euo pipefail
+
+            APP_DIR="/opt/kyc-aml-v2"
+            IMAGE="ghcr.io/${{ github.repository }}:sha-${{ github.sha }}"
+            COMPOSE="docker compose -f docker-compose.prod.yml"
+
+            echo "==> Pulling image $IMAGE"
+            docker pull "$IMAGE"
+
+            echo "==> Updating .env image tag"
+            sed -i "s|APP_IMAGE=.*|APP_IMAGE=$IMAGE|" "$APP_DIR/.env.production"
+
+            echo "==> Running migrations"
+            docker run --rm \
+              --env-file "$APP_DIR/.env.production" \
+              "$IMAGE" node dist/index.js migrate || true
+
+            echo "==> Rolling update (zero-downtime)"
+            cd "$APP_DIR"
+            $COMPOSE pull app
+            $COMPOSE up -d --no-deps --scale app=2 app
+            sleep 15
+
+            echo "==> Health check"
+            curl -sf http://localhost:3000/health | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if d['status']=='healthy' else 1)"
+
+            echo "==> Scale back to 1 replica"
+            $COMPOSE up -d --no-deps --scale app=1 app
+
+            echo "==> Cleanup old images"
+            docker image prune -f
+
+            echo "Deploy complete — $IMAGE"
+
+      # ── Notification (optionnel) ───────────────────────────────────────────
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🚨 Deployment failed on commit ${context.sha.slice(0,7)} — check the [workflow run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`
+            }).catch(() => {})

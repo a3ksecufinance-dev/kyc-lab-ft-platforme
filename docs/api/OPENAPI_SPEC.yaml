@@ -1,0 +1,2554 @@
+openapi: 3.0.3
+
+info:
+  title: "KYC-AML Platform API"
+  version: "2.0.0"
+  description: |
+    ## Plateforme KYC/AML — API de référence v2.0
+
+    Cette API expose l'ensemble des fonctionnalités de la plateforme KYC-AML : gestion des clients,
+    analyse transactionnelle temps réel, moteur de règles AML dynamiques, screening sanctions/PEP,
+    gestion des alertes et des dossiers d'investigation, pKYC (Perpetual KYC) et production de
+    rapports réglementaires (SAR, STR, goAML).
+
+    ### Architecture
+    L'API est construite sur **tRPC** exposé via Express. Les endpoints tRPC suivent la convention
+    `POST /trpc/<router>.<procedure>` pour les mutations et `GET /trpc/<router>.<procedure>` pour
+    les queries. Le webhook CBS est un endpoint REST standard.
+
+    ### Authentification
+    Tous les endpoints (sauf `/health`, `/metrics` et `/webhooks/transaction`) nécessitent un
+    **Bearer JWT** valide obtenu via `auth.login`. Les tokens d'accès ont une durée de vie de
+    **15 minutes**. Le refresh token est valide **7 jours**.
+
+    ### Moteur AML
+    Chaque transaction soumise déclenche synchroniquement le moteur de règles AML. Le score de
+    risque (0–100) et les règles déclenchées sont retournés dans la réponse et stockés dans
+    `risk_rules` (JSONB).
+
+    ### Conformité réglementaire
+    La plateforme supporte : TRACFIN (France), goAML v2 (GAFI/FATF), OFAC, EU Sanctions,
+    UN Consolidated List, UK Sanctions List, OpenSanctions PEP.
+
+    ### Contact & support
+    Voir coordonnées ci-dessous. Pour les incidents de production, utiliser le canal P1 défini
+    dans le contrat de support.
+  contact:
+    name: "Équipe Compliance Engineering"
+    email: "api-support@kyc-aml.platform"
+    url: "https://docs.kyc-aml.platform"
+  license:
+    name: "Propriétaire — Tous droits réservés"
+    url: "https://kyc-aml.platform/license"
+  x-logo:
+    url: "https://kyc-aml.platform/logo.png"
+
+servers:
+  - url: "https://api.{client-domain}/"
+    description: "Production"
+    variables:
+      client-domain:
+        default: "kyc-aml.platform"
+        description: "Domaine client fourni lors de l'onboarding"
+  - url: "https://staging-api.{client-domain}/"
+    description: "Staging / Recette"
+    variables:
+      client-domain:
+        default: "staging.kyc-aml.platform"
+  - url: "http://localhost:3000/"
+    description: "Développement local"
+
+# ─── Security ──────────────────────────────────────────────────────────────────
+
+security:
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Token JWT obtenu via `POST /trpc/auth.login`.
+        À inclure dans le header `Authorization: Bearer <accessToken>`.
+        Durée de vie : 15 minutes. Renouveler via `auth.refresh`.
+    WebhookHMAC:
+      type: apiKey
+      in: header
+      name: x-webhook-signature
+      description: |
+        Signature HMAC-SHA256 du body brut de la requête.
+        Format : `sha256=<hex-digest>`
+        Calculée avec `WEBHOOK_SECRET` (variable d'environnement côté CBS).
+        Exemple : `x-webhook-signature: sha256=a1b2c3d4e5f6...`
+
+# ─── Tags ──────────────────────────────────────────────────────────────────────
+
+tags:
+  - name: auth
+    description: "Authentification, sessions JWT et MFA TOTP"
+  - name: customers
+    description: "Gestion des clients KYC — personnes physiques et morales"
+  - name: transactions
+    description: "Transactions financières et moteur AML temps réel"
+  - name: alerts
+    description: "Alertes AML générées par le moteur de règles"
+  - name: cases
+    description: "Dossiers d'investigation et workflow de décision"
+  - name: screening
+    description: "Screening sanctions, PEP et médias adverses"
+  - name: reports
+    description: "Rapports réglementaires SAR, STR, goAML"
+  - name: dashboard
+    description: "Métriques et statistiques tableau de bord"
+  - name: admin
+    description: "Administration — règles AML, juridictions, utilisateurs"
+  - name: pkyc
+    description: "Perpetual KYC — détection de dérive comportementale"
+  - name: documents
+    description: "Upload et vérification de documents d'identité (eKYC)"
+  - name: network
+    description: "Analyse de réseau et graphes de transactions"
+  - name: aml-rules
+    description: "Gestion des règles AML dynamiques"
+
+# ─── Paths ─────────────────────────────────────────────────────────────────────
+
+paths:
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # AUTH
+  # ══════════════════════════════════════════════════════════════════════════════
+
+  /trpc/auth.login:
+    post:
+      tags: [auth]
+      operationId: auth.login
+      summary: "Connexion — obtenir un JWT"
+      description: |
+        Authentifie un utilisateur par email/mot de passe. Si le compte a le MFA activé,
+        le champ `totpCode` est obligatoire. Retourne un `accessToken` (15 min) et un
+        `refreshToken` (7 jours).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              standard:
+                summary: "Connexion sans MFA"
+                value:
+                  email: "analyste@ma-banque.fr"
+                  password: "MonMotDePasse!123"
+              with_mfa:
+                summary: "Connexion avec MFA TOTP"
+                value:
+                  email: "compliance@ma-banque.fr"
+                  password: "MonMotDePasse!123"
+                  totpCode: "847392"
+      responses:
+        '200':
+          description: "Authentification réussie"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /trpc/auth.refresh:
+    post:
+      tags: [auth]
+      operationId: auth.refresh
+      summary: "Renouveler les tokens"
+      description: |
+        Échange un `refreshToken` valide contre une nouvelle paire de tokens.
+        Le refreshToken utilisé est immédiatement invalidé (rotation).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken:
+                  type: string
+                  description: "Token de rafraîchissement JWT"
+      responses:
+        '200':
+          description: "Nouveaux tokens émis"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /trpc/auth.logout:
+    post:
+      tags: [auth]
+      operationId: auth.logout
+      summary: "Déconnexion — invalider la session"
+      description: |
+        Invalide le refreshToken dans Redis. L'accessToken reste valide jusqu'à son
+        expiration naturelle (max 15 min). Pour une révocation immédiate, utiliser
+        la liste de révocation (feature entreprise).
+      responses:
+        '200':
+          description: "Session invalidée"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /trpc/auth.me:
+    get:
+      tags: [auth]
+      operationId: auth.me
+      summary: "Profil de l'utilisateur connecté"
+      description: "Retourne les informations de l'utilisateur associé au token JWT."
+      responses:
+        '200':
+          description: "Profil utilisateur"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /trpc/auth.setupMfa:
+    post:
+      tags: [auth]
+      operationId: auth.setupMfa
+      summary: "Initialiser le MFA TOTP"
+      description: |
+        Génère un secret TOTP et retourne un QR code (base64 PNG) à scanner avec
+        une application d'authentification (Google Authenticator, Authy, etc.).
+        Le MFA n'est activé qu'après vérification via `auth.verifyMfa`.
+      responses:
+        '200':
+          description: "QR code TOTP généré"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  qrCode:
+                    type: string
+                    description: "Image QR code encodée en base64 (PNG)"
+                  secret:
+                    type: string
+                    description: "Secret TOTP (pour saisie manuelle)"
+                  backupCodes:
+                    type: array
+                    items:
+                      type: string
+                    description: "8 codes de secours à usage unique"
+
+  /trpc/auth.verifyMfa:
+    post:
+      tags: [auth]
+      operationId: auth.verifyMfa
+      summary: "Activer le MFA TOTP"
+      description: "Vérifie le code TOTP et active le MFA sur le compte. Requiert un code valide généré depuis le QR de setupMfa."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [totpCode]
+              properties:
+                totpCode:
+                  type: string
+                  pattern: '^\d{6}$'
+                  example: "123456"
+      responses:
+        '200':
+          description: "MFA activé avec succès"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  mfaEnabledAt:
+                    type: string
+                    format: date-time
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # CUSTOMERS
+  # ══════════════════════════════════════════════════════════════════════════════
+
+  /trpc/customers.list:
+    get:
+      tags: [customers]
+      operationId: customers.list
+      summary: "Lister les clients"
+      description: "Retourne une liste paginée de clients avec filtres optionnels."
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 20
+        - name: search
+          in: query
+          description: "Recherche full-text sur nom, prénom, customerId, email"
+          schema:
+            type: string
+        - name: riskLevel
+          in: query
+          schema:
+            $ref: '#/components/schemas/RiskLevel'
+        - name: kycStatus
+          in: query
+          schema:
+            $ref: '#/components/schemas/KycStatus'
+        - name: customerType
+          in: query
+          schema:
+            $ref: '#/components/schemas/CustomerType'
+        - name: sanctionStatus
+          in: query
+          schema:
+            $ref: '#/components/schemas/SanctionStatus'
+      responses:
+        '200':
+          description: "Liste paginée de clients"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCustomers'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /trpc/customers.get:
+    get:
+      tags: [customers]
+      operationId: customers.get
+      summary: "Récupérer un client"
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: integer
+          description: "ID interne du client"
+      responses:
+        '200':
+          description: "Détail client"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /trpc/customers.create:
+    post:
+      tags: [customers]
+      operationId: customers.create
+      summary: "Créer un client"
+      description: |
+        Crée un nouveau client et initialise son profil KYC (statut PENDING).
+        Un `customerId` unique est généré automatiquement si non fourni.
+        Déclenche un screening sanctions initial en arrière-plan.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCustomerRequest'
+            examples:
+              individual:
+                summary: "Particulier"
+                value:
+                  firstName: "Marie"
+                  lastName: "Dupont"
+                  email: "marie.dupont@email.fr"
+                  phone: "+33612345678"
+                  dateOfBirth: "1985-03-15"
+                  nationality: "FR"
+                  residenceCountry: "FR"
+                  customerType: "INDIVIDUAL"
+                  sourceOfFunds: "Salaire"
+                  monthlyIncome: "3500.00"
+      responses:
+        '201':
+          description: "Client créé"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /trpc/customers.update:
+    patch:
+      tags: [customers]
+      operationId: customers.update
+      summary: "Mettre à jour un client"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - type: object
+                  required: [id]
+                  properties:
+                    id:
+                      type: integer
+                - $ref: '#/components/schemas/CreateCustomerRequest'
+      responses:
+        '200':
+          description: "Client mis à jour"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /trpc/customers.updateKycStatus:
+    patch:
+      tags: [customers]
+      operationId: customers.updateKycStatus
+      summary: "Mettre à jour le statut KYC"
+      description: |
+        Met à jour le statut KYC d'un client. Transitions autorisées :
+        `PENDING → IN_REVIEW → APPROVED | REJECTED`
+        `APPROVED → EXPIRED`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, status]
+              properties:
+                id:
+                  type: integer
+                status:
+                  $ref: '#/components/schemas/KycStatus'
+                notes:
+                  type: string
+                  description: "Motif de la décision"
+      responses:
+        '200':
+          description: "Statut KYC mis à jour"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+
+  /trpc/customers.freeze:
+    post:
+      tags: [customers]
+      operationId: customers.freeze
+      summary: "Gel des avoirs"
+      description: |
+        Gèle les avoirs d'un client. Déclenche automatiquement le blocage de toutes
+        les transactions en PENDING. Action réservée aux rôles `supervisor`, `compliance_officer` et `admin`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, reason]
+              properties:
+                id:
+                  type: integer
+                reason:
+                  type: string
+                  description: "Motif légal du gel (ex: décision judiciaire, sanction OFAC)"
+      responses:
+        '200':
+          description: "Gel effectué"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  frozenAt:
+                    type: string
+                    format: date-time
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /trpc/customers.requestErasure:
+    post:
+      tags: [customers]
+      operationId: customers.requestErasure
+      summary: "Demande d'effacement RGPD"
+      description: |
+        Enregistre une demande de droit à l'effacement (RGPD Art. 17).
+        Le traitement effectif est asynchrone (délai légal de vérification).
+        Les données d'audit obligatoires (LCB-FT) sont conservées conformément
+        à la réglementation (5 ans minimum).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: integer
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: "Demande d'effacement enregistrée"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  erasureRequestedAt:
+                    type: string
+                    format: date-time
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # TRANSACTIONS
+  # ══════════════════════════════════════════════════════════════════════════════
+
+  /trpc/transactions.list:
+    get:
+      tags: [transactions]
+      operationId: transactions.list
+      summary: "Lister les transactions"
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            maximum: 1000
+            default: 20
+        - name: customerId
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/TransactionStatus'
+        - name: transactionType
+          in: query
+          schema:
+            $ref: '#/components/schemas/TransactionType'
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: isSuspicious
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: "Liste paginée de transactions"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTransactions'
+
+  /trpc/transactions.get:
+    get:
+      tags: [transactions]
+      operationId: transactions.get
+      summary: "Récupérer une transaction"
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: "Détail transaction avec score AML et règles déclenchées"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /trpc/transactions.create:
+    post:
+      tags: [transactions]
+      operationId: transactions.create
+      summary: "Créer une transaction (déclenche le moteur AML)"
+      description: |
+        Crée une transaction et déclenche **synchroniquement** le moteur de règles AML.
+        Le score de risque (0–100) et les règles déclenchées sont calculés et retournés
+        dans la réponse. Si le score dépasse le seuil configuré, une alerte est créée
+        automatiquement et la transaction passe en statut `FLAGGED`.
+
+        **Latence attendue :**
+        - Sans ML : < 200 ms
+        - Avec ML (scoring neuronal) : < 500 ms
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTransactionRequest'
+            examples:
+              virement:
+                summary: "Virement SEPA standard"
+                value:
+                  transactionId: "CBS-TX-2024-089451"
+                  customerId: 42
+                  amount: "15000.00"
+                  currency: "EUR"
+                  transactionType: "TRANSFER"
+                  channel: "ONLINE"
+                  counterparty: "ACME Corp"
+                  counterpartyCountry: "DE"
+                  counterpartyBank: "Deutsche Bank AG"
+                  purpose: "Règlement facture F-2024-0089"
+      responses:
+        '201':
+          description: "Transaction créée avec résultat AML"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionWithAml'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: "Transaction déjà existante (idempotence — transactionId en doublon)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /trpc/transactions.block:
+    post:
+      tags: [transactions]
+      operationId: transactions.block
+      summary: "Bloquer une transaction"
+      description: "Passe le statut de la transaction à `BLOCKED`. Action réversible uniquement par supervisor ou compliance_officer."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, reason]
+              properties:
+                id:
+                  type: integer
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: "Transaction bloquée"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # ALERTS
+  # ══════════════════════════════════════════════════════════════════════════════
+
+  /trpc/alerts.list:
+    get:
+      tags: [alerts]
+      operationId: alerts.list
+      summary: "Lister les alertes"
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/AlertStatus'
+        - name: priority
+          in: query
+          schema:
+            $ref: '#/components/schemas/AlertPriority'
+        - name: alertType
+          in: query
+          schema:
+            $ref: '#/components/schemas/AlertType'
+        - name: assignedTo
+          in: query
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: "Liste paginée d'alertes"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAlerts'
+
+  /trpc/alerts.get:
+    get:
+      tags: [alerts]
+      operationId: alerts.get
+      summary: "Récupérer une alerte"
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: "Détail alerte avec données d'enrichissement"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Alert'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /trpc/alerts.assign:
+    post:
+      tags: [alerts]
+      operationId: alerts.assign
+      summary: "Assigner une alerte à un analyste"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, userId]
+              properties:
+                id:
+                  type: integer
+                userId:
+                  type: integer
+                  description: "ID de l'analyste à qui assigner l'alerte"
+      responses:
+        '200':
+          description: "Alerte assignée"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Alert'
+
+  /trpc/alerts.resolve:
+    post:
+      tags: [alerts]
+      operationId: alerts.resolve
+      summary: "Résoudre ou fermer une alerte"
+      description: |
+        Clôture une alerte. Les valeurs de résolution possibles :
+        - `FALSE_POSITIVE` : Alerte incorrecte, client légitime
+        - `CLOSED` : Traitement terminé sans suite
+        - `ESCALATED` : Escalade vers un dossier d'investigation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, resolution]
+              properties:
+                id:
+                  type: integer
+                resolution:
+                  type: string
+                  enum: [FALSE_POSITIVE, CLOSED, ESCALATED]
+                notes:
+                  type: string
+                  description: "Commentaires de l'analyste"
+      responses:
+        '200':
+          description: "Alerte résolue"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Alert'
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # CASES
+  # ══════════════════════════════════════════════════════════════════════════════
+
+  /trpc/cases.list:
+    get:
+      tags: [cases]
+      operationId: cases.list
+      summary: "Lister les dossiers"
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/CaseStatus'
+        - name: severity
+          in: query
+          schema:
+            $ref: '#/components/schemas/CaseSeverity'
+        - name: assignedTo
+          in: query
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: "Liste paginée de dossiers"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCases'
+
+  /trpc/cases.create:
+    post:
+      tags: [cases]
+      operationId: cases.create
+      summary: "Créer un dossier d'investigation"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCaseRequest'
+      responses:
+        '201':
+          description: "Dossier créé"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Case'
+
+  /trpc/cases.updateStatus:
+    patch:
+      tags: [cases]
+      operationId: cases.updateStatus
+      summary: "Mettre à jour le statut d'un dossier"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, status]
+              properties:
+                id:
+                  type: integer
+                status:
+                  $ref: '#/components/schemas/CaseStatus'
+                notes:
+                  type: string
+      responses:
+        '200':
+          description: "Statut mis à jour"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Case'
+
+  /trpc/cases.makeDecision:
+    post:
+      tags: [cases]
+      operationId: cases.makeDecision
+      summary: "Décision finale sur un dossier"
+      description: |
+        Enregistre la décision finale sur un dossier d'investigation.
+        - `SAR_FILED` : Déclaration de Soupçon déposée (SAR/DOS)
+        - `STR_FILED` : Déclaration de Transaction Suspecte déposée
+        - `CLOSED_NO_ACTION` : Dossier clôturé sans suite
+        - `ESCALATED` : Escalade hiérarchique
+        Requiert le rôle `compliance_officer` ou `admin`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, decision]
+              properties:
+                id:
+                  type: integer
+                decision:
+                  $ref: '#/components/schemas/CaseDecision'
+                decisionNotes:
+                  type: string
+                  description: "Justification détaillée obligatoire pour SAR_FILED et STR_FILED"
+      responses:
+        '200':
+          description: "Décision enregistrée"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Case'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # SCREENING
+  # ══════════════════════════════════════════════════════════════════════════════
+
+  /trpc/screening.screenCustomer:
+    post:
+      tags: [screening]
+      operationId: screening.screenCustomer
+      summary: "Lancer le screening d'un client"
+      description: |
+        Déclenche un screening complet du client sur toutes les listes configurées :
+        OFAC SDN, EU Sanctions, UN Consolidated List, UK Sanctions, PEP (OpenSanctions).
+        Les résultats sont stockés dans `screening_results` et le `sanctionStatus` du client
+        est mis à jour automatiquement.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customerId]
+              properties:
+                customerId:
+                  type: integer
+                screeningTypes:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/ScreeningType'
+                  description: "Si absent, tous les types sont exécutés"
+      responses:
+        '200':
+          description: "Résultats de screening"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ScreeningResult'
+                  overallStatus:
+                    $ref: '#/components/schemas/ScreeningStatus'
+
+  /trpc/screening.listResults:
+    get:
+      tags: [screening]
+      operationId: screening.listResults
+      summary: "Lister les résultats de screening"
+      parameters:
+        - name: customerId
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ScreeningStatus'
+        - name: screeningType
+          in: query
+          schema:
+            $ref: '#/components/schemas/ScreeningType'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: "Liste paginée de résultats"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedScreeningResults'
+
+  /trpc/screening.getStats:
+    get:
+      tags: [screening]
+      operationId: screening.getStats
+      summary: "Statistiques de screening"
+      description: "Retourne les statistiques agrégées : taux de match, distribution par liste, délai moyen de traitement."
+      responses:
+        '200':
+          description: "Statistiques de screening"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalScreenings:
+                    type: integer
+                  matchRate:
+                    type: number
+                    format: float
+                  byStatus:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                  byType:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                  lastUpdated:
+                    type: string
+                    format: date-time
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # REPORTS
+  # ══════════════════════════════════════════════════════════════════════════════
+
+  /trpc/reports.list:
+    get:
+      tags: [reports]
+      operationId: reports.list
+      summary: "Lister les rapports"
+      parameters:
+        - name: reportType
+          in: query
+          schema:
+            $ref: '#/components/schemas/ReportType'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ReportStatus'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: "Liste paginée de rapports"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedReports'
+
+  /trpc/reports.generate:
+    post:
+      tags: [reports]
+      operationId: reports.generate
+      summary: "Générer un rapport réglementaire"
+      description: |
+        Génère un rapport selon le type demandé :
+        - `SAR` : Suspicious Activity Report (DOS en France)
+        - `STR` : Suspicious Transaction Report
+        - `AML_STATISTICS` : Statistiques AML périodiques
+        - `RISK_ASSESSMENT` : Évaluation des risques clients
+        - `COMPLIANCE` : Rapport de conformité réglementaire
+        - `CUSTOM` : Rapport personnalisé
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateReportRequest'
+      responses:
+        '201':
+          description: "Rapport généré"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Report'
+
+  /trpc/reports.getPdf:
+    get:
+      tags: [reports]
+      operationId: reports.getPdf
+      summary: "Télécharger un rapport en PDF"
+      description: "Retourne le contenu PDF du rapport encodé en base64."
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: "PDF du rapport"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reportId:
+                    type: string
+                  fileName:
+                    type: string
+                    example: "SAR-2024-00123.pdf"
+                  contentBase64:
+                    type: string
+                    description: "Contenu PDF encodé en base64"
+                  generatedAt:
+                    type: string
+                    format: date-time
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # PKYC
+  # ══════════════════════════════════════════════════════════════════════════════
+
+  /trpc/pkyc.dashboard:
+    get:
+      tags: [pkyc]
+      operationId: pkyc.dashboard
+      summary: "Tableau de bord pKYC"
+      description: |
+        Retourne les statistiques de dérive comportementale : distribution des scores,
+        nombre de clients au-dessus du seuil, tendance sur 30 jours.
+      responses:
+        '200':
+          description: "Statistiques pKYC"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalCustomers:
+                    type: integer
+                  aboveThreshold:
+                    type: integer
+                    description: "Clients dont le driftScore dépasse PKYC_DRIFT_THRESHOLD"
+                  averageDriftScore:
+                    type: number
+                  distributionByScore:
+                    type: object
+                    description: "Histogramme par tranche de 10 points"
+                  lastRunAt:
+                    type: string
+                    format: date-time
+                  nextRunAt:
+                    type: string
+                    format: date-time
+
+  /trpc/pkyc.queue:
+    get:
+      tags: [pkyc]
+      operationId: pkyc.queue
+      summary: "File d'attente pKYC"
+      description: "Retourne les clients dont le score de dérive dépasse le seuil configuré (PKYC_DRIFT_THRESHOLD), ordonnés par score décroissant."
+      parameters:
+        - name: threshold
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 100
+          description: "Seuil de dérive (défaut : valeur de PKYC_DRIFT_THRESHOLD)"
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: "File d'attente pKYC"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PkycQueueItem'
+
+  /trpc/pkyc.forceRun:
+    post:
+      tags: [pkyc]
+      operationId: pkyc.forceRun
+      summary: "Forcer l'exécution du pKYC (admin)"
+      description: |
+        Déclenche immédiatement le calcul des snapshots pKYC pour tous les clients actifs.
+        Opération réservée au rôle `admin`. Durée variable selon le volume (environ 2 min/10k clients).
+      responses:
+        '202':
+          description: "Traitement pKYC lancé en arrière-plan"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobId:
+                    type: string
+                  startedAt:
+                    type: string
+                    format: date-time
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # DOCUMENTS
+  # ══════════════════════════════════════════════════════════════════════════════
+
+  /api/documents/upload:
+    post:
+      tags: [documents]
+      operationId: documents.upload
+      summary: "Uploader un document d'identité"
+      description: |
+        Upload multipart d'un document. Déclenche automatiquement :
+        1. OCR (Tesseract) — extraction des champs et texte brut
+        2. Analyse MRZ si applicable (passeport, carte d'identité)
+        3. eKYC — vérification de cohérence et score de confiance
+        Le traitement est synchrone. La réponse inclut les résultats OCR et eKYC.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, customerId, documentType]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: "Fichier (PDF, JPEG, PNG — max 10 MB)"
+                customerId:
+                  type: integer
+                documentType:
+                  $ref: '#/components/schemas/DocumentType'
+      responses:
+        '200':
+          description: "Document uploadé et traité"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  document:
+                    $ref: '#/components/schemas/Document'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '413':
+          description: "Fichier trop volumineux (max 10 MB)"
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # WEBHOOKS
+  # ══════════════════════════════════════════════════════════════════════════════
+
+  /webhooks/transaction:
+    post:
+      tags: [transactions]
+      operationId: webhooks.transaction
+      summary: "Webhook CBS — réception de transaction"
+      description: |
+        Endpoint de réception des transactions émises par le CBS (Core Banking System).
+        Ce endpoint ne requiert **pas** de Bearer JWT mais une **signature HMAC-SHA256**
+        dans le header `x-webhook-signature`.
+
+        ### Calcul de la signature
+        ```
+        HMAC-SHA256(WEBHOOK_SECRET, raw_body_bytes)
+        ```
+        Le header doit avoir la forme : `x-webhook-signature: sha256=<hex>`
+
+        ### Idempotence
+        Le champ `transactionId` est la clé d'idempotence. Une transaction avec un
+        `transactionId` déjà existant retourne 200 sans retraitement.
+
+        ### Traitement
+        1. Vérification de la signature HMAC
+        2. Déduplication (transactionId)
+        3. Moteur AML synchrone (règles + ML si activé)
+        4. Création alerte si score > seuil
+        5. Retour du résultat complet
+      security:
+        - WebhookHMAC: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookTransactionPayload'
+            examples:
+              virement_entrant:
+                summary: "Virement entrant"
+                value:
+                  transactionId: "CBS-2024-TX-089451"
+                  customerId: 42
+                  amount: "50000.00"
+                  currency: "EUR"
+                  transactionType: "TRANSFER"
+                  channel: "API"
+                  counterparty: "Shell Corp Ltd"
+                  counterpartyCountry: "BVI"
+                  counterpartyBank: "Offshore Trust Bank"
+                  purpose: "Investment"
+                  transactionDate: "2024-11-15T14:32:00Z"
+      responses:
+        '200':
+          description: "Transaction traitée (ou déjà existante — idempotente)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionWithAml'
+        '400':
+          description: "Payload invalide"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: "Signature HMAC invalide ou absente"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # INFRASTRUCTURE
+  # ══════════════════════════════════════════════════════════════════════════════
+
+  /health:
+    get:
+      tags: [admin]
+      operationId: health.check
+      summary: "Health check de la plateforme"
+      description: "Vérifie la disponibilité de PostgreSQL, Redis et du backend de stockage."
+      security: []
+      responses:
+        '200':
+          description: "Plateforme opérationnelle"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: "Dégradé — un ou plusieurs services indisponibles"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /metrics:
+    get:
+      tags: [admin]
+      operationId: metrics.prometheus
+      summary: "Métriques Prometheus"
+      description: |
+        Expose les métriques au format Prometheus text/plain (prom-client).
+        Métriques disponibles : requêtes HTTP (latence, volume, erreurs), connexions DB,
+        connexions Redis, score AML moyen, alertes générées/heure.
+      security: []
+      responses:
+        '200':
+          description: "Métriques Prometheus"
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  # HELP http_requests_total Total HTTP requests
+                  # TYPE http_requests_total counter
+                  http_requests_total{method="POST",route="/trpc/transactions.create",status="200"} 14523
+        '503':
+          description: "Métriques non disponibles (prom-client non installé)"
+
+# ─── Components / Schemas ──────────────────────────────────────────────────────
+
+  schemas:
+
+    # ── Enums ──────────────────────────────────────────────────────────────────
+
+    UserRole:
+      type: string
+      enum: [user, analyst, supervisor, compliance_officer, admin]
+      description: |
+        - `user` : Lecture seule
+        - `analyst` : Traitement des alertes
+        - `supervisor` : Validation et escalade
+        - `compliance_officer` : Décision SAR/STR
+        - `admin` : Administration complète
+
+    CustomerType:
+      type: string
+      enum: [INDIVIDUAL, CORPORATE, PEP, FOREIGN]
+
+    KycStatus:
+      type: string
+      enum: [PENDING, IN_REVIEW, APPROVED, REJECTED, EXPIRED]
+
+    RiskLevel:
+      type: string
+      enum: [LOW, MEDIUM, HIGH, CRITICAL]
+
+    SanctionStatus:
+      type: string
+      enum: [CLEAR, MATCH, REVIEW, PENDING]
+
+    DocumentType:
+      type: string
+      enum: [PASSPORT, ID_CARD, DRIVING_LICENSE, PROOF_OF_ADDRESS, SELFIE, BANK_STATEMENT, OTHER]
+
+    DocumentStatus:
+      type: string
+      enum: [PENDING, VERIFIED, REJECTED, EXPIRED]
+
+    EkycStatus:
+      type: string
+      enum: [PENDING, PROCESSING, PASS, REVIEW, FAIL]
+
+    TransactionType:
+      type: string
+      enum: [TRANSFER, DEPOSIT, WITHDRAWAL, PAYMENT, EXCHANGE]
+
+    Channel:
+      type: string
+      enum: [ONLINE, MOBILE, BRANCH, ATM, API]
+
+    TransactionStatus:
+      type: string
+      enum: [PENDING, COMPLETED, FLAGGED, BLOCKED, REVERSED]
+
+    AlertType:
+      type: string
+      enum: [THRESHOLD, PATTERN, VELOCITY, SANCTIONS, PEP, FRAUD, NETWORK]
+
+    AlertPriority:
+      type: string
+      enum: [LOW, MEDIUM, HIGH, CRITICAL]
+
+    AlertStatus:
+      type: string
+      enum: [OPEN, IN_REVIEW, ESCALATED, CLOSED, FALSE_POSITIVE]
+
+    CaseStatus:
+      type: string
+      enum: [OPEN, UNDER_INVESTIGATION, PENDING_APPROVAL, ESCALATED, CLOSED, SAR_SUBMITTED]
+
+    CaseSeverity:
+      type: string
+      enum: [LOW, MEDIUM, HIGH, CRITICAL]
+
+    CaseDecision:
+      type: string
+      enum: [PENDING, CLOSED_NO_ACTION, ESCALATED, SAR_FILED, STR_FILED]
+
+    ScreeningType:
+      type: string
+      enum: [SANCTIONS, PEP, ADVERSE_MEDIA]
+
+    ScreeningStatus:
+      type: string
+      enum: [CLEAR, MATCH, REVIEW, PENDING]
+
+    ScreeningDecision:
+      type: string
+      enum: [CONFIRMED, DISMISSED, ESCALATED, PENDING]
+
+    ReportType:
+      type: string
+      enum: [SAR, STR, AML_STATISTICS, RISK_ASSESSMENT, COMPLIANCE, CUSTOM]
+
+    ReportStatus:
+      type: string
+      enum: [DRAFT, REVIEW, SUBMITTED, APPROVED, REJECTED]
+
+    AmlRuleCategory:
+      type: string
+      enum: [THRESHOLD, FREQUENCY, PATTERN, GEOGRAPHY, COUNTERPARTY, VELOCITY, CUSTOMER]
+
+    AmlRuleStatus:
+      type: string
+      enum: [ACTIVE, INACTIVE, TESTING]
+
+    # ── Core Entities ──────────────────────────────────────────────────────────
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 7
+        email:
+          type: string
+          format: email
+          example: "analyste@ma-banque.fr"
+        name:
+          type: string
+          example: "Sophie Martin"
+        role:
+          $ref: '#/components/schemas/UserRole'
+        department:
+          type: string
+          nullable: true
+          example: "Compliance"
+        isActive:
+          type: boolean
+        mfaEnabled:
+          type: boolean
+        lastSignedIn:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Customer:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 42
+        customerId:
+          type: string
+          example: "CUST-FR-00042"
+        firstName:
+          type: string
+          example: "Marie"
+        lastName:
+          type: string
+          example: "Dupont"
+        email:
+          type: string
+          format: email
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        dateOfBirth:
+          type: string
+          nullable: true
+          example: "1985-03-15"
+        nationality:
+          type: string
+          maxLength: 10
+          nullable: true
+          example: "FR"
+        residenceCountry:
+          type: string
+          maxLength: 10
+          nullable: true
+          example: "FR"
+        address:
+          type: string
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        profession:
+          type: string
+          nullable: true
+        employer:
+          type: string
+          nullable: true
+        sourceOfFunds:
+          type: string
+          nullable: true
+          example: "Salaire"
+        monthlyIncome:
+          type: string
+          nullable: true
+          description: "Montant en devise (numeric 15,2)"
+          example: "3500.00"
+        customerType:
+          $ref: '#/components/schemas/CustomerType'
+        kycStatus:
+          $ref: '#/components/schemas/KycStatus'
+        riskLevel:
+          $ref: '#/components/schemas/RiskLevel'
+        riskScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+          example: 35
+        pepStatus:
+          type: boolean
+        sanctionStatus:
+          $ref: '#/components/schemas/SanctionStatus'
+        lastReviewDate:
+          type: string
+          format: date-time
+          nullable: true
+        nextReviewDate:
+          type: string
+          format: date-time
+          nullable: true
+        assignedAnalyst:
+          type: integer
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        frozenAt:
+          type: string
+          format: date-time
+          nullable: true
+        frozenReason:
+          type: string
+          nullable: true
+        frozenBy:
+          type: integer
+          nullable: true
+        erasureRequestedAt:
+          type: string
+          format: date-time
+          nullable: true
+        erasureCompletedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateCustomerRequest:
+      type: object
+      required: [firstName, lastName]
+      properties:
+        customerId:
+          type: string
+          description: "Identifiant métier unique. Généré automatiquement si absent."
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        dateOfBirth:
+          type: string
+          example: "1985-03-15"
+        nationality:
+          type: string
+        residenceCountry:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        profession:
+          type: string
+        employer:
+          type: string
+        sourceOfFunds:
+          type: string
+        monthlyIncome:
+          type: string
+        customerType:
+          $ref: '#/components/schemas/CustomerType'
+        notes:
+          type: string
+
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: integer
+        transactionId:
+          type: string
+          example: "CBS-TX-2024-089451"
+        customerId:
+          type: integer
+        amount:
+          type: string
+          example: "15000.00"
+        currency:
+          type: string
+          example: "EUR"
+        transactionType:
+          $ref: '#/components/schemas/TransactionType'
+        channel:
+          $ref: '#/components/schemas/Channel'
+        counterparty:
+          type: string
+          nullable: true
+        counterpartyCountry:
+          type: string
+          nullable: true
+        counterpartyBank:
+          type: string
+          nullable: true
+        purpose:
+          type: string
+          nullable: true
+        riskScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+        riskRules:
+          type: array
+          nullable: true
+          description: "Règles AML déclenchées lors de l'analyse"
+          items:
+            $ref: '#/components/schemas/AmlRuleResult'
+        status:
+          $ref: '#/components/schemas/TransactionStatus'
+        isSuspicious:
+          type: boolean
+        flagReason:
+          type: string
+          nullable: true
+        transactionDate:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    TransactionWithAml:
+      allOf:
+        - $ref: '#/components/schemas/Transaction'
+        - type: object
+          properties:
+            amlResult:
+              type: object
+              properties:
+                score:
+                  type: integer
+                  description: "Score AML global (0-100)"
+                triggered:
+                  type: boolean
+                rules:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AmlRuleResult'
+                alertCreated:
+                  type: boolean
+                alertId:
+                  type: string
+                  nullable: true
+
+    CreateTransactionRequest:
+      type: object
+      required: [transactionId, customerId, amount, currency, transactionType]
+      properties:
+        transactionId:
+          type: string
+          description: "Identifiant unique CBS (clé d'idempotence)"
+        customerId:
+          type: integer
+        amount:
+          type: string
+          example: "15000.00"
+        currency:
+          type: string
+          default: "EUR"
+        transactionType:
+          $ref: '#/components/schemas/TransactionType'
+        channel:
+          $ref: '#/components/schemas/Channel'
+        counterparty:
+          type: string
+        counterpartyCountry:
+          type: string
+        counterpartyBank:
+          type: string
+        purpose:
+          type: string
+        transactionDate:
+          type: string
+          format: date-time
+
+    Alert:
+      type: object
+      properties:
+        id:
+          type: integer
+        alertId:
+          type: string
+          example: "ALT-2024-00891"
+        customerId:
+          type: integer
+        transactionId:
+          type: integer
+          nullable: true
+        scenario:
+          type: string
+          example: "Transaction supérieure au seuil STR"
+        alertType:
+          $ref: '#/components/schemas/AlertType'
+        priority:
+          $ref: '#/components/schemas/AlertPriority'
+        status:
+          $ref: '#/components/schemas/AlertStatus'
+        riskScore:
+          type: integer
+        reason:
+          type: string
+          nullable: true
+        enrichmentData:
+          type: object
+          nullable: true
+          description: "Données d'enrichissement contextuelles (JSONB)"
+        assignedTo:
+          type: integer
+          nullable: true
+        resolvedBy:
+          type: integer
+          nullable: true
+        resolvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        resolution:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Case:
+      type: object
+      properties:
+        id:
+          type: integer
+        caseId:
+          type: string
+          example: "CASE-2024-00034"
+        customerId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/CaseStatus'
+        severity:
+          $ref: '#/components/schemas/CaseSeverity'
+        assignedTo:
+          type: integer
+          nullable: true
+        supervisorId:
+          type: integer
+          nullable: true
+        linkedAlerts:
+          type: array
+          items:
+            type: integer
+          nullable: true
+          description: "IDs des alertes liées au dossier"
+        findings:
+          type: string
+          nullable: true
+        decision:
+          $ref: '#/components/schemas/CaseDecision'
+        decisionNotes:
+          type: string
+          nullable: true
+        decisionBy:
+          type: integer
+          nullable: true
+        decisionAt:
+          type: string
+          format: date-time
+          nullable: true
+        dueDate:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateCaseRequest:
+      type: object
+      required: [customerId, title]
+      properties:
+        customerId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        severity:
+          $ref: '#/components/schemas/CaseSeverity'
+        assignedTo:
+          type: integer
+        linkedAlerts:
+          type: array
+          items:
+            type: integer
+        dueDate:
+          type: string
+          format: date-time
+
+    ScreeningResult:
+      type: object
+      properties:
+        id:
+          type: integer
+        customerId:
+          type: integer
+        screeningType:
+          $ref: '#/components/schemas/ScreeningType'
+        status:
+          $ref: '#/components/schemas/ScreeningStatus'
+        matchScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+        matchedEntity:
+          type: string
+          nullable: true
+          example: "John DOE (alias: J. Doe)"
+        listSource:
+          type: string
+          nullable: true
+          example: "OFAC SDN"
+        confidenceScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+        details:
+          type: object
+          nullable: true
+          description: "Données brutes du match (JSONB)"
+        reviewedBy:
+          type: integer
+          nullable: true
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+        decision:
+          $ref: '#/components/schemas/ScreeningDecision'
+        decisionReason:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    Report:
+      type: object
+      properties:
+        id:
+          type: integer
+        reportId:
+          type: string
+          example: "RPT-SAR-2024-00123"
+        reportType:
+          $ref: '#/components/schemas/ReportType'
+        customerId:
+          type: integer
+          nullable: true
+        caseId:
+          type: integer
+          nullable: true
+        title:
+          type: string
+        status:
+          $ref: '#/components/schemas/ReportStatus'
+        suspicionType:
+          type: string
+          nullable: true
+        amountInvolved:
+          type: string
+          nullable: true
+        currency:
+          type: string
+          nullable: true
+        content:
+          type: object
+          nullable: true
+          description: "Contenu structuré du rapport (JSONB)"
+        submittedBy:
+          type: integer
+          nullable: true
+        submittedAt:
+          type: string
+          format: date-time
+          nullable: true
+        approvedBy:
+          type: integer
+          nullable: true
+        approvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        regulatoryRef:
+          type: string
+          nullable: true
+          description: "Référence attribuée par l'autorité de régulation"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    GenerateReportRequest:
+      type: object
+      required: [reportType, title]
+      properties:
+        reportType:
+          $ref: '#/components/schemas/ReportType'
+        title:
+          type: string
+        customerId:
+          type: integer
+        caseId:
+          type: integer
+        suspicionType:
+          type: string
+        amountInvolved:
+          type: string
+        currency:
+          type: string
+        dateFrom:
+          type: string
+          format: date-time
+        dateTo:
+          type: string
+          format: date-time
+
+    Document:
+      type: object
+      properties:
+        id:
+          type: integer
+        customerId:
+          type: integer
+        documentType:
+          $ref: '#/components/schemas/DocumentType'
+        fileName:
+          type: string
+          nullable: true
+        fileUrl:
+          type: string
+          nullable: true
+          description: "URL signée (S3) ou chemin local"
+        fileSize:
+          type: integer
+          nullable: true
+        mimeType:
+          type: string
+          nullable: true
+        storageBackend:
+          type: string
+          enum: [local, s3]
+        status:
+          $ref: '#/components/schemas/DocumentStatus'
+        expiryDate:
+          type: string
+          nullable: true
+        documentNumber:
+          type: string
+          nullable: true
+        issuingCountry:
+          type: string
+          nullable: true
+        ocrData:
+          type: object
+          nullable: true
+          description: "Champs extraits par OCR (JSONB)"
+        ocrConfidence:
+          type: integer
+          nullable: true
+          description: "Score de confiance OCR (0-100)"
+        mrzData:
+          type: object
+          nullable: true
+          description: "Données Machine Readable Zone parsées"
+        ekycStatus:
+          $ref: '#/components/schemas/EkycStatus'
+        ekycScore:
+          type: integer
+          nullable: true
+          description: "Score global eKYC (0-100)"
+        ekycChecks:
+          type: object
+          nullable: true
+          description: "Résultat détaillé de chaque contrôle eKYC"
+        ekycProvider:
+          type: string
+          enum: [local, onfido, sumsub]
+        verifiedBy:
+          type: integer
+          nullable: true
+        verifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PkycSnapshot:
+      type: object
+      properties:
+        id:
+          type: integer
+        customerId:
+          type: integer
+        snapshotDate:
+          type: string
+          format: date-time
+        driftScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: "Score de dérive comportementale (0=stable, 100=dérive maximale)"
+        driftFactors:
+          type: object
+          nullable: true
+          description: "Décomposition du score par facteur"
+          properties:
+            volumeDrift:
+              type: number
+            frequencyDrift:
+              type: number
+            geoDrift:
+              type: number
+            amountSpike:
+              type: number
+            newCounterparties:
+              type: number
+            newCountries:
+              type: number
+        reviewTriggered:
+          type: boolean
+        baselineDays:
+          type: integer
+          default: 30
+        windowDays:
+          type: integer
+          default: 7
+
+    PkycQueueItem:
+      type: object
+      properties:
+        customerId:
+          type: integer
+        customerName:
+          type: string
+        driftScore:
+          type: integer
+        lastSnapshotDate:
+          type: string
+          format: date-time
+        driftFactors:
+          type: object
+
+    AmlRuleResult:
+      type: object
+      description: "Résultat d'exécution d'une règle AML sur une transaction"
+      properties:
+        ruleId:
+          type: string
+          example: "RULE-THRESH-10K"
+        ruleName:
+          type: string
+          example: "Seuil transaction unique > 10 000 EUR"
+        category:
+          $ref: '#/components/schemas/AmlRuleCategory'
+        triggered:
+          type: boolean
+        score:
+          type: integer
+          minimum: 0
+          maximum: 100
+        details:
+          type: object
+          description: "Contexte d'exécution (valeurs comparées, fenêtre temporelle)"
+
+    WebhookTransactionPayload:
+      type: object
+      required: [transactionId, customerId, amount, currency, transactionType]
+      description: "Payload envoyé par le CBS vers /webhooks/transaction"
+      properties:
+        transactionId:
+          type: string
+          description: "Identifiant unique CBS — clé d'idempotence"
+          example: "CBS-2024-TX-089451"
+        customerId:
+          type: integer
+          description: "ID interne client KYC Platform"
+        amount:
+          type: string
+          example: "50000.00"
+        currency:
+          type: string
+          default: "EUR"
+        transactionType:
+          $ref: '#/components/schemas/TransactionType'
+        channel:
+          $ref: '#/components/schemas/Channel'
+        counterparty:
+          type: string
+          nullable: true
+        counterpartyCountry:
+          type: string
+          nullable: true
+        counterpartyBank:
+          type: string
+          nullable: true
+        purpose:
+          type: string
+          nullable: true
+        transactionDate:
+          type: string
+          format: date-time
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: "analyste@ma-banque.fr"
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: "MonMotDePasse!123"
+        totpCode:
+          type: string
+          pattern: '^\d{6}$'
+          description: "Code TOTP à 6 chiffres (requis si MFA activé)"
+          example: "847392"
+
+    LoginResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: "JWT d'accès — durée de vie 15 minutes"
+        refreshToken:
+          type: string
+          description: "Token de rafraîchissement — durée de vie 7 jours"
+        expiresIn:
+          type: integer
+          description: "Durée de vie de l'accessToken en secondes"
+          example: 900
+        user:
+          $ref: '#/components/schemas/UserProfile'
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: "UNAUTHORIZED"
+            message:
+              type: string
+              example: "Token invalide ou expiré"
+            details:
+              type: object
+              nullable: true
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded]
+        timestamp:
+          type: string
+          format: date-time
+        version:
+          type: string
+          example: "2.0.0"
+        env:
+          type: string
+          enum: [development, staging, production]
+        services:
+          type: object
+          properties:
+            database:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [healthy, unhealthy]
+                latencyMs:
+                  type: integer
+            redis:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [healthy, unhealthy]
+            storage:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [healthy, unhealthy]
+                backend:
+                  type: string
+                  enum: [local, s3]
+
+    # ── Paginated Responses ────────────────────────────────────────────────────
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+        hasNext:
+          type: boolean
+        hasPrev:
+          type: boolean
+
+    PaginatedCustomers:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Customer'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    PaginatedTransactions:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    PaginatedAlerts:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Alert'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    PaginatedCases:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Case'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    PaginatedScreeningResults:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScreeningResult'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    PaginatedReports:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Report'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+  # ── Responses ──────────────────────────────────────────────────────────────
+
+  responses:
+    BadRequest:
+      description: "Requête invalide — paramètres manquants ou incorrects"
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: "BAD_REQUEST"
+              message: "Le champ 'amount' est requis"
+
+    Unauthorized:
+      description: "Non authentifié — token manquant, invalide ou expiré"
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: "UNAUTHORIZED"
+              message: "Token invalide ou expiré"
+
+    Forbidden:
+      description: "Accès refusé — droits insuffisants"
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: "FORBIDDEN"
+              message: "Rôle 'compliance_officer' requis pour cette action"
+
+    NotFound:
+      description: "Ressource introuvable"
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: "NOT_FOUND"
+              message: "Client introuvable"
+
+    Conflict:
+      description: "Conflit — ressource déjà existante"
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: "CONFLICT"
+              message: "Un client avec cet identifiant existe déjà"
+
+    TooManyRequests:
+      description: "Trop de requêtes — rate limit atteint (100 req/min)"
+      headers:
+        X-RateLimit-Limit:
+          schema:
+            type: integer
+          description: "Nombre maximum de requêtes par fenêtre"
+        X-RateLimit-Remaining:
+          schema:
+            type: integer
+          description: "Requêtes restantes dans la fenêtre courante"
+        X-RateLimit-Reset:
+          schema:
+            type: integer
+          description: "Timestamp Unix de réinitialisation du compteur"
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: "TOO_MANY_REQUESTS"
+              message: "Limite de 100 requêtes/minute dépassée"

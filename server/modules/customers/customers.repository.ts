@@ -28,10 +28,30 @@ export interface UpdateCustomerInput {
   riskScore?: number;
   pepStatus?: boolean;
   sanctionStatus?: Customer["sanctionStatus"];
-  notes?: string;
+  notes?: string | null;
   assignedAnalyst?: number | null;
   lastReviewDate?: Date;
   nextReviewDate?: Date;
+  // PII fields (for erasure)
+  firstName?: string;
+  lastName?: string;
+  email?: string | null;
+  phone?: string | null;
+  dateOfBirth?: string | null;
+  address?: string | null;
+  city?: string | null;
+  profession?: string | null;
+  employer?: string | null;
+  sourceOfFunds?: string | null;
+  // Asset freeze
+  frozenAt?: Date | null;
+  frozenReason?: string | null;
+  frozenBy?: number | null;
+  // RGPD erasure
+  erasureRequestedAt?: Date | null;
+  erasureRequestedBy?: number | null;
+  erasureCompletedAt?: Date | null;
+  erasureCompletedBy?: number | null;
 }
 
 // ─── Repository ───────────────────────────────────────────────────────────────

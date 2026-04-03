@@ -5,6 +5,7 @@ import { users, auditLogs } from "../../../drizzle/schema";
 import { eq, desc, ilike, and, gte, count, or } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { createAuditFromContext } from "../../_core/audit";
+import { forceMlRetrain, getMlRetrainStatus } from "../aml/ml-retrain.scheduler";
 
 // ─── Router ───────────────────────────────────────────────────────────────────
 
@@ -212,5 +213,40 @@ export const adminRouter = router({
         last7d:  Number(last7d[0]?.total ?? 0),
         byEntity: Object.fromEntries(byEntity.map((r: { entityType: string; total: unknown }) => [r.entityType, Number(r.total)])),
       };
+    }),
+
+  // ── ML Retraining ────────────────────────────────────────────────────────────
+
+  mlRetrainStatus: adminProc
+    .query(() => getMlRetrainStatus()),
+
+  mlRetrain: adminProc
+    .input(z.object({
+      force: z.boolean().default(true),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const log = createAuditFromContext(ctx);
+
+      try {
+        const result = await forceMlRetrain();
+
+        await log({
+          action:     "ML_RETRAIN_TRIGGERED",
+          entityType: "system",
+          entityId:   "ml_scoring",
+          details:    { trigger: "manual", force: input.force, status: result.status, message: result.message },
+        });
+
+        return { success: true, ...result };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        await log({
+          action:     "ML_RETRAIN_TRIGGERED",
+          entityType: "system",
+          entityId:   "ml_scoring",
+          details:    { trigger: "manual", force: input.force, status: "error", error: message },
+        });
+        throw new Error(`Réentraînement ML échoué : ${message}`, { cause: err });
+      }
     }),
 });

@@ -32,6 +32,7 @@ export const transactionsRouter = router({
       dateTo:        z.string().datetime().optional(),
       amountMin:     z.number().positive().optional(),
       amountMax:     z.number().positive().optional(),
+      search:        z.string().max(100).optional(),
     }))
     .query(async ({ input }) => {
       return listTransactions({
@@ -44,6 +45,7 @@ export const transactionsRouter = router({
         ...(input.amountMax     !== undefined && { amountMax:    input.amountMax }),
         ...(input.dateFrom      !== undefined && { dateFrom:     new Date(input.dateFrom) }),
         ...(input.dateTo        !== undefined && { dateTo:       new Date(input.dateTo) }),
+        ...(input.search        !== undefined && { search:       input.search }),
       });
     }),
 

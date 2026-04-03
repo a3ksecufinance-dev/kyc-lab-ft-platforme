@@ -2,9 +2,13 @@
 node_modules/
 .pnpm-store/
 
-# Environnement
+# Environnement — JAMAIS committer les secrets prod
 *.env
 *.env.local
+.env.production
+.env.staging
+# Garder .env.example et .env pour les valeurs de dev non-secrètes
+!.env.example
 
 # Build
 dist/

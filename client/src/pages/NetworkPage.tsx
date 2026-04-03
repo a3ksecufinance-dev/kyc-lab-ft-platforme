@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { AppLayout } from "../components/layout/AppLayout";
 import { trpc } from "../lib/trpc";
+import { useI18n } from "../hooks/useI18n";
 import {
   AlertTriangle, RefreshCw,
   Users, GitBranch, ZoomIn, ZoomOut, RotateCcw,
@@ -115,18 +116,35 @@ function edgeColor(edge: GraphEdge): string {
   return "#378ADD";
 }
 
+// ─── Formatage montant compact ────────────────────────────────────────────────
+
+function fmtAmount(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000)     return `${(n / 1_000).toFixed(0)}k`;
+  return n.toFixed(0);
+}
+
 // ─── Canvas du graphe ─────────────────────────────────────────────────────────
+
+type Tooltip = {
+  x: number; y: number;
+  node?: GraphNode;
+  edge?: GraphEdge;
+};
 
 function GraphCanvas({ graph, selected, onSelect }: {
   graph: NetworkGraph;
   selected: string | null;
   onSelect: (id: string | null) => void;
 }) {
+  const { t } = useI18n();
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const wrapRef   = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan]   = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState<{ startX: number; startY: number; panX: number; panY: number } | null>(null);
   const [positioned, setPositioned] = useState<GraphNode[]>([]);
+  const [tooltip, setTooltip] = useState<Tooltip | null>(null);
 
   const W = 800, H = 500;
 
@@ -175,6 +193,25 @@ function GraphCanvas({ graph, selected, onSelect }: {
       ctx.globalAlpha = 0.6;
       ctx.stroke();
       ctx.globalAlpha = 1;
+
+      // Label montant sur les arêtes TX_FLOW significatives
+      if (edge.type === "TX_FLOW" && edge.weight > 0) {
+        const mx = (a.x + b.x) / 2;
+        const my = (a.y! + b.y!) / 2;
+        const label = fmtAmount(edge.weight) + (edge.currency ? ` ${edge.currency}` : "");
+        ctx.font = "9px monospace";
+        ctx.fillStyle = edge.suspicious ? "#E24B4A" : "#7d8590";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.globalAlpha = 0.85;
+        // Fond léger
+        const tw = ctx.measureText(label).width + 4;
+        ctx.fillStyle = "#0d1117";
+        ctx.fillRect(mx - tw / 2, my - 6, tw, 12);
+        ctx.fillStyle = edge.suspicious ? "#E24B4A" : "#7d8590";
+        ctx.fillText(label, mx, my);
+        ctx.globalAlpha = 1;
+      }
 
       // Flèche directionnelle
       if (edge.type === "TX_FLOW") {
@@ -234,11 +271,18 @@ function GraphCanvas({ graph, selected, onSelect }: {
 
   useEffect(() => { draw(); }, [draw]);
 
-  function handleClick(e: React.MouseEvent<HTMLCanvasElement>) {
+  function canvasCoords(e: React.MouseEvent<HTMLCanvasElement>) {
     const rect = canvasRef.current!.getBoundingClientRect();
-    const cx   = (e.clientX - rect.left - pan.x) / zoom;
-    const cy   = (e.clientY - rect.top  - pan.y) / zoom;
+    return {
+      cx: (e.clientX - rect.left - pan.x) / zoom,
+      cy: (e.clientY - rect.top  - pan.y) / zoom,
+      px: e.clientX - rect.left,
+      py: e.clientY - rect.top,
+    };
+  }
 
+  function handleClick(e: React.MouseEvent<HTMLCanvasElement>) {
+    const { cx, cy } = canvasCoords(e);
     for (const node of positioned) {
       const dx = cx - (node.x ?? 0), dy = cy - (node.y ?? 0);
       if (Math.sqrt(dx * dx + dy * dy) < 22) {
@@ -249,23 +293,102 @@ function GraphCanvas({ graph, selected, onSelect }: {
     onSelect(null);
   }
 
+  function handleMouseMove(e: React.MouseEvent<HTMLCanvasElement>) {
+    if (dragging) {
+      setPan({ x: dragging.panX + e.clientX - dragging.startX, y: dragging.panY + e.clientY - dragging.startY });
+      return;
+    }
+
+    const { cx, cy, px, py } = canvasCoords(e);
+
+    // Survol nœud
+    for (const node of positioned) {
+      const dx = cx - (node.x ?? 0), dy = cy - (node.y ?? 0);
+      if (Math.sqrt(dx * dx + dy * dy) < 22) {
+        setTooltip({ x: px + 12, y: py - 8, node });
+        return;
+      }
+    }
+
+    // Survol arête (distance point-segment)
+    const nodeMap = new Map(positioned.map(n => [n.id, n]));
+    for (const edge of graph.edges) {
+      const a = nodeMap.get(edge.from), b = nodeMap.get(edge.to);
+      if (!a?.x || !b?.x) continue;
+      const dx = b.x - a.x, dy = (b.y ?? 0) - (a.y ?? 0);
+      const len2 = dx * dx + dy * dy;
+      if (len2 === 0) continue;
+      const t = Math.max(0, Math.min(1, ((cx - a.x) * dx + (cy - (a.y ?? 0)) * dy) / len2));
+      const projX = a.x + t * dx, projY = (a.y ?? 0) + t * dy;
+      const dist  = Math.sqrt((cx - projX) ** 2 + (cy - projY) ** 2);
+      if (dist < 8) {
+        setTooltip({ x: px + 12, y: py - 8, edge });
+        return;
+      }
+    }
+
+    setTooltip(null);
+  }
+
+  const EDGE_TYPE_LABELS: Record<string, string> = {
+    TX_FLOW: "Transaction", TX_REVERSE: "Transaction entrante",
+    SHARED_UBO: "UBO commun", SHARED_EMAIL: "Email commun",
+    SHARED_PHONE: "Téléphone commun", SHARED_ADDR: "Adresse commune",
+  };
+
   return (
-    <div className="relative">
+    <div ref={wrapRef} className="relative">
       <canvas
         ref={canvasRef}
         width={W} height={H}
         onClick={handleClick}
         onMouseDown={(e: React.MouseEvent<HTMLCanvasElement>) =>
           setDragging({ startX: e.clientX, startY: e.clientY, panX: pan.x, panY: pan.y })}
-        onMouseMove={(e: React.MouseEvent<HTMLCanvasElement>) => {
-          if (!dragging) return;
-          setPan({ x: dragging.panX + e.clientX - dragging.startX, y: dragging.panY + e.clientY - dragging.startY });
-        }}
+        onMouseMove={handleMouseMove}
         onMouseUp={() => setDragging(null)}
-        onMouseLeave={() => setDragging(null)}
+        onMouseLeave={() => { setDragging(null); setTooltip(null); }}
         className="w-full rounded-lg bg-[#0d1117] border border-[#21262d] cursor-crosshair"
         style={{ height: H }}
       />
+
+      {/* Tooltip hover */}
+      {tooltip && (
+        <div
+          className="pointer-events-none absolute z-20 bg-[#161b22] border border-[#30363d] rounded-lg p-2.5 text-[10px] font-mono text-[#e6edf3] shadow-xl max-w-48"
+          style={{ left: tooltip.x, top: tooltip.y }}
+        >
+          {tooltip.node && (
+            <div className="space-y-1">
+              <p className="font-semibold text-[#58a6ff] truncate">{tooltip.node.label}</p>
+              <p className="text-[#7d8590] capitalize">{tooltip.node.type}</p>
+              {tooltip.node.riskLevel && (
+                <p className={tooltip.node.riskLevel === "CRITICAL" || tooltip.node.riskLevel === "HIGH"
+                  ? "text-red-400" : "text-amber-400"}>
+                  Risque : {tooltip.node.riskLevel}
+                </p>
+              )}
+              {tooltip.node.riskScore !== undefined && (
+                <p className="text-[#7d8590]">Score : {tooltip.node.riskScore}</p>
+              )}
+              {tooltip.node.pepStatus && <p className="text-purple-400">⚠ PEP</p>}
+              {tooltip.node.isSuspicious && <p className="text-red-400">⚠ Suspect</p>}
+            </div>
+          )}
+          {tooltip.edge && (
+            <div className="space-y-1">
+              <p className="font-semibold text-[#e6edf3]">{EDGE_TYPE_LABELS[tooltip.edge.type] ?? tooltip.edge.type}</p>
+              {tooltip.edge.weight > 0 && (
+                <p className="text-[#7d8590]">
+                  Montant : {new Intl.NumberFormat("fr-FR").format(Math.round(tooltip.edge.weight))}
+                  {tooltip.edge.currency ? ` ${tooltip.edge.currency}` : ""}
+                </p>
+              )}
+              <p className="text-[#7d8590]">{tooltip.edge.count} occurrence(s)</p>
+              {tooltip.edge.suspicious && <p className="text-red-400">⚠ Transaction(s) suspecte(s)</p>}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Contrôles zoom */}
       <div className="absolute top-3 right-3 flex flex-col gap-1">
@@ -284,7 +407,7 @@ function GraphCanvas({ graph, selected, onSelect }: {
       {/* Légende */}
       <div className="absolute bottom-3 left-3 flex gap-3 flex-wrap">
         {[
-          { color: "#B5D4F4", label: "Client" },
+          { color: "#B5D4F4", label: t.network.legendCustomer },
           { color: "#9FE1CB", label: "Contrepartie" },
           { color: "#CECBF6", label: "UBO" },
           { color: "#EF9F27", label: "Hub suspect" },
@@ -303,16 +426,18 @@ function GraphCanvas({ graph, selected, onSelect }: {
 // ─── Page principale ──────────────────────────────────────────────────────────
 
 export function NetworkPage() {
+  const { t } = useI18n();
   const [customerId, setCustomerId] = useState("");
   const [maxDepth, setMaxDepth]     = useState(2);
+  const [minAmount, setMinAmount]   = useState(0);
   const [selected, setSelected]     = useState<string | null>(null);
-  const [tab, setTab]               = useState<"graph" | "clusters" | "paths">("graph");
+  const [tab, setTab]               = useState<"graph" | "clusters" | "paths" | "riskpath">("graph");
   const [toId, setToId]             = useState("");
 
   const enabled = !!customerId && !isNaN(parseInt(customerId));
 
   const { data: graph, isLoading, refetch, isFetching } = trpc.network.graph.useQuery(
-    { customerId: parseInt(customerId), maxDepth },
+    { customerId: parseInt(customerId), maxDepth, minAmount },
     { enabled, refetchOnWindowFocus: false }
   );
 
@@ -330,6 +455,16 @@ export function NetworkPage() {
     { enabled: tab === "paths" && enabled && !!toId && !isNaN(parseInt(toId)) }
   );
 
+  const { data: riskPathData } = trpc.network.riskPath.useQuery(
+    {
+      fromCustomerId: parseInt(customerId),
+      toCustomerId:   parseInt(toId),
+      maxDepth,
+      minAmount,
+    },
+    { enabled: tab === "riskpath" && enabled && !!toId && !isNaN(parseInt(toId)) }
+  );
+
   const { data: stats } = trpc.network.networkStats.useQuery();
 
   const g = graph as NetworkGraph | undefined;
@@ -340,9 +475,9 @@ export function NetworkPage() {
   return (
     <AppLayout>
       <div className="mb-6">
-        <h1 className="text-lg font-semibold text-[#e6edf3] font-mono">Analyse réseau</h1>
+        <h1 className="text-lg font-semibold text-[#e6edf3] font-mono">{t.network.title}</h1>
         <p className="text-xs font-mono text-[#7d8590] mt-0.5">
-          Graph traversal · Détection de clusters · Cycles de blanchiment
+          {t.network.subtitle}
         </p>
       </div>
 
@@ -365,10 +500,10 @@ export function NetworkPage() {
 
       {/* Onglets */}
       <div className="flex gap-0 border-b border-[#21262d] mb-5">
-        {([["graph", "Graphe réseau"], ["clusters", "Clusters suspects"], ["paths", "Trouver un chemin"]] as const).map(([t, label]) => (
-          <button key={t} onClick={() => setTab(t)}
+        {([["graph", "Graphe réseau"], ["clusters", "Clusters suspects"], ["paths", "Chemins (BFS)"], ["riskpath", "Chemin risqué ⚡"]] as const).map(([tabKey, label]) => (
+          <button key={tabKey} onClick={() => setTab(tabKey)}
             className={`px-4 py-2 text-xs font-mono border-b-2 transition-colors ${
-              tab === t ? "border-[#58a6ff] text-[#58a6ff]" : "border-transparent text-[#7d8590] hover:text-[#e6edf3]"
+              tab === tabKey ? "border-[#58a6ff] text-[#58a6ff]" : "border-transparent text-[#7d8590] hover:text-[#e6edf3]"
             }`}>{label}</button>
         ))}
       </div>
@@ -379,30 +514,46 @@ export function NetworkPage() {
           {/* Contrôles */}
           <div className="flex gap-3 items-end flex-wrap">
             <div className="flex-1 min-w-32">
-              <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">ID Client</label>
+              <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">{t.customers.clientId}</label>
               <input value={customerId}
                 onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setCustomerId(e.target.value)}
-                placeholder="42" type="number" className={inputCls + " w-full"} />
+                placeholder={t.network.searchEntity} type="number" className={inputCls + " w-full"} />
             </div>
             <div>
-              <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">Profondeur</label>
+              <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">{t.network.depth}</label>
               <select value={maxDepth}
                 onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setMaxDepth(parseInt(e.target.value))}
                 className={inputCls}>
                 {[1, 2, 3, 4, 5].map(d => <option key={d} value={d}>{d} niveaux</option>)}
               </select>
             </div>
+            <div>
+              <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">Montant min</label>
+              <select value={minAmount}
+                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setMinAmount(parseInt(e.target.value))}
+                className={inputCls}>
+                {[[0, "Tout"], [1000, "1k+"], [5000, "5k+"], [10000, "10k+"], [50000, "50k+"]].map(([v, l]) => (
+                  <option key={v} value={v}>{l}</option>
+                ))}
+              </select>
+            </div>
             <button onClick={() => refetch()} disabled={!enabled || isFetching}
               className="flex items-center gap-1.5 px-3 py-2 text-xs font-mono bg-[#1f6feb]/20 border border-[#1f6feb]/30 text-[#58a6ff] hover:bg-[#1f6feb]/30 rounded-md disabled:opacity-40">
               <RefreshCw size={12} className={isFetching ? "animate-spin" : ""} />
-              {isLoading ? "Analyse…" : "Analyser"}
+              {isLoading ? t.common.loading : t.common.refresh}
             </button>
           </div>
 
           {/* Graphe + résumé */}
           {isLoading && (
             <div className="h-64 bg-[#0d1117] border border-[#21262d] rounded-lg animate-pulse flex items-center justify-center">
-              <p className="text-xs font-mono text-[#484f58]">Construction du graphe…</p>
+              <p className="text-xs font-mono text-[#484f58]">{t.common.loading}</p>
+            </div>
+          )}
+
+          {!isLoading && enabled && !g && (
+            <div className="h-64 bg-[#0d1117] border border-[#21262d] rounded-lg flex items-center justify-center">
+              <p className="text-xs font-mono text-[#484f58]">{t.network.noGraph}</p>
             </div>
           )}
 
@@ -434,9 +585,9 @@ export function NetworkPage() {
                   <div className="bg-[#0d1117] border border-[#21262d] rounded-lg p-3 space-y-2">
                     <p className="text-[10px] font-mono text-[#7d8590] tracking-widest uppercase">Réseau</p>
                     {[
-                      ["Nœuds", g.stats.nodeCount],
-                      ["Arêtes", g.stats.edgeCount],
-                      ["Clusters", g.stats.clusterCount],
+                      [t.network.statsNodes, g.stats.nodeCount],
+                      [t.network.statsEdges, g.stats.edgeCount],
+                      [t.network.statsClusters, g.stats.clusterCount],
                       ["Cycles", g.stats.cycleCount],
                     ].map(([label, val]) => (
                       <div key={String(label)} className="flex justify-between text-xs font-mono">
@@ -542,7 +693,98 @@ export function NetworkPage() {
         </div>
       )}
 
-      {/* ── Onglet Chemins ── */}
+      {/* ── Onglet Chemin risqué (Dijkstra) ── */}
+      {tab === "riskpath" && (
+        <div className="space-y-4">
+          <p className="text-xs font-mono text-[#7d8590]">
+            Algorithme Dijkstra pondéré par le risque — trouve le chemin transactionnel le plus suspect entre deux clients.
+            Contrairement au BFS (sauts minimaux), ce chemin privilégie les arêtes à fort montant ou suspectes.
+          </p>
+          <div className="flex gap-3 items-end flex-wrap">
+            <div className="flex-1">
+              <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">Client source</label>
+              <input value={customerId} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setCustomerId(e.target.value)}
+                placeholder="ID client A" type="number" className={inputCls + " w-full"} />
+            </div>
+            <div className="flex-1">
+              <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">Client destination</label>
+              <input value={toId} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setToId(e.target.value)}
+                placeholder="ID client B" type="number" className={inputCls + " w-full"} />
+            </div>
+            <div>
+              <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">{t.network.depth}</label>
+              <select value={maxDepth} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setMaxDepth(parseInt(e.target.value))} className={inputCls}>
+                {[1, 2, 3, 4].map(d => <option key={d} value={d}>{d} niveaux</option>)}
+              </select>
+            </div>
+          </div>
+
+          {riskPathData && (
+            <div className="space-y-3">
+              <p className="text-xs font-mono text-[#7d8590]">{riskPathData.message}</p>
+              {riskPathData.path && (() => {
+                const rp = riskPathData.path;
+                return (
+                  <div className={`bg-[#0d1117] border rounded-lg p-4 space-y-3 ${
+                    rp.riskScore >= 70 ? "border-red-400/30" :
+                    rp.riskScore >= 40 ? "border-amber-400/30" : "border-[#21262d]"
+                  }`}>
+                    {/* Métriques */}
+                    <div className="flex gap-4 text-[10px] font-mono">
+                      <span className={`px-2 py-1 rounded border ${
+                        rp.riskScore >= 70 ? "bg-red-400/10 border-red-400/20 text-red-400" :
+                        rp.riskScore >= 40 ? "bg-amber-400/10 border-amber-400/20 text-amber-400" :
+                        "bg-emerald-400/10 border-emerald-400/20 text-emerald-400"
+                      }`}>
+                        Risque {rp.riskScore}/100
+                      </span>
+                      <span className="px-2 py-1 rounded border border-[#30363d] text-[#7d8590]">
+                        {rp.hops} saut(s)
+                      </span>
+                      {rp.totalAmount > 0 && (
+                        <span className="px-2 py-1 rounded border border-[#30363d] text-[#7d8590]">
+                          {new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(rp.totalAmount)} total
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Nœuds du chemin */}
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {rp.nodes.map((node: { id: string; type: string; label: string; riskLevel?: string; pepStatus?: boolean; isSuspicious?: boolean }, j: number) => (
+                        <span key={j} className="flex items-center gap-1">
+                          <span className={`text-[10px] font-mono px-2 py-1.5 rounded border flex flex-col items-center ${
+                            node.type === "customer"
+                              ? (node.riskLevel === "CRITICAL" || node.riskLevel === "HIGH")
+                                ? "border-red-400/40 text-red-400 bg-red-400/5"
+                                : "border-[#378ADD]/30 text-[#58a6ff] bg-[#1f6feb]/10"
+                              : "border-[#1D9E75]/30 text-emerald-400 bg-emerald-400/10"
+                          }`}>
+                            <span>{node.label.slice(0, 15)}</span>
+                            {node.pepStatus && <span className="text-purple-400 text-[8px]">PEP</span>}
+                            {(node.isSuspicious) && <span className="text-red-400 text-[8px]">⚠</span>}
+                          </span>
+                          {j < rp.nodes.length - 1 && (
+                            <span className="text-[#484f58] text-xs flex flex-col items-center">
+                              →
+                              {rp.edges[j] && (
+                                <span className={`text-[8px] ${(rp.edges[j] as {suspicious?: boolean}).suspicious ? "text-red-400" : "text-[#484f58]"}`}>
+                                  {fmtAmount((rp.edges[j] as {weight: number}).weight || 0)}
+                                </span>
+                              )}
+                            </span>
+                          )}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Onglet Chemins BFS ── */}
       {tab === "paths" && (
         <div className="space-y-4">
           <div className="flex gap-3 items-end flex-wrap">

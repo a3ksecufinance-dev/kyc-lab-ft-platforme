@@ -408,6 +408,106 @@ function computeHubs(nodes: GraphNode[], edges: GraphEdge[]): string[] {
   return sorted.map(([id]) => id);
 }
 
+// ─── Dijkstra — chemin pondéré par le risque ─────────────────────────────────
+// Poids d'une arête = inverse du risque → chemin le plus "court" = le plus suspect
+
+export interface RiskPathResult {
+  path:        string[];
+  riskScore:   number;   // 0-100
+  totalAmount: number;
+  hops:        number;
+}
+
+export function findRiskPath(
+  nodes: GraphNode[],
+  edges: GraphEdge[],
+  fromId: string,
+  toId:   string,
+): RiskPathResult | null {
+  if (!nodes.some(n => n.id === fromId) || !nodes.some(n => n.id === toId)) return null;
+
+  const dist    = new Map<string, number>();
+  const prev    = new Map<string, string | null>();
+  const via     = new Map<string, GraphEdge>();   // arête utilisée pour arriver au nœud
+  const pending = new Set<string>(nodes.map(n => n.id));
+
+  for (const n of nodes) dist.set(n.id, Infinity);
+  dist.set(fromId, 0);
+  prev.set(fromId, null);
+
+  while (pending.size > 0) {
+    // Extraire le nœud non visité à distance minimale
+    let u: string | null = null;
+    let dMin = Infinity;
+    for (const id of pending) {
+      const d = dist.get(id) ?? Infinity;
+      if (d < dMin) { dMin = d; u = id; }
+    }
+    if (u === null || dMin === Infinity || u === toId) break;
+    pending.delete(u);
+
+    for (const edge of edges) {
+      if (edge.from !== u) continue;
+      const v = edge.to;
+      if (!pending.has(v)) continue;
+
+      // Poids inversement proportionnel au risque
+      // → grosse transaction suspecte = poids faible = chemin "préféré"
+      let w: number;
+      if (edge.type === "TX_FLOW") {
+        const amtFactor = 1 / (1 + Math.log(edge.weight + 1) / 10);
+        w = edge.suspicious ? amtFactor * 0.2 : amtFactor;
+      } else {
+        // Liens structurels (UBO, email, phone, addr) très suspects
+        w = 0.15;
+      }
+
+      const alt = dMin + w;
+      if (alt < (dist.get(v) ?? Infinity)) {
+        dist.set(v, alt);
+        prev.set(v, u);
+        via.set(v, edge);
+      }
+    }
+  }
+
+  if ((dist.get(toId) ?? Infinity) === Infinity) return null;
+
+  // Reconstruire le chemin
+  const path: string[] = [];
+  let cur: string | null = toId;
+  while (cur !== null) {
+    path.unshift(cur);
+    cur = prev.get(cur) ?? null;
+  }
+
+  // Score de risque du chemin
+  const nodeMap = new Map(nodes.map(n => [n.id, n]));
+  let riskScore   = 0;
+  let totalAmount = 0;
+
+  for (let i = 1; i < path.length; i++) {
+    const edge = via.get(path[i]!);
+    if (edge) {
+      totalAmount += edge.weight;
+      if (edge.suspicious)            riskScore += 25;
+      if (edge.type !== "TX_FLOW")    riskScore += 15; // lien structurel
+    }
+    const node = nodeMap.get(path[i]!);
+    if (node?.riskLevel === "CRITICAL") riskScore += 20;
+    else if (node?.riskLevel === "HIGH") riskScore += 10;
+    if (node?.pepStatus)                riskScore += 12;
+    if (node?.isSuspicious)             riskScore += 8;
+  }
+
+  return {
+    path,
+    riskScore:   Math.min(100, riskScore),
+    totalAmount,
+    hops:        path.length - 1,
+  };
+}
+
 // ─── Score de risque du réseau ────────────────────────────────────────────────
 
 function computeNetworkRisk(

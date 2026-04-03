@@ -1,28 +1,62 @@
 /**
- * Service de stockage de fichiers — abstraction local/S3
+ * Service de stockage de fichiers — abstraction local / S3 (AWS + MinIO)
  *
  * Stratégie :
  *  - dev  (STORAGE_BACKEND=local) : disque local dans ./uploads/
- *  - prod (STORAGE_BACKEND=s3)    : S3 ou MinIO via AWS SDK v3
+ *  - prod (STORAGE_BACKEND=s3)    : AWS S3 ou MinIO via AWS SDK v3
  *
  * Interface commune :
- *   saveFile(buffer, filename, mimeType)  → { path, url, backend }
+ *   saveFile(buffer, filename, mimeType)  → { path, url, backend, size }
  *   deleteFile(path, backend)
- *   getSignedUrl(path)                   → URL temporaire (S3) ou URL locale
+ *   getFileUrl(path, backend)             → URL signée (S3) ou URL locale
+ *   checkS3Health()                       → statut connectivité bucket
  */
 
 import fs   from "fs/promises";
 import path from "path";
-import { ENV } from "./env";
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+  GetObjectCommand,
+  HeadBucketCommand,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { ENV }          from "./env";
 import { createLogger } from "./logger";
 
 const log = createLogger("storage");
 
 export interface StoredFile {
-  path:    string;   // chemin local ou S3 key
-  url:     string;   // URL publique ou signée
+  path:    string;   // chemin local relatif ou S3 key
+  url:     string;   // URL de référence (signée à la volée pour S3)
   backend: "local" | "s3";
   size:    number;
+}
+
+// ─── Client S3 singleton ──────────────────────────────────────────────────────
+
+let _s3: S3Client | null = null;
+
+function getS3Client(): S3Client {
+  if (!_s3) {
+    _s3 = new S3Client({
+      region:         ENV.S3_REGION,
+      forcePathStyle: ENV.S3_FORCE_PATH_STYLE,   // requis pour MinIO
+      ...(ENV.S3_ENDPOINT ? { endpoint: ENV.S3_ENDPOINT } : {}),
+      credentials: {
+        accessKeyId:     ENV.S3_ACCESS_KEY_ID     ?? "",
+        secretAccessKey: ENV.S3_SECRET_ACCESS_KEY ?? "",
+      },
+    });
+    log.info({
+      region:   ENV.S3_REGION,
+      endpoint: ENV.S3_ENDPOINT ?? "AWS",
+      bucket:   ENV.S3_BUCKET,
+      pathStyle: ENV.S3_FORCE_PATH_STYLE,
+    }, "Client S3 initialisé");
+  }
+  return _s3;
 }
 
 // ─── Stockage local ───────────────────────────────────────────────────────────
@@ -33,11 +67,7 @@ async function ensureUploadDir(subdir: string): Promise<string> {
   return dir;
 }
 
-async function saveLocal(
-  buffer:   Buffer,
-  filename: string,
-  subdir:   string,
-): Promise<StoredFile> {
+async function saveLocal(buffer: Buffer, filename: string, subdir: string): Promise<StoredFile> {
   const dir      = await ensureUploadDir(subdir);
   const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
   const unique   = `${Date.now()}_${safeName}`;
@@ -45,7 +75,7 @@ async function saveLocal(
 
   await fs.writeFile(fullPath, buffer);
   const relativePath = path.join(subdir, unique);
-  const url = `/uploads/${subdir}/${unique}`;
+  const url          = `/uploads/${subdir}/${unique}`;
 
   log.info({ path: relativePath, size: buffer.length }, "Fichier sauvegardé (local)");
   return { path: relativePath, url, backend: "local", size: buffer.length };
@@ -53,28 +83,13 @@ async function saveLocal(
 
 async function deleteLocal(filePath: string): Promise<void> {
   try {
-    const full = path.join(ENV.UPLOAD_DIR, filePath);
-    await fs.unlink(full);
+    await fs.unlink(path.join(ENV.UPLOAD_DIR, filePath));
   } catch (err) {
     log.warn({ err, filePath }, "Échec suppression fichier local");
   }
 }
 
-// ─── Stockage S3 ──────────────────────────────────────────────────────────────
-
-async function getS3Client() {
-  // Import dynamique — évite de charger le SDK AWS si on est en local
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { S3Client } = await import("@aws-sdk/client-s3" as any);
-  return new S3Client({
-    region: ENV.S3_REGION,
-    ...(ENV.S3_ENDPOINT ? { endpoint: ENV.S3_ENDPOINT } : {}),
-    credentials: {
-      accessKeyId:     ENV.S3_ACCESS_KEY_ID ?? "",
-      secretAccessKey: ENV.S3_SECRET_ACCESS_KEY ?? "",
-    },
-  });
-}
+// ─── Stockage S3 / MinIO ──────────────────────────────────────────────────────
 
 async function saveS3(
   buffer:   Buffer,
@@ -84,53 +99,89 @@ async function saveS3(
 ): Promise<StoredFile> {
   if (!ENV.S3_BUCKET) throw new Error("S3_BUCKET non configuré");
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { PutObjectCommand } = await import("@aws-sdk/client-s3" as any);
-  const client   = await getS3Client();
   const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
   const key      = `documents/${subdir}/${Date.now()}_${safeName}`;
 
-  await client.send(new PutObjectCommand({
-    Bucket:      ENV.S3_BUCKET,
-    Key:         key,
-    Body:        buffer,
-    ContentType: mimeType,
+  await getS3Client().send(new PutObjectCommand({
+    Bucket:                  ENV.S3_BUCKET,
+    Key:                     key,
+    Body:                    buffer,
+    ContentType:             mimeType,
+    ServerSideEncryption:    "AES256",    // SSE-S3 chiffrement au repos
   }));
 
-  // URL publique ou via endpoint custom (MinIO)
-  const baseUrl = ENV.S3_ENDPOINT
-    ? `${ENV.S3_ENDPOINT}/${ENV.S3_BUCKET}`
-    : `https://${ENV.S3_BUCKET}.s3.${ENV.S3_REGION}.amazonaws.com`;
-  const url = `${baseUrl}/${key}`;
+  // URL de référence interne — sera remplacée par une URL signée à la lecture
+  const url = `s3://${ENV.S3_BUCKET}/${key}`;
 
-  log.info({ key, size: buffer.length }, "Fichier sauvegardé (S3)");
+  log.info({ key, size: buffer.length, bucket: ENV.S3_BUCKET }, "Fichier sauvegardé (S3)");
   return { path: key, url, backend: "s3", size: buffer.length };
 }
 
 async function deleteS3(key: string): Promise<void> {
   if (!ENV.S3_BUCKET) return;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { DeleteObjectCommand } = await import("@aws-sdk/client-s3" as any);
-    const client = await getS3Client();
-    await client.send(new DeleteObjectCommand({ Bucket: ENV.S3_BUCKET, Key: key }));
+    await getS3Client().send(new DeleteObjectCommand({
+      Bucket: ENV.S3_BUCKET,
+      Key:    key,
+    }));
+    log.info({ key }, "Fichier supprimé (S3)");
   } catch (err) {
     log.warn({ err, key }, "Échec suppression fichier S3");
   }
 }
 
-async function getS3SignedUrl(key: string, expiresIn = 3600): Promise<string> {
+async function getS3SignedUrl(key: string): Promise<string> {
   if (!ENV.S3_BUCKET) throw new Error("S3_BUCKET non configuré");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { GetObjectCommand } = await import("@aws-sdk/client-s3" as any);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { getSignedUrl }     = await import("@aws-sdk/s3-request-presigner" as any);
-  const client = await getS3Client();
   return getSignedUrl(
-    client,
+    getS3Client(),
     new GetObjectCommand({ Bucket: ENV.S3_BUCKET, Key: key }),
-    { expiresIn },
+    { expiresIn: ENV.S3_SIGNED_URL_EXPIRES },
   );
+}
+
+// ─── Health check S3 ─────────────────────────────────────────────────────────
+
+export async function checkS3Health(): Promise<{
+  status: "healthy" | "unhealthy";
+  bucket?: string;
+  error?:  string;
+}> {
+  if (ENV.STORAGE_BACKEND !== "s3") {
+    return { status: "healthy", bucket: "local (S3 désactivé)" };
+  }
+  if (!ENV.S3_BUCKET) {
+    return { status: "unhealthy", error: "S3_BUCKET non configuré" };
+  }
+  try {
+    await getS3Client().send(new HeadBucketCommand({ Bucket: ENV.S3_BUCKET }));
+    return { status: "healthy", bucket: ENV.S3_BUCKET };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { status: "unhealthy", bucket: ENV.S3_BUCKET, error: msg };
+  }
+}
+
+// ─── Validation au démarrage ──────────────────────────────────────────────────
+
+export async function validateStorageConfig(): Promise<void> {
+  if (ENV.STORAGE_BACKEND !== "s3") return;
+
+  const missing: string[] = [];
+  if (!ENV.S3_BUCKET)          missing.push("S3_BUCKET");
+  if (!ENV.S3_ACCESS_KEY_ID)   missing.push("S3_ACCESS_KEY_ID");
+  if (!ENV.S3_SECRET_ACCESS_KEY) missing.push("S3_SECRET_ACCESS_KEY");
+
+  if (missing.length > 0) {
+    throw new Error(`STORAGE_BACKEND=s3 mais variables manquantes : ${missing.join(", ")}`);
+  }
+
+  // Vérifier accessibilité du bucket
+  const health = await checkS3Health();
+  if (health.status === "unhealthy") {
+    throw new Error(`Bucket S3 inaccessible (${ENV.S3_BUCKET}) : ${health.error}`);
+  }
+
+  log.info({ bucket: ENV.S3_BUCKET, region: ENV.S3_REGION }, "Stockage S3 validé au démarrage");
 }
 
 // ─── API publique ─────────────────────────────────────────────────────────────
@@ -153,8 +204,8 @@ export async function deleteFile(filePath: string, backend: "local" | "s3"): Pro
 }
 
 export async function getFileUrl(
-  filePath: string,
-  backend:  "local" | "s3",
+  filePath:   string,
+  backend:    "local" | "s3",
   storedUrl?: string,
 ): Promise<string> {
   if (backend === "s3") return getS3SignedUrl(filePath);
