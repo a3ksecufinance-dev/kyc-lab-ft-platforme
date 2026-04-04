@@ -228,7 +228,7 @@ export function MfaSettingsPage() {
                 </p>
                 <input
                   value={code}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                     setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                   placeholder="000000"
                   maxLength={6}
@@ -335,7 +335,7 @@ export function MfaSettingsPage() {
                 <input
                   type="password"
                   value={disablePass}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                     setDisablePass(e.target.value)}
                   placeholder="••••••••"
                   className="w-full bg-[#161b22] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-red-400/40"

@@ -149,8 +149,7 @@ describe("auth.service — loginUser", () => {
     const result = await loginUser({ email: "alice@example.com", password: "AnyPassword1" });
 
     expect(result.mfaRequired).toBe(true);
-    // @ts-expect-error — narrowing union
-    expect(result.tokens).toBeNull();
+    expect((result as { tokens: null }).tokens).toBeNull();
   });
 
   it("lève UNAUTHORIZED si utilisateur introuvable", async () => {

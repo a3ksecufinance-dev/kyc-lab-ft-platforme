@@ -9,6 +9,24 @@ import { UserPlus } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useI18n } from "../hooks/useI18n";
 
+const C = {
+  surface: "var(--wr-card)",
+  border:  "var(--wr-border)",
+  border2: "var(--wr-border2)",
+  text1:   "var(--wr-text-1)",
+  text2:   "var(--wr-text-2)",
+  text3:   "var(--wr-text-3)",
+  text4:   "var(--wr-text-4)",
+  gold:    "var(--wr-gold)",
+  red:     "var(--wr-red)",
+  amber:   "var(--wr-amber)",
+  green:   "var(--wr-green)",
+  blue:    "var(--wr-blue)",
+  mono:    "var(--wr-font-mono)",
+  serif:   "var(--wr-font-serif)",
+  hover:   "var(--wr-hover)",
+};
+
 type Alert = {
   id: number; alertId: string; scenario: string;
   alertType: string; priority: string; status: string;
@@ -43,14 +61,14 @@ export function AlertsPage() {
   const COLUMNS: Column<Alert>[] = [
     {
       key: "id", header: t.alerts.alertId, width: "w-36",
-      render: (r) => <span className="font-mono text-xs text-[#58a6ff]">{r.alertId}</span>,
+      render: (r) => <span style={{ fontFamily: C.mono, fontSize: 12, color: C.blue }}>{r.alertId}</span>,
     },
     {
       key: "scenario", header: t.alerts.scenario,
       render: (r) => (
         <div>
-          <p className="text-xs text-[#e6edf3] font-mono">{r.scenario}</p>
-          <p className="text-[10px] text-[#7d8590] mt-0.5">{formatRelative(r.createdAt)}</p>
+          <p style={{ fontSize: 12, fontFamily: C.mono, color: C.text1, margin: "0 0 2px" }}>{r.scenario}</p>
+          <p style={{ fontSize: 10, color: C.text3, margin: 0 }}>{formatRelative(r.createdAt)}</p>
         </div>
       ),
     },
@@ -69,17 +87,18 @@ export function AlertsPage() {
     {
       key: "score", header: t.alerts.scoreLabel, width: "w-20",
       render: (r) => (
-        <div className="flex items-center gap-1.5">
-          <div className="w-16 h-1.5 bg-[#21262d] rounded-full overflow-hidden">
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ width: 56, height: 5, background: C.border, borderRadius: 3, overflow: "hidden" }}>
             <div
-              className="h-full rounded-full"
               style={{
+                height: "100%",
+                borderRadius: 3,
+                background: r.riskScore >= 75 ? C.red : r.riskScore >= 50 ? C.amber : C.green,
                 width: `${r.riskScore}%`,
-                background: r.riskScore >= 75 ? "#f85149" : r.riskScore >= 50 ? "#d29922" : "#3fb950",
               }}
             />
           </div>
-          <span className="text-[10px] font-mono text-[#7d8590]">{r.riskScore}</span>
+          <span style={{ fontSize: 10, fontFamily: C.mono, color: C.text3 }}>{r.riskScore}</span>
         </div>
       ),
     },
@@ -88,7 +107,7 @@ export function AlertsPage() {
       render: (r) => r.status === "OPEN" || r.status === "IN_REVIEW" ? (
         <button
           onClick={(e: React.MouseEvent) => { e.stopPropagation(); setSelected(r); }}
-          className="text-[11px] font-mono text-[#58a6ff] hover:underline"
+          style={{ fontSize: 11, fontFamily: C.mono, color: C.blue, background: "none", border: "none", cursor: "pointer", padding: 0 }}
         >
           {t.common.submit}
         </button>
@@ -98,21 +117,21 @@ export function AlertsPage() {
 
   return (
     <AppLayout>
-      <div className="flex items-center justify-between mb-6">
+      <div style={{ marginBottom: 24, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
         <div>
-          <h1 className="text-lg font-semibold text-[#e6edf3] font-mono">{t.alerts.title}</h1>
-          <p className="text-xs font-mono text-[#7d8590] mt-0.5">
+          <h1 style={{ fontSize: 22, fontWeight: 400, fontFamily: C.serif, color: C.text1, letterSpacing: "-0.4px", margin: "0 0 4px" }}>{t.alerts.title}</h1>
+          <p style={{ fontSize: 11, fontFamily: C.mono, color: C.text3, margin: 0 }}>
             {data ? t.alerts.subtitle.replace("{count}", formatNumber(data.total)) : "—"}
           </p>
         </div>
       </div>
 
       {/* Filtres */}
-      <div className="flex gap-3 mb-4">
+      <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
         <select
           value={status}
-          onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => { setStatus(e.target.value); setPage(1); }}
-          className="bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#7d8590] focus:outline-none focus:border-[#58a6ff]/40"
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setStatus(e.target.value); setPage(1); }}
+          style={{ background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "7px 11px", fontSize: 11, fontFamily: C.mono, color: C.text2, outline: "none" }}
         >
           <option value="">{t.alerts.allStatuses}</option>
           <option value="OPEN">{t.alerts.statusOpen}</option>
@@ -123,8 +142,8 @@ export function AlertsPage() {
         </select>
         <select
           value={priority}
-          onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => { setPriority(e.target.value); setPage(1); }}
-          className="bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#7d8590] focus:outline-none focus:border-[#58a6ff]/40"
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setPriority(e.target.value); setPage(1); }}
+          style={{ background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "7px 11px", fontSize: 11, fontFamily: C.mono, color: C.text2, outline: "none" }}
         >
           <option value="">{t.alerts.allSeverities}</option>
           <option value="CRITICAL">{t.alerts.critical}</option>
@@ -134,7 +153,7 @@ export function AlertsPage() {
         </select>
       </div>
 
-      <div className="bg-[#0d1117] border border-[#21262d] rounded-lg overflow-hidden">
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
         <DataTable
           columns={COLUMNS}
           data={(data?.data ?? []) as Alert[]}
@@ -150,15 +169,15 @@ export function AlertsPage() {
 
       {/* Panneau de traitement */}
       {selected && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
-          <div className="bg-[#0d1117] border border-[#30363d] rounded-xl p-6 w-full max-w-md animate-slide-in">
-            <h3 className="text-sm font-semibold text-[#e6edf3] font-mono mb-1">{selected.alertId}</h3>
-            <p className="text-xs font-mono text-[#7d8590] mb-4">{selected.scenario}</p>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
+          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 24, width: "100%", maxWidth: 440 }}>
+            <h3 style={{ fontSize: 13, fontWeight: 600, fontFamily: C.mono, color: C.text1, margin: "0 0 4px" }}>{selected.alertId}</h3>
+            <p style={{ fontSize: 12, fontFamily: C.mono, color: C.text3, margin: "0 0 16px" }}>{selected.scenario}</p>
 
-            <div className="flex gap-2 mb-4">
+            <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center" }}>
               <Badge label={selected.priority} variant="priority" />
               <Badge label={selected.status} variant="status" />
-              <span className="text-[11px] font-mono text-[#7d8590]">{t.alerts.scoreLabel} : {selected.riskScore}</span>
+              <span style={{ fontSize: 11, fontFamily: C.mono, color: C.text3 }}>{t.alerts.scoreLabel} : {selected.riskScore}</span>
             </div>
 
             {/* Assigner */}
@@ -166,7 +185,7 @@ export function AlertsPage() {
               <button
                 onClick={() => assignMutation.mutate({ id: selected.id, userId: user.id })}
                 disabled={assignMutation.isPending}
-                className="w-full flex items-center justify-center gap-2 py-2 px-4 mb-3 bg-[#1f6feb]/20 border border-[#1f6feb]/30 hover:bg-[#1f6feb]/30 text-[#58a6ff] text-xs font-mono rounded-md transition-colors"
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%", padding: "8px 14px", marginBottom: 12, background: `${C.blue}14`, border: `1px solid ${C.blue}40`, borderRadius: 7, fontSize: 11, fontFamily: C.mono, color: C.blue, cursor: "pointer", boxSizing: "border-box" as const }}
               >
                 <UserPlus size={12} />
                 {assignMutation.isPending ? t.common.loading : t.alerts.assignToMe}
@@ -174,25 +193,24 @@ export function AlertsPage() {
             )}
 
             {/* Résoudre */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-mono text-[#7d8590] tracking-widest uppercase">
+            <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
+              <label style={{ fontSize: 9, fontFamily: C.mono, letterSpacing: "0.15em", textTransform: "uppercase" as const, color: C.text3, marginBottom: 6, display: "block" }}>
                 {t.alerts.resolveNote}
               </label>
               <textarea
                 value={resolveNote}
-                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setResolveNote(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setResolveNote(e.target.value)}
                 rows={3}
                 placeholder={t.alerts.resolveNotePh}
-                className="w-full bg-[#161b22] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff]/40 resize-none"
+                style={{ width: "100%", background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "8px 10px", fontSize: 12, fontFamily: C.mono, color: C.text1, outline: "none", resize: "none" as const, boxSizing: "border-box" as const }}
               />
-              <div className="flex gap-2">
+              <div style={{ display: "flex", gap: 8 }}>
                 {(["CLOSED", "FALSE_POSITIVE", "ESCALATED"] as const).map((res) => (
                   <button
                     key={res}
                     disabled={resolveNote.length < 10 || resolveMutation.isPending}
                     onClick={() => resolveMutation.mutate({ id: selected.id, resolution: res, note: resolveNote })}
-                    className="flex-1 py-1.5 text-[10px] font-mono border rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed
-                      border-[#30363d] text-[#7d8590] hover:border-[#58a6ff]/40 hover:text-[#58a6ff]"
+                    style={{ flex: 1, padding: "6px 8px", fontSize: 10, fontFamily: C.mono, border: `1px solid ${C.border2}`, borderRadius: 6, color: C.text3, background: "transparent", cursor: "pointer", opacity: (resolveNote.length < 10 || resolveMutation.isPending) ? 0.4 : 1 }}
                   >
                     {res === "CLOSED" ? t.alerts.closeAction : res === "FALSE_POSITIVE" ? t.alerts.falsePositiveAction : t.alerts.escalate}
                   </button>
@@ -202,7 +220,7 @@ export function AlertsPage() {
 
             <button
               onClick={() => { setSelected(null); setResolveNote(""); }}
-              className="w-full mt-3 py-1.5 text-xs font-mono text-[#484f58] hover:text-[#7d8590] transition-colors"
+              style={{ width: "100%", marginTop: 12, padding: "6px 0", fontSize: 12, fontFamily: C.mono, color: C.text4, background: "none", border: "none", cursor: "pointer" }}
             >
               {t.common.cancel}
             </button>

@@ -13,6 +13,24 @@ import {
   Clock, ChevronDown, ChevronUp,
 } from "lucide-react";
 
+const C = {
+  surface: "var(--wr-card)",
+  border:  "var(--wr-border)",
+  border2: "var(--wr-border2)",
+  text1:   "var(--wr-text-1)",
+  text2:   "var(--wr-text-2)",
+  text3:   "var(--wr-text-3)",
+  text4:   "var(--wr-text-4)",
+  gold:    "var(--wr-gold)",
+  red:     "var(--wr-red)",
+  amber:   "var(--wr-amber)",
+  green:   "var(--wr-green)",
+  blue:    "var(--wr-blue)",
+  mono:    "var(--wr-font-mono)",
+  serif:   "var(--wr-font-serif)",
+  hover:   "var(--wr-hover)",
+};
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type EkycCheck = {
@@ -49,26 +67,24 @@ function getDocTypeLabel(type: string, t: TDict): string {
 }
 
 function checkIcon(status: EkycCheck["status"]) {
-  if (status === "PASS") return <CheckCircle size={12} className="text-emerald-400 flex-shrink-0" />;
-  if (status === "FAIL") return <XCircle     size={12} className="text-red-400 flex-shrink-0" />;
-  if (status === "WARN") return <AlertTriangle size={12} className="text-amber-400 flex-shrink-0" />;
-  return <span className="w-3 h-3 flex-shrink-0 rounded-full bg-[#30363d]" />;
+  if (status === "PASS") return <CheckCircle size={12} style={{ color: C.green, flexShrink: 0 }} />;
+  if (status === "FAIL") return <XCircle     size={12} style={{ color: C.red, flexShrink: 0 }} />;
+  if (status === "WARN") return <AlertTriangle size={12} style={{ color: C.amber, flexShrink: 0 }} />;
+  return <span style={{ width: 12, height: 12, flexShrink: 0, borderRadius: "50%", background: C.border2, display: "inline-block" }} />;
 }
 
 // ─── Upload zone ─────────────────────────────────────────────────────────────
 
 function UploadZone({ customerId, onSuccess }: { customerId: number; onSuccess: () => void }) {
   const { t } = useI18n();
-  const [dragging, setDragging]   = useState(false);
-  const [_uploading, setUploading] = useState(false);
-  const [progress, setProgress]   = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [progress, setProgress] = useState<string | null>(null);
   const [error, setError]         = useState<string | null>(null);
   const [docType, setDocType]     = useState("PASSPORT");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const doUpload = useCallback(async (file: File) => {
     setError(null);
-    setUploading(true);
     setProgress(t.common.loading);
 
     try {
@@ -95,8 +111,6 @@ function UploadZone({ customerId, onSuccess }: { customerId: number; onSuccess: 
 
     } catch {
       setError(t.common.networkError);
-    } finally {
-      setUploading(false);
     }
   }, [customerId, docType, onSuccess, t]);
 
@@ -108,15 +122,15 @@ function UploadZone({ customerId, onSuccess }: { customerId: number; onSuccess: 
   }, [doUpload]);
 
   return (
-    <div className="space-y-3">
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       {/* Sélecteur type de document */}
       <div>
-        <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">
+        <label style={{ display: "block", fontSize: 10, fontFamily: C.mono, color: C.text3, letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 6 }}>
           {t.documents.docType}
         </label>
         <select value={docType}
-          onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setDocType(e.target.value)}
-          className="bg-[#161b22] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#e6edf3] focus:outline-none focus:border-[#58a6ff]/40 w-full"
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDocType(e.target.value)}
+          style={{ background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "6px 10px", fontSize: 11, fontFamily: C.mono, color: C.text1, width: "100%", outline: "none" }}
         >
           {(["PASSPORT","ID_CARD","DRIVING_LICENSE","PROOF_OF_ADDRESS","SELFIE","BANK_STATEMENT","OTHER"] as const).map((k) => (
             <option key={k} value={k}>{getDocTypeLabel(k, t)}</option>
@@ -130,38 +144,41 @@ function UploadZone({ customerId, onSuccess }: { customerId: number; onSuccess: 
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
         onClick={() => fileRef.current?.click()}
-        className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
-          dragging ? "border-[#58a6ff] bg-[#1f6feb]/10" : "border-[#30363d] hover:border-[#58a6ff]/50 hover:bg-[#161b22]"
-        }`}
+        style={{
+          border: `2px dashed ${dragging ? C.blue : C.border2}`,
+          borderRadius: 10, padding: "32px 20px", textAlign: "center" as const,
+          cursor: "pointer",
+          background: dragging ? `${C.blue}08` : C.hover,
+        }}
       >
         <input
-          ref={fileRef} type="file" className="hidden"
+          ref={fileRef} type="file" style={{ display: "none" }}
           accept=".jpg,.jpeg,.png,.webp,.pdf"
-          onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-            const f = (e.target as HTMLInputElement).files?.[0];
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+            const f = e.target.files?.[0];
             if (f) doUpload(f);
           }}
         />
-        <Upload size={24} className="text-[#484f58] mx-auto mb-2" />
-        <p className="text-xs font-mono text-[#7d8590]">
+        <Upload size={24} style={{ color: C.text4, margin: "0 auto 8px", display: "block" }} />
+        <p style={{ fontSize: 11, fontFamily: C.mono, color: C.text3, margin: 0 }}>
           {t.documents.dragDrop}
         </p>
-        <p className="text-[10px] font-mono text-[#484f58] mt-1">
+        <p style={{ fontSize: 10, fontFamily: C.mono, color: C.text4, marginTop: 4 }}>
           JPG, PNG, WEBP, PDF — max {10} Mo
         </p>
       </div>
 
       {/* Feedback */}
       {progress && (
-        <div className="bg-[#1f6feb]/10 border border-[#1f6feb]/30 rounded-lg px-4 py-2.5">
-          <p className="text-xs font-mono text-[#58a6ff] flex items-center gap-2">
+        <div style={{ background: `${C.blue}0a`, border: `1px solid ${C.blue}30`, borderRadius: 8, padding: "10px 14px" }}>
+          <p style={{ fontSize: 12, fontFamily: C.mono, color: C.blue, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
             <RefreshCw size={11} className="animate-spin" /> {progress}
           </p>
         </div>
       )}
       {error && (
-        <div className="bg-red-400/10 border border-red-400/20 rounded-lg px-4 py-2.5">
-          <p className="text-xs font-mono text-red-400">{error}</p>
+        <div style={{ background: `${C.red}0a`, border: `1px solid ${C.red}30`, borderRadius: 8, padding: "10px 14px" }}>
+          <p style={{ fontSize: 12, fontFamily: C.mono, color: C.red, margin: 0 }}>{error}</p>
         </div>
       )}
     </div>
@@ -183,11 +200,11 @@ function DocumentCard({ doc, canVerify, onRefresh }: DocumentCardProps) {
   const utils = trpc.useUtils();
 
   const EKYC_STATUS_CONFIG = {
-    PASS:       { color: "text-emerald-400", bg: "bg-emerald-400/10 border-emerald-400/20", icon: ShieldCheck, label: t.documents.ekycVerified },
-    REVIEW:     { color: "text-amber-400",   bg: "bg-amber-400/10 border-amber-400/20",   icon: AlertTriangle, label: t.documents.ekycReview },
-    FAIL:       { color: "text-red-400",     bg: "bg-red-400/10 border-red-400/20",       icon: ShieldAlert, label: t.documents.ekycFailed },
-    PROCESSING: { color: "text-[#58a6ff]",   bg: "bg-[#1f6feb]/10 border-[#1f6feb]/20",  icon: RefreshCw, label: t.documents.ekycProcessing },
-    PENDING:    { color: "text-[#7d8590]",   bg: "bg-[#161b22] border-[#21262d]",        icon: Clock, label: t.documents.ekycPending },
+    PASS:       { color: C.green,  bgColor: `${C.green}1a`,  borderColor: `${C.green}33`,  icon: ShieldCheck,   label: t.documents.ekycVerified },
+    REVIEW:     { color: C.amber,  bgColor: `${C.amber}1a`,  borderColor: `${C.amber}33`,  icon: AlertTriangle, label: t.documents.ekycReview },
+    FAIL:       { color: C.red,    bgColor: `${C.red}1a`,    borderColor: `${C.red}33`,    icon: ShieldAlert,   label: t.documents.ekycFailed },
+    PROCESSING: { color: C.blue,   bgColor: `${C.blue}1a`,   borderColor: `${C.blue}33`,   icon: RefreshCw,     label: t.documents.ekycProcessing },
+    PENDING:    { color: C.text3,  bgColor: C.hover,          borderColor: C.border,        icon: Clock,         label: t.documents.ekycPending },
   };
 
   function ekycBadge(status: string) {
@@ -195,7 +212,12 @@ function DocumentCard({ doc, canVerify, onRefresh }: DocumentCardProps) {
       ?? EKYC_STATUS_CONFIG.PENDING;
     const Icon = cfg.icon;
     return (
-      <span className={`inline-flex items-center gap-1.5 text-[10px] font-mono px-2 py-1 rounded border ${cfg.bg} ${cfg.color}`}>
+      <span style={{
+        display: "inline-flex", alignItems: "center", gap: 6,
+        fontSize: 10, fontFamily: C.mono, padding: "3px 8px",
+        borderRadius: 5, border: `1px solid ${cfg.borderColor}`,
+        background: cfg.bgColor, color: cfg.color,
+      }}>
         <Icon size={11} className={status === "PROCESSING" ? "animate-spin" : ""} />
         {cfg.label}
       </span>
@@ -213,45 +235,45 @@ function DocumentCard({ doc, canVerify, onRefresh }: DocumentCardProps) {
   const ocrData = doc.ocrData as Record<string, unknown> | null;
 
   return (
-    <div className="bg-[#0d1117] border border-[#21262d] rounded-lg overflow-hidden">
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
       {/* En-tête */}
-      <div className="px-4 py-3 flex items-center gap-3">
-        <FileText size={16} className="text-[#484f58] flex-shrink-0" />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-mono font-medium text-[#e6edf3]">
+      <div style={{ padding: "10px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+        <FileText size={16} style={{ color: C.text4, flexShrink: 0 }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 11, fontFamily: C.mono, fontWeight: 500, color: C.text1 }}>
               {getDocTypeLabel(doc.documentType, t)}
             </span>
             {ekycBadge(doc.ekycStatus)}
             {doc.ekycScore !== null && (
-              <span className="text-[10px] font-mono text-[#484f58]">
+              <span style={{ fontSize: 10, fontFamily: C.mono, color: C.text4 }}>
                 {t.documents.scoreLabel} {doc.ekycScore}/100
               </span>
             )}
           </div>
-          <div className="flex items-center gap-3 mt-0.5">
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 2 }}>
             {doc.documentNumber && (
-              <span className="text-[10px] font-mono text-[#7d8590]">{t.documents.docNumber} {doc.documentNumber}</span>
+              <span style={{ fontSize: 10, fontFamily: C.mono, color: C.text3 }}>{t.documents.docNumber} {doc.documentNumber}</span>
             )}
             {doc.expiryDate && (
-              <span className="text-[10px] font-mono text-[#7d8590]">{t.documents.expiry} {doc.expiryDate}</span>
+              <span style={{ fontSize: 10, fontFamily: C.mono, color: C.text3 }}>{t.documents.expiry} {doc.expiryDate}</span>
             )}
-            <span className="text-[10px] font-mono text-[#484f58]">
+            <span style={{ fontSize: 10, fontFamily: C.mono, color: C.text4 }}>
               {formatRelative(doc.createdAt)}
             </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
           {doc.fileUrl && (
             <button onClick={() => setShowViewer(true)}
-              className="p-1.5 hover:bg-[#161b22] rounded text-[#484f58] hover:text-[#e6edf3]"
+              style={{ padding: 6, background: "none", border: "none", cursor: "pointer", color: C.text4, borderRadius: 6, display: "flex", alignItems: "center" }}
               title={t.documents.viewDocument}>
               <Eye size={13} />
             </button>
           )}
           <button onClick={() => setExpanded(!expanded)}
-            className="p-1.5 hover:bg-[#161b22] rounded text-[#484f58] hover:text-[#e6edf3]">
+            style={{ padding: 6, background: "none", border: "none", cursor: "pointer", color: C.text4, borderRadius: 6, display: "flex", alignItems: "center" }}>
             {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
           </button>
         </div>
@@ -259,25 +281,25 @@ function DocumentCard({ doc, canVerify, onRefresh }: DocumentCardProps) {
 
       {/* Détails expandés */}
       {expanded && (
-        <div className="border-t border-[#21262d] px-4 py-4 space-y-4">
+        <div style={{ borderTop: `1px solid ${C.border}`, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 16 }}>
 
           {/* Contrôles eKYC */}
           {checks.length > 0 && (
             <div>
-              <p className="text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-2">
+              <p style={{ fontSize: 10, fontFamily: C.mono, color: C.text3, letterSpacing: "0.16em", textTransform: "uppercase" as const, marginBottom: 8, fontWeight: 600 }}>
                 {t.documents.ekycChecks}
               </p>
-              <div className="space-y-1.5">
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {checks.map((c) => (
-                  <div key={c.id} className="flex items-start gap-2">
+                  <div key={c.id} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
                     {checkIcon(c.status)}
-                    <div className="flex-1 min-w-0">
-                      <span className="text-[10px] font-mono text-[#e6edf3]">{c.label}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ fontSize: 10, fontFamily: C.mono, color: C.text1 }}>{c.label}</span>
                       {c.detail && (
-                        <span className="text-[10px] font-mono text-[#484f58] ml-2">{c.detail}</span>
+                        <span style={{ fontSize: 10, fontFamily: C.mono, color: C.text4, marginLeft: 8 }}>{c.detail}</span>
                       )}
                     </div>
-                    <span className="text-[10px] font-mono text-[#484f58]">{c.score}/100</span>
+                    <span style={{ fontSize: 10, fontFamily: C.mono, color: C.text4 }}>{c.score}/100</span>
                   </div>
                 ))}
               </div>
@@ -287,15 +309,15 @@ function DocumentCard({ doc, canVerify, onRefresh }: DocumentCardProps) {
           {/* Données OCR extraites */}
           {ocrData && Object.keys(ocrData).length > 0 && (
             <div>
-              <p className="text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-2">
+              <p style={{ fontSize: 10, fontFamily: C.mono, color: C.text3, letterSpacing: "0.16em", textTransform: "uppercase" as const, marginBottom: 8, fontWeight: 600 }}>
                 {t.documents.ocrData}
                 {doc.ocrConfidence !== null && (
-                  <span className="ml-2 normal-case text-[#484f58]">
+                  <span style={{ marginLeft: 8, textTransform: "none" as const, color: C.text4 }}>
                     ({t.documents.confidence} {doc.ocrConfidence}%)
                   </span>
                 )}
               </p>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", columnGap: 24, rowGap: 4 }}>
                 {[
                   [t.documents.ocrFirstName,      ocrData["firstName"]],
                   [t.documents.ocrLastName,        ocrData["lastName"]],
@@ -305,9 +327,9 @@ function DocumentCard({ doc, canVerify, onRefresh }: DocumentCardProps) {
                   [t.documents.ocrNationality,     ocrData["nationality"]],
                   [t.documents.ocrIssuingCountry,  ocrData["issuingCountry"]],
                 ].filter(([, v]) => v).map(([label, value]) => (
-                  <div key={String(label)} className="flex justify-between text-[10px] font-mono">
-                    <span className="text-[#484f58]">{String(label)}</span>
-                    <span className="text-[#e6edf3]">{String(value)}</span>
+                  <div key={String(label)} style={{ display: "flex", justifyContent: "space-between", fontSize: 10, fontFamily: C.mono }}>
+                    <span style={{ color: C.text4 }}>{String(label)}</span>
+                    <span style={{ color: C.text1 }}>{String(value)}</span>
                   </div>
                 ))}
               </div>
@@ -316,11 +338,11 @@ function DocumentCard({ doc, canVerify, onRefresh }: DocumentCardProps) {
 
           {/* Actions manuelles */}
           {canVerify && doc.ekycStatus !== "PASS" && (
-            <div className="flex gap-2 pt-1">
+            <div style={{ display: "flex", gap: 8, paddingTop: 4 }}>
               <button
                 disabled={verifyMutation.isPending}
                 onClick={() => verifyMutation.mutate({ id: doc.id })}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-mono bg-emerald-400/10 border border-emerald-400/30 text-emerald-400 hover:bg-emerald-400/20 rounded-md"
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", background: `${C.green}14`, border: `1px solid ${C.green}40`, borderRadius: 7, fontSize: 11, fontFamily: C.mono, color: C.green, cursor: "pointer" }}
               >
                 <CheckCircle size={11} />
                 {t.documents.verifyManually}
@@ -329,7 +351,7 @@ function DocumentCard({ doc, canVerify, onRefresh }: DocumentCardProps) {
                 <button
                   disabled={rejectMutation.isPending}
                   onClick={() => rejectMutation.mutate({ id: doc.id, reason: "Rejeté manuellement" })}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-mono bg-red-400/10 border border-red-400/30 text-red-400 hover:bg-red-400/20 rounded-md"
+                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", background: `${C.red}14`, border: `1px solid ${C.red}40`, borderRadius: 7, fontSize: 11, fontFamily: C.mono, color: C.red, cursor: "pointer" }}
                 >
                   <XCircle size={11} />
                   {t.documents.reject}
@@ -342,14 +364,14 @@ function DocumentCard({ doc, canVerify, onRefresh }: DocumentCardProps) {
 
       {/* Viewer document (iframe/image) */}
       {showViewer && doc.fileUrl && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}
           onClick={() => setShowViewer(false)}>
-          <div className="w-full max-w-3xl max-h-[90vh] rounded-xl overflow-hidden bg-white"
+          <div style={{ width: "100%", maxWidth: 768, maxHeight: "90vh", borderRadius: 12, overflow: "hidden", background: "#fff" }}
             onClick={(e: React.MouseEvent) => e.stopPropagation()}>
             {doc.mimeType === "application/pdf" ? (
-              <iframe src={doc.fileUrl} className="w-full h-[85vh]" title="Document" />
+              <iframe src={doc.fileUrl} style={{ width: "100%", height: "85vh", display: "block" }} title="Document" />
             ) : (
-              <img src={doc.fileUrl} alt="Document" className="w-full h-auto max-h-[85vh] object-contain" />
+              <img src={doc.fileUrl} alt="Document" style={{ width: "100%", height: "auto", maxHeight: "85vh", objectFit: "contain", display: "block" }} />
             )}
           </div>
         </div>
@@ -381,32 +403,33 @@ export function DocumentsPage() {
 
   return (
     <AppLayout>
-      <div className="mb-6">
-        <h1 className="text-lg font-semibold text-[#e6edf3] font-mono">{t.documents.title}</h1>
-        <p className="text-xs font-mono text-[#7d8590] mt-0.5">
-          {t.documents.subtitle}
-        </p>
+      {/* Page header */}
+      <div style={{ marginBottom: 20, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 400, fontFamily: C.serif, color: C.text1, letterSpacing: "-0.4px", margin: "0 0 4px" }}>{t.documents.title}</h1>
+          <p style={{ fontSize: 11, fontFamily: C.mono, color: C.text3, margin: 0 }}>{t.documents.subtitle}</p>
+        </div>
       </div>
 
       {/* Sélecteur client */}
-      <div className="bg-[#0d1117] border border-[#21262d] rounded-lg p-4 mb-6">
-        <div className="flex gap-3 items-end">
-          <div className="flex-1">
-            <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: 16, marginBottom: 20 }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
+          <div style={{ flex: 1 }}>
+            <label style={{ display: "block", fontSize: 10, fontFamily: C.mono, color: C.text3, letterSpacing: "0.16em", textTransform: "uppercase" as const, marginBottom: 6 }}>
               {t.customers.clientId}
             </label>
             <input
               type="number" value={customerId}
-              onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                 setCustomerId(e.target.value)}
               placeholder="Ex : 42"
-              className="w-full bg-[#161b22] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff]/40"
+              style={{ width: "100%", background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "7px 10px", fontSize: 11, fontFamily: C.mono, color: C.text1, outline: "none", boxSizing: "border-box" }}
             />
           </div>
           {customerId && !isNaN(parseInt(customerId)) && (
             <button
               onClick={() => setShowUpload(!showUpload)}
-              className="flex items-center gap-2 px-4 py-2 text-xs font-mono bg-[#1f6feb]/20 border border-[#1f6feb]/30 text-[#58a6ff] hover:bg-[#1f6feb]/30 rounded-md"
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", background: `${C.blue}14`, border: `1px solid ${C.blue}40`, borderRadius: 7, fontSize: 11, fontFamily: C.mono, color: C.blue, cursor: "pointer" }}
             >
               <Upload size={13} />
               {showUpload ? t.common.close : t.documents.upload}
@@ -415,7 +438,7 @@ export function DocumentsPage() {
         </div>
 
         {showUpload && customerId && (
-          <div className="mt-4 border-t border-[#21262d] pt-4">
+          <div style={{ marginTop: 16, borderTop: `1px solid ${C.border}`, paddingTop: 16 }}>
             <UploadZone
               customerId={parseInt(customerId)}
               onSuccess={() => { setShowUpload(false); void refetch(); }}
@@ -426,29 +449,29 @@ export function DocumentsPage() {
 
       {/* Liste documents */}
       {!customerId && (
-        <div className="text-center py-16">
-          <FileText size={36} className="text-[#21262d] mx-auto mb-3" />
-          <p className="text-xs font-mono text-[#484f58]">
+        <div style={{ textAlign: "center", padding: "64px 20px" }}>
+          <FileText size={36} style={{ color: C.border, margin: "0 auto 12px", display: "block" }} />
+          <p style={{ fontSize: 11, fontFamily: C.mono, color: C.text4 }}>
             {t.documents.noDocuments}
           </p>
         </div>
       )}
 
       {customerId && isLoading && (
-        <div className="space-y-3">
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {[1, 2].map(i => (
-            <div key={i} className="h-16 bg-[#0d1117] border border-[#21262d] rounded-lg animate-pulse" />
+            <div key={i} style={{ height: 64, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10 }} />
           ))}
         </div>
       )}
 
       {customerId && !isLoading && docs.length === 0 && (
-        <div className="text-center py-12 bg-[#0d1117] border border-[#21262d] rounded-lg">
-          <FileText size={28} className="text-[#30363d] mx-auto mb-2" />
-          <p className="text-xs font-mono text-[#484f58]">{t.documents.noDocs}</p>
+        <div style={{ textAlign: "center", padding: "48px 20px", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10 }}>
+          <FileText size={28} style={{ color: C.border2, margin: "0 auto 8px", display: "block" }} />
+          <p style={{ fontSize: 11, fontFamily: C.mono, color: C.text4 }}>{t.documents.noDocs}</p>
           <button
             onClick={() => setShowUpload(true)}
-            className="mt-3 text-xs font-mono text-[#58a6ff] hover:underline"
+            style={{ marginTop: 12, fontSize: 11, fontFamily: C.mono, color: C.blue, background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}
           >
             {t.documents.uploadFirst}
           </button>
@@ -456,22 +479,22 @@ export function DocumentsPage() {
       )}
 
       {docs.length > 0 && (
-        <div className="space-y-3">
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {/* Résumé eKYC */}
-          <div className="flex items-center gap-4 px-1 mb-1">
-            <span className="text-xs font-mono text-[#7d8590]">
+          <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "0 4px 4px" }}>
+            <span style={{ fontSize: 11, fontFamily: C.mono, color: C.text3 }}>
               {docs.length} document(s)
             </span>
-            <span className="text-[10px] font-mono text-emerald-400">
+            <span style={{ fontSize: 10, fontFamily: C.mono, color: C.green }}>
               {docs.filter(d => d.ekycStatus === "PASS").length} ✓ {t.documents.verified}
             </span>
             {docs.some(d => d.ekycStatus === "REVIEW") && (
-              <span className="text-[10px] font-mono text-amber-400">
+              <span style={{ fontSize: 10, fontFamily: C.mono, color: C.amber }}>
                 {docs.filter(d => d.ekycStatus === "REVIEW").length} ⚠ {t.documents.ekycReview}
               </span>
             )}
             {docs.some(d => d.ekycStatus === "FAIL") && (
-              <span className="text-[10px] font-mono text-red-400">
+              <span style={{ fontSize: 10, fontFamily: C.mono, color: C.red }}>
                 {docs.filter(d => d.ekycStatus === "FAIL").length} ✗ {t.documents.ekycFailed}
               </span>
             )}

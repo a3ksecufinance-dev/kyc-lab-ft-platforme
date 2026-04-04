@@ -8,6 +8,24 @@ import { formatDate, formatRelative, formatNumber } from "../lib/utils";
 import { FolderPlus, Clock, User } from "lucide-react";
 import { useI18n } from "../hooks/useI18n";
 
+const C = {
+  surface: "var(--wr-card)",
+  border:  "var(--wr-border)",
+  border2: "var(--wr-border2)",
+  text1:   "var(--wr-text-1)",
+  text2:   "var(--wr-text-2)",
+  text3:   "var(--wr-text-3)",
+  text4:   "var(--wr-text-4)",
+  gold:    "var(--wr-gold)",
+  red:     "var(--wr-red)",
+  amber:   "var(--wr-amber)",
+  green:   "var(--wr-green)",
+  blue:    "var(--wr-blue)",
+  mono:    "var(--wr-font-mono)",
+  serif:   "var(--wr-font-serif)",
+  hover:   "var(--wr-hover)",
+};
+
 type Case = {
   id: number; caseId: string; title: string;
   status: string; severity: string; customerId: number;
@@ -52,14 +70,14 @@ export function CasesPage() {
   const COLUMNS: Column<Case>[] = [
     {
       key: "id", header: t.cases.caseId, width: "w-36",
-      render: (r) => <span className="font-mono text-xs text-[#58a6ff]">{r.caseId}</span>,
+      render: (r) => <span style={{ fontFamily: C.mono, fontSize: 12, color: C.blue }}>{r.caseId}</span>,
     },
     {
       key: "title", header: t.cases.subject,
       render: (r) => (
         <div>
-          <p className="text-xs text-[#e6edf3] truncate max-w-xs">{r.title}</p>
-          <p className="text-[10px] font-mono text-[#7d8590] mt-0.5">Client #{r.customerId}</p>
+          <p style={{ fontSize: 12, color: C.text1, margin: "0 0 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 280 }}>{r.title}</p>
+          <p style={{ fontSize: 10, fontFamily: C.mono, color: C.text3, margin: 0 }}>Client #{r.customerId}</p>
         </div>
       ),
     },
@@ -74,12 +92,12 @@ export function CasesPage() {
     {
       key: "due", header: t.cases.updatedAt, width: "w-28",
       render: (r) => {
-        if (!r.dueDate) return <span className="text-[#484f58]">—</span>;
+        if (!r.dueDate) return <span style={{ color: C.text4 }}>—</span>;
         const overdue = new Date(r.dueDate) < new Date() && r.status !== "CLOSED";
         return (
-          <div className={`flex items-center gap-1 ${overdue ? "text-red-400" : "text-[#7d8590]"}`}>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, color: overdue ? C.red : C.text3 }}>
             <Clock size={11} />
-            <span className="font-mono text-[10px]">{formatDate(r.dueDate)}</span>
+            <span style={{ fontFamily: C.mono, fontSize: 10 }}>{formatDate(r.dueDate)}</span>
           </div>
         );
       },
@@ -87,27 +105,27 @@ export function CasesPage() {
     {
       key: "assigned", header: t.cases.assignedTo, width: "w-24",
       render: (r) => r.assignedTo
-        ? <div className="flex items-center gap-1.5 text-[10px] font-mono text-[#7d8590]"><User size={10} />#{r.assignedTo}</div>
-        : <span className="text-[10px] font-mono text-[#484f58]">—</span>,
+        ? <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, fontFamily: C.mono, color: C.text3 }}><User size={10} />#{r.assignedTo}</div>
+        : <span style={{ fontSize: 10, fontFamily: C.mono, color: C.text4 }}>—</span>,
     },
     {
       key: "date", header: t.cases.createdAt, width: "w-28",
-      render: (r) => <span className="font-mono text-[10px] text-[#7d8590]">{formatRelative(r.createdAt)}</span>,
+      render: (r) => <span style={{ fontFamily: C.mono, fontSize: 10, color: C.text3 }}>{formatRelative(r.createdAt)}</span>,
     },
   ];
 
   return (
     <AppLayout>
-      <div className="flex items-center justify-between mb-6">
+      <div style={{ marginBottom: 24, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
         <div>
-          <h1 className="text-lg font-semibold text-[#e6edf3] font-mono">{t.cases.title}</h1>
-          <p className="text-xs font-mono text-[#7d8590] mt-0.5">
+          <h1 style={{ fontSize: 22, fontWeight: 400, fontFamily: C.serif, color: C.text1, letterSpacing: "-0.4px", margin: "0 0 4px" }}>{t.cases.title}</h1>
+          <p style={{ fontSize: 11, fontFamily: C.mono, color: C.text3, margin: 0 }}>
             {data ? t.cases.subtitle.replace("{count}", formatNumber(data.total)) : "—"}
           </p>
         </div>
         <button
           onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 px-3 py-1.5 text-xs font-mono bg-[#1f6feb]/20 border border-[#1f6feb]/30 hover:bg-[#1f6feb]/30 text-[#58a6ff] rounded-md transition-colors"
+          style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", background: `${C.blue}14`, border: `1px solid ${C.blue}40`, borderRadius: 7, fontSize: 11, fontFamily: C.mono, color: C.blue, cursor: "pointer" }}
         >
           <FolderPlus size={13} />
           {t.cases.openCase}
@@ -115,11 +133,11 @@ export function CasesPage() {
       </div>
 
       {/* Filtres */}
-      <div className="flex gap-3 mb-4">
+      <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
         <select
           value={status}
-          onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => { setStatus(e.target.value); setPage(1); }}
-          className="bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#7d8590] focus:outline-none focus:border-[#58a6ff]/40"
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setStatus(e.target.value); setPage(1); }}
+          style={{ background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "7px 11px", fontSize: 11, fontFamily: C.mono, color: C.text2, outline: "none" }}
         >
           <option value="">{t.cases.allStatuses}</option>
           <option value="OPEN">{t.cases.statusOpen}</option>
@@ -131,8 +149,8 @@ export function CasesPage() {
         </select>
         <select
           value={severity}
-          onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => { setSeverity(e.target.value); setPage(1); }}
-          className="bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#7d8590] focus:outline-none focus:border-[#58a6ff]/40"
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setSeverity(e.target.value); setPage(1); }}
+          style={{ background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "7px 11px", fontSize: 11, fontFamily: C.mono, color: C.text2, outline: "none" }}
         >
           <option value="">{t.cases.allPriorities}</option>
           <option value="CRITICAL">{t.cases.critical}</option>
@@ -142,7 +160,7 @@ export function CasesPage() {
         </select>
       </div>
 
-      <div className="bg-[#0d1117] border border-[#21262d] rounded-lg overflow-hidden">
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
         <DataTable
           columns={COLUMNS}
           data={(data?.data ?? []) as Case[]}
@@ -158,32 +176,32 @@ export function CasesPage() {
 
       {/* Modal création */}
       {showCreate && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
-          <div className="bg-[#0d1117] border border-[#30363d] rounded-xl p-6 w-full max-w-lg animate-slide-in">
-            <h3 className="text-sm font-semibold text-[#e6edf3] font-mono mb-4">{t.cases.openCase}</h3>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
+          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 24, width: "100%", maxWidth: 500 }}>
+            <h3 style={{ fontSize: 13, fontWeight: 600, fontFamily: C.mono, color: C.text1, margin: "0 0 16px" }}>{t.cases.openCase}</h3>
 
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+            <div style={{ display: "flex", flexDirection: "column" as const, gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
-                  <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">
+                  <label style={{ fontSize: 9, fontFamily: C.mono, letterSpacing: "0.15em", textTransform: "uppercase" as const, color: C.text3, marginBottom: 6, display: "block" }}>
                     {t.cases.customerIdRequired}
                   </label>
                   <input
                     type="number"
                     value={form.customerId}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setForm((f: typeof form) => ({ ...f, customerId: e.target.value }))}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((f: typeof form) => ({ ...f, customerId: e.target.value }))}
                     placeholder="123"
-                    className="w-full bg-[#161b22] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff]/40"
+                    style={{ width: "100%", background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "8px 10px", fontSize: 12, fontFamily: C.mono, color: C.text1, outline: "none", boxSizing: "border-box" as const }}
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">
+                  <label style={{ fontSize: 9, fontFamily: C.mono, letterSpacing: "0.15em", textTransform: "uppercase" as const, color: C.text3, marginBottom: 6, display: "block" }}>
                     {t.cases.severity}
                   </label>
                   <select
                     value={form.severity}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setForm((f: typeof form) => ({ ...f, severity: e.target.value as typeof form.severity }))}
-                    className="w-full bg-[#161b22] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#7d8590] focus:outline-none focus:border-[#58a6ff]/40"
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setForm((f: typeof form) => ({ ...f, severity: e.target.value as typeof form.severity }))}
+                    style={{ width: "100%", background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "8px 10px", fontSize: 12, fontFamily: C.mono, color: C.text2, outline: "none", boxSizing: "border-box" as const }}
                   >
                     <option value="LOW">{t.risk.low}</option>
                     <option value="MEDIUM">{t.risk.medium}</option>
@@ -194,51 +212,51 @@ export function CasesPage() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">
+                <label style={{ fontSize: 9, fontFamily: C.mono, letterSpacing: "0.15em", textTransform: "uppercase" as const, color: C.text3, marginBottom: 6, display: "block" }}>
                   {t.cases.titleLabel} *
                 </label>
                 <input
                   value={form.title}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setForm((f: typeof form) => ({ ...f, title: e.target.value }))}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((f: typeof form) => ({ ...f, title: e.target.value }))}
                   placeholder={t.cases.titlePh}
-                  className="w-full bg-[#161b22] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff]/40"
+                  style={{ width: "100%", background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "8px 10px", fontSize: 12, fontFamily: C.mono, color: C.text1, outline: "none", boxSizing: "border-box" as const }}
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">
+                <label style={{ fontSize: 9, fontFamily: C.mono, letterSpacing: "0.15em", textTransform: "uppercase" as const, color: C.text3, marginBottom: 6, display: "block" }}>
                   {t.cases.descriptionLabel}
                 </label>
                 <textarea
                   value={form.description}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setForm((f: typeof form) => ({ ...f, description: e.target.value }))}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setForm((f: typeof form) => ({ ...f, description: e.target.value }))}
                   rows={3}
                   placeholder={t.cases.descriptionPh}
-                  className="w-full bg-[#161b22] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff]/40 resize-none"
+                  style={{ width: "100%", background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "8px 10px", fontSize: 12, fontFamily: C.mono, color: C.text1, outline: "none", resize: "none" as const, boxSizing: "border-box" as const }}
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">
+                <label style={{ fontSize: 9, fontFamily: C.mono, letterSpacing: "0.15em", textTransform: "uppercase" as const, color: C.text3, marginBottom: 6, display: "block" }}>
                   {t.cases.dueDate}
                 </label>
                 <input
                   type="date"
                   value={form.dueDate}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setForm((f: typeof form) => ({ ...f, dueDate: e.target.value }))}
-                  className="w-full bg-[#161b22] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#7d8590] focus:outline-none focus:border-[#58a6ff]/40"
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((f: typeof form) => ({ ...f, dueDate: e.target.value }))}
+                  style={{ width: "100%", background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "8px 10px", fontSize: 12, fontFamily: C.mono, color: C.text2, outline: "none", boxSizing: "border-box" as const }}
                 />
               </div>
             </div>
 
             {createMutation.error && (
-              <p className="mt-3 text-xs font-mono text-red-400">{createMutation.error.message}</p>
+              <p style={{ marginTop: 12, fontSize: 12, fontFamily: C.mono, color: C.red }}>{createMutation.error.message}</p>
             )}
 
-            <div className="flex gap-2 mt-5">
+            <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
               <button
                 onClick={() => setShowCreate(false)}
-                className="flex-1 py-2 text-xs font-mono border border-[#30363d] text-[#7d8590] hover:text-[#e6edf3] rounded-md transition-colors"
+                style={{ flex: 1, padding: "8px 0", fontSize: 12, fontFamily: C.mono, border: `1px solid ${C.border2}`, borderRadius: 7, color: C.text2, background: "transparent", cursor: "pointer" }}
               >
                 {t.common.cancel}
               </button>
@@ -251,7 +269,7 @@ export function CasesPage() {
                   ...(form.description ? { description: form.description } : {}),
                   ...(form.dueDate     ? { dueDate: new Date(form.dueDate).toISOString() } : {}),
                 })}
-                className="flex-1 py-2 text-xs font-mono bg-[#1f6feb]/20 border border-[#1f6feb]/30 hover:bg-[#1f6feb]/30 text-[#58a6ff] rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{ flex: 1, padding: "8px 0", fontSize: 12, fontFamily: C.mono, background: `${C.blue}14`, border: `1px solid ${C.blue}40`, borderRadius: 7, color: C.blue, cursor: "pointer", opacity: (!form.customerId || !form.title || createMutation.isPending) ? 0.4 : 1 }}
               >
                 {createMutation.isPending ? t.common.loading : t.cases.openCase}
               </button>

@@ -377,7 +377,7 @@ export function CustomerDetailPage() {
                 {t.customerDetail.uploadDocument}
               </h2>
               <select value={docType}
-                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
                   setDocType(e.target.value)}
                 className="bg-[#161b22] border border-[#30363d] rounded px-2 py-1 text-xs font-mono text-[#e6edf3] focus:outline-none">
                 {[

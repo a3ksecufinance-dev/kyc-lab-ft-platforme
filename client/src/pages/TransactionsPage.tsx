@@ -10,6 +10,24 @@ import { useAuth } from "../hooks/useAuth";
 import { hasRole } from "../lib/auth";
 import { useI18n } from "../hooks/useI18n";
 
+const C = {
+  surface: "var(--wr-card)",
+  border:  "var(--wr-border)",
+  border2: "var(--wr-border2)",
+  text1:   "var(--wr-text-1)",
+  text2:   "var(--wr-text-2)",
+  text3:   "var(--wr-text-3)",
+  text4:   "var(--wr-text-4)",
+  gold:    "var(--wr-gold)",
+  red:     "var(--wr-red)",
+  amber:   "var(--wr-amber)",
+  green:   "var(--wr-green)",
+  blue:    "var(--wr-blue)",
+  mono:    "var(--wr-font-mono)",
+  serif:   "var(--wr-font-serif)",
+  hover:   "var(--wr-hover)",
+};
+
 type Tx = {
   id: number; transactionId: string; customerId: number;
   amount: string; currency: string; transactionType: string;
@@ -52,16 +70,16 @@ export function TransactionsPage() {
     {
       key: "id", header: t.transactions.txRef, width: "w-40",
       render: (r) => (
-        <div className="flex items-center gap-1.5">
-          {r.isSuspicious && <ShieldAlert size={11} className="text-red-400 flex-shrink-0" />}
-          <span className="font-mono text-xs text-[#58a6ff]">{r.transactionId}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          {r.isSuspicious && <ShieldAlert size={11} style={{ color: C.red, flexShrink: 0 }} />}
+          <span style={{ fontFamily: C.mono, fontSize: 12, color: C.blue }}>{r.transactionId}</span>
         </div>
       ),
     },
     {
       key: "amount", header: t.transactions.amount,
       render: (r) => (
-        <span className={`font-mono text-sm font-medium ${r.isSuspicious ? "text-amber-400" : "text-[#e6edf3]"}`}>
+        <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 500, color: r.isSuspicious ? C.amber : C.text1 }}>
           {formatAmount(r.amount, r.currency)}
         </span>
       ),
@@ -72,13 +90,13 @@ export function TransactionsPage() {
     },
     {
       key: "channel", header: t.transactions.channel, width: "w-24",
-      render: (r) => <span className="font-mono text-xs text-[#7d8590]">{r.channel}</span>,
+      render: (r) => <span style={{ fontFamily: C.mono, fontSize: 12, color: C.text3 }}>{r.channel}</span>,
     },
     {
       key: "country", header: t.transactions.countryAccount, width: "w-24",
       render: (r) => r.counterpartyCountry
-        ? <span className="font-mono text-xs text-[#7d8590]">{r.counterpartyCountry}</span>
-        : <span className="text-[#484f58]">—</span>,
+        ? <span style={{ fontFamily: C.mono, fontSize: 12, color: C.text3 }}>{r.counterpartyCountry}</span>
+        : <span style={{ color: C.text4 }}>—</span>,
     },
     {
       key: "status", header: t.common.status, width: "w-32",
@@ -87,19 +105,19 @@ export function TransactionsPage() {
     {
       key: "score", header: t.transactions.scoreLabel, width: "w-16",
       render: (r) => r.riskScore > 0
-        ? <span className="font-mono text-xs text-red-400">{r.riskScore}</span>
-        : <span className="font-mono text-xs text-[#484f58]">—</span>,
+        ? <span style={{ fontFamily: C.mono, fontSize: 12, color: C.red }}>{r.riskScore}</span>
+        : <span style={{ fontFamily: C.mono, fontSize: 12, color: C.text4 }}>—</span>,
     },
     {
       key: "date", header: t.common.date, width: "w-28",
-      render: (r) => <span className="font-mono text-[10px] text-[#7d8590]">{formatRelative(r.transactionDate)}</span>,
+      render: (r) => <span style={{ fontFamily: C.mono, fontSize: 10, color: C.text3 }}>{formatRelative(r.transactionDate)}</span>,
     },
     {
       key: "actions", header: "", width: "w-20",
       render: (r) => canBlock && r.status !== "BLOCKED" && r.status !== "REVERSED" ? (
         <button
           onClick={(e: React.MouseEvent) => { e.stopPropagation(); setBlockTarget(r); }}
-          className="text-[11px] font-mono text-red-400/70 hover:text-red-400 hover:underline"
+          style={{ fontSize: 11, fontFamily: C.mono, color: C.red, background: "none", border: "none", cursor: "pointer", padding: 0, opacity: 0.7 }}
         >
           {t.transactions.block}
         </button>
@@ -109,28 +127,28 @@ export function TransactionsPage() {
 
   return (
     <AppLayout>
-      <div className="flex items-center justify-between mb-6">
+      <div style={{ marginBottom: 24, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
         <div>
-          <h1 className="text-lg font-semibold text-[#e6edf3] font-mono">{t.transactions.title}</h1>
-          <p className="text-xs font-mono text-[#7d8590] mt-0.5">
+          <h1 style={{ fontSize: 22, fontWeight: 400, fontFamily: C.serif, color: C.text1, letterSpacing: "-0.4px", margin: "0 0 4px" }}>{t.transactions.title}</h1>
+          <p style={{ fontSize: 11, fontFamily: C.mono, color: C.text3, margin: 0 }}>
             {data ? t.transactions.subtitle.replace("{count}", formatNumber(data.total)) : "—"}
           </p>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2 mb-4">
+      <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 8, marginBottom: 16 }}>
         {/* Recherche texte */}
-        <div className="relative flex-1 min-w-[220px]">
-          <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#484f58] pointer-events-none" />
+        <div style={{ position: "relative", flex: 1, minWidth: 220 }}>
+          <Search size={12} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: C.text4, pointerEvents: "none" }} />
           <input
             type="text"
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             placeholder={t.transactions.searchPlaceholder ?? "Contrepartie, réf…"}
-            className="w-full bg-[#0d1117] border border-[#30363d] rounded-md pl-8 pr-8 py-2 text-xs font-mono text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff]/40"
+            style={{ width: "100%", background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, paddingTop: 7, paddingBottom: 7, paddingLeft: 30, paddingRight: 28, fontSize: 11, fontFamily: C.mono, color: C.text2, outline: "none", boxSizing: "border-box" as const }}
           />
           {search && (
-            <button onClick={() => { setSearch(""); setPage(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#484f58] hover:text-[#7d8590]">
+            <button onClick={() => { setSearch(""); setPage(1); }} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", color: C.text4, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
               <X size={11} />
             </button>
           )}
@@ -140,7 +158,7 @@ export function TransactionsPage() {
         <select
           value={status}
           onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setStatus(e.target.value); setPage(1); }}
-          className="bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#7d8590] focus:outline-none focus:border-[#58a6ff]/40"
+          style={{ background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "7px 11px", fontSize: 11, fontFamily: C.mono, color: C.text2, outline: "none" }}
         >
           <option value="">{t.common.all}</option>
           <option value="PENDING">{t.transactions.statusPending}</option>
@@ -153,7 +171,7 @@ export function TransactionsPage() {
         <select
           value={suspicious}
           onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setSuspicious(e.target.value); setPage(1); }}
-          className="bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#7d8590] focus:outline-none focus:border-[#58a6ff]/40"
+          style={{ background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "7px 11px", fontSize: 11, fontFamily: C.mono, color: C.text2, outline: "none" }}
         >
           <option value="">{t.common.all}</option>
           <option value="true">{t.transactions.filterFlagged}</option>
@@ -165,14 +183,14 @@ export function TransactionsPage() {
           type="date"
           value={dateFrom}
           onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
-          className="bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#7d8590] focus:outline-none focus:border-[#58a6ff]/40"
+          style={{ background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "7px 11px", fontSize: 11, fontFamily: C.mono, color: C.text2, outline: "none" }}
           title={t.common.dateFrom ?? "Du"}
         />
         <input
           type="date"
           value={dateTo}
           onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
-          className="bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#7d8590] focus:outline-none focus:border-[#58a6ff]/40"
+          style={{ background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "7px 11px", fontSize: 11, fontFamily: C.mono, color: C.text2, outline: "none" }}
           title={t.common.dateTo ?? "Au"}
         />
 
@@ -180,14 +198,14 @@ export function TransactionsPage() {
         {(search || status || suspicious || dateFrom || dateTo) && (
           <button
             onClick={() => { setSearch(""); setStatus(""); setSuspicious(""); setDateFrom(""); setDateTo(""); setPage(1); }}
-            className="px-3 py-2 text-xs font-mono text-[#7d8590] hover:text-[#e6edf3] border border-[#30363d] rounded-md transition-colors flex items-center gap-1.5"
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 7, fontSize: 11, fontFamily: C.mono, color: C.text2, cursor: "pointer" }}
           >
             <X size={11} /> {t.common.reset ?? "Réinitialiser"}
           </button>
         )}
       </div>
 
-      <div className="bg-[#0d1117] border border-[#21262d] rounded-lg overflow-hidden">
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
         <DataTable
           columns={COLUMNS}
           data={(data?.data ?? []) as Tx[]}
@@ -203,36 +221,36 @@ export function TransactionsPage() {
 
       {/* Modal blocage */}
       {blockTarget && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
-          <div className="bg-[#0d1117] border border-red-400/30 rounded-xl p-6 w-full max-w-sm animate-slide-in">
-            <div className="flex items-center gap-2 mb-4">
-              <ShieldAlert size={16} className="text-red-400" />
-              <h3 className="text-sm font-semibold text-[#e6edf3] font-mono">{t.transactions.blockTitle}</h3>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
+          <div style={{ background: C.surface, border: `1px solid ${C.red}40`, borderRadius: 12, padding: 24, width: "100%", maxWidth: 380 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+              <ShieldAlert size={16} style={{ color: C.red }} />
+              <h3 style={{ fontSize: 13, fontWeight: 600, fontFamily: C.mono, color: C.text1, margin: 0 }}>{t.transactions.blockTitle}</h3>
             </div>
-            <p className="text-xs font-mono text-[#7d8590] mb-4">
+            <p style={{ fontSize: 12, fontFamily: C.mono, color: C.text3, margin: "0 0 16px" }}>
               {blockTarget.transactionId} — {formatAmount(blockTarget.amount, blockTarget.currency)}
             </p>
-            <label className="text-[10px] font-mono text-[#7d8590] tracking-widest uppercase block mb-1.5">
+            <label style={{ fontSize: 9, fontFamily: C.mono, letterSpacing: "0.15em", textTransform: "uppercase" as const, color: C.text3, marginBottom: 6, display: "block" }}>
               {t.transactions.blockReason}
             </label>
             <textarea
               value={blockReason}
-              onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setBlockReason(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setBlockReason(e.target.value)}
               rows={3}
-              className="w-full bg-[#161b22] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-red-400/40 resize-none mb-4"
+              style={{ width: "100%", background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "8px 10px", fontSize: 12, fontFamily: C.mono, color: C.text1, outline: "none", resize: "none" as const, boxSizing: "border-box" as const, marginBottom: 16 }}
               placeholder={t.transactions.blockReasonPh}
             />
-            <div className="flex gap-2">
+            <div style={{ display: "flex", gap: 8 }}>
               <button
                 onClick={() => { setBlockTarget(null); setBlockReason(""); }}
-                className="flex-1 py-2 text-xs font-mono border border-[#30363d] text-[#7d8590] hover:text-[#e6edf3] rounded-md transition-colors"
+                style={{ flex: 1, padding: "8px 0", fontSize: 12, fontFamily: C.mono, border: `1px solid ${C.border2}`, borderRadius: 7, color: C.text2, background: "transparent", cursor: "pointer" }}
               >
                 {t.common.cancel}
               </button>
               <button
                 disabled={blockReason.length < 10 || blockMutation.isPending}
                 onClick={() => blockMutation.mutate({ id: blockTarget.id, reason: blockReason })}
-                className="flex-1 py-2 text-xs font-mono bg-red-400/10 border border-red-400/30 text-red-400 hover:bg-red-400/20 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{ flex: 1, padding: "8px 0", fontSize: 12, fontFamily: C.mono, background: `${C.red}14`, border: `1px solid ${C.red}40`, borderRadius: 7, color: C.red, cursor: "pointer", opacity: (blockReason.length < 10 || blockMutation.isPending) ? 0.4 : 1 }}
               >
                 {blockMutation.isPending ? t.common.loading : t.transactions.confirmBlock}
               </button>

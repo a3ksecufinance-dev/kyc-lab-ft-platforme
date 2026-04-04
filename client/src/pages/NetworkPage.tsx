@@ -516,13 +516,13 @@ export function NetworkPage() {
             <div className="flex-1 min-w-32">
               <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">{t.customers.clientId}</label>
               <input value={customerId}
-                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setCustomerId(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomerId(e.target.value)}
                 placeholder={t.network.searchEntity} type="number" className={inputCls + " w-full"} />
             </div>
             <div>
               <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">{t.network.depth}</label>
               <select value={maxDepth}
-                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setMaxDepth(parseInt(e.target.value))}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setMaxDepth(parseInt(e.target.value))}
                 className={inputCls}>
                 {[1, 2, 3, 4, 5].map(d => <option key={d} value={d}>{d} niveaux</option>)}
               </select>
@@ -530,7 +530,7 @@ export function NetworkPage() {
             <div>
               <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">Montant min</label>
               <select value={minAmount}
-                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setMinAmount(parseInt(e.target.value))}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setMinAmount(parseInt(e.target.value))}
                 className={inputCls}>
                 {[[0, "Tout"], [1000, "1k+"], [5000, "5k+"], [10000, "10k+"], [50000, "50k+"]].map(([v, l]) => (
                   <option key={v} value={v}>{l}</option>
@@ -703,17 +703,17 @@ export function NetworkPage() {
           <div className="flex gap-3 items-end flex-wrap">
             <div className="flex-1">
               <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">Client source</label>
-              <input value={customerId} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setCustomerId(e.target.value)}
+              <input value={customerId} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomerId(e.target.value)}
                 placeholder="ID client A" type="number" className={inputCls + " w-full"} />
             </div>
             <div className="flex-1">
               <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">Client destination</label>
-              <input value={toId} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setToId(e.target.value)}
+              <input value={toId} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setToId(e.target.value)}
                 placeholder="ID client B" type="number" className={inputCls + " w-full"} />
             </div>
             <div>
               <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">{t.network.depth}</label>
-              <select value={maxDepth} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setMaxDepth(parseInt(e.target.value))} className={inputCls}>
+              <select value={maxDepth} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setMaxDepth(parseInt(e.target.value))} className={inputCls}>
                 {[1, 2, 3, 4].map(d => <option key={d} value={d}>{d} niveaux</option>)}
               </select>
             </div>
@@ -790,12 +790,12 @@ export function NetworkPage() {
           <div className="flex gap-3 items-end flex-wrap">
             <div className="flex-1">
               <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">Client source</label>
-              <input value={customerId} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setCustomerId(e.target.value)}
+              <input value={customerId} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomerId(e.target.value)}
                 placeholder="ID client A" type="number" className={inputCls + " w-full"} />
             </div>
             <div className="flex-1">
               <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">Client destination</label>
-              <input value={toId} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setToId(e.target.value)}
+              <input value={toId} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setToId(e.target.value)}
                 placeholder="ID client B" type="number" className={inputCls + " w-full"} />
             </div>
           </div>

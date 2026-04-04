@@ -10,6 +10,24 @@ import { useAuth } from "../hooks/useAuth";
 import { hasRole } from "../lib/auth";
 import { useI18n } from "../hooks/useI18n";
 
+const C = {
+  surface: "var(--wr-card)",
+  border:  "var(--wr-border)",
+  border2: "var(--wr-border2)",
+  text1:   "var(--wr-text-1)",
+  text2:   "var(--wr-text-2)",
+  text3:   "var(--wr-text-3)",
+  text4:   "var(--wr-text-4)",
+  gold:    "var(--wr-gold)",
+  red:     "var(--wr-red)",
+  amber:   "var(--wr-amber)",
+  green:   "var(--wr-green)",
+  blue:    "var(--wr-blue)",
+  mono:    "var(--wr-font-mono)",
+  serif:   "var(--wr-font-serif)",
+  hover:   "var(--wr-hover)",
+};
+
 // ─── Types locaux alignés sur le schéma Drizzle ───────────────────────────────
 
 type Report = {
@@ -49,6 +67,24 @@ const DEFAULT_STR: StrForm = {
   transactionId: "", transactionDate: "", transactionAmount: "",
   transactionType: "", suspicionBasis: "", involvedParties: "",
   evidenceSummary: "", narrativeSummary: "",
+};
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  background: C.hover,
+  border: `1px solid ${C.border2}`,
+  borderRadius: 6,
+  padding: "8px 10px",
+  fontSize: 12,
+  fontFamily: C.mono,
+  color: C.text1,
+  outline: "none",
+  boxSizing: "border-box",
+};
+
+const textareaStyle: React.CSSProperties = {
+  ...inputStyle,
+  resize: "none",
 };
 
 // ─── Page principale ──────────────────────────────────────────────────────────
@@ -146,18 +182,21 @@ export function ReportsPage() {
     {
       key: "id", header: t.reports.reportId, width: "w-36",
       render: (r) => (
-        <div className="flex items-center gap-1.5">
-          <FileText size={11} className="text-[#7d8590]" />
-          <span className="font-mono text-xs text-[#58a6ff]">{r.reportId}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <FileText size={11} style={{ color: C.text3 }} />
+          <span style={{ fontFamily: C.mono, fontSize: 12, color: C.blue }}>{r.reportId}</span>
         </div>
       ),
     },
     {
       key: "type", header: t.reports.reportType, width: "w-20",
       render: (r) => (
-        <span className={`font-mono text-xs font-semibold ${
-          r.reportType === "SAR" ? "text-purple-400" : "text-orange-400"
-        }`}>
+        <span style={{
+          fontFamily: C.mono,
+          fontSize: 12,
+          fontWeight: 600,
+          color: r.reportType === "SAR" ? "var(--wr-purple, #c084fc)" : "var(--wr-orange, #fb923c)",
+        }}>
           {r.reportType}
         </span>
       ),
@@ -166,8 +205,8 @@ export function ReportsPage() {
       key: "title", header: t.reports.titleLabel,
       render: (r) => (
         <div>
-          <p className="text-xs text-[#e6edf3] truncate max-w-xs">{r.title}</p>
-          <p className="text-[10px] font-mono text-[#7d8590] mt-0.5">
+          <p style={{ fontSize: 12, color: C.text1, margin: "0 0 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 280 }}>{r.title}</p>
+          <p style={{ fontSize: 10, fontFamily: C.mono, color: C.text3, margin: 0 }}>
             {r.customerId ? `Client #${r.customerId}` : ""}
             {r.caseId     ? ` · Dossier #${r.caseId}` : ""}
           </p>
@@ -181,21 +220,21 @@ export function ReportsPage() {
     {
       key: "submitted", header: t.reports.generatedAt, width: "w-28",
       render: (r) => r.submittedAt
-        ? <span className="font-mono text-[10px] text-[#7d8590]">{formatDate(r.submittedAt)}</span>
-        : <span className="text-[#484f58]">—</span>,
+        ? <span style={{ fontFamily: C.mono, fontSize: 10, color: C.text3 }}>{formatDate(r.submittedAt)}</span>
+        : <span style={{ color: C.text4 }}>—</span>,
     },
     {
       key: "date", header: t.common.date, width: "w-28",
-      render: (r) => <span className="font-mono text-[10px] text-[#7d8590]">{formatRelative(r.createdAt)}</span>,
+      render: (r) => <span style={{ fontFamily: C.mono, fontSize: 10, color: C.text3 }}>{formatRelative(r.createdAt)}</span>,
     },
     {
       key: "actions", header: "", width: "w-44",
       render: (r) => (
-        <div className="flex gap-1.5 flex-wrap">
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {r.status === "DRAFT" && (
             <button
               onClick={(e: React.MouseEvent) => { e.stopPropagation(); setActionTarget({ report: r, action: "submit" }); }}
-              className="text-[10px] font-mono text-[#58a6ff] hover:underline flex items-center gap-1"
+              style={{ fontSize: 10, fontFamily: C.mono, color: C.blue, background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, padding: 0 }}
             >
               <Send size={10} /> {t.common.submit}
             </button>
@@ -204,14 +243,14 @@ export function ReportsPage() {
             <>
               <button
                 onClick={(e: React.MouseEvent) => { e.stopPropagation(); setActionTarget({ report: r, action: "approve" }); }}
-                className="text-[10px] font-mono text-emerald-400 hover:underline"
+                style={{ fontSize: 10, fontFamily: C.mono, color: C.green, background: "none", border: "none", cursor: "pointer", padding: 0 }}
               >
                 {t.common.approve}
               </button>
               {canReject && (
                 <button
                   onClick={(e: React.MouseEvent) => { e.stopPropagation(); setActionTarget({ report: r, action: "reject" }); }}
-                  className="text-[10px] font-mono text-red-400 hover:underline"
+                  style={{ fontSize: 10, fontFamily: C.mono, color: C.red, background: "none", border: "none", cursor: "pointer", padding: 0 }}
                 >
                   {t.common.reject}
                 </button>
@@ -221,7 +260,7 @@ export function ReportsPage() {
           {(r.status === "SUBMITTED" || r.status === "APPROVED") && canApprove && (
             <button
               onClick={(e: React.MouseEvent) => { e.stopPropagation(); setTransmitTarget(r); }}
-              className="text-[10px] font-mono text-purple-400 hover:underline flex items-center gap-1"
+              style={{ fontSize: 10, fontFamily: C.mono, color: "var(--wr-purple, #c084fc)", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, padding: 0 }}
               title={t.reports.transmit}
             >
               <Radio size={10} /> GoAML
@@ -244,7 +283,7 @@ export function ReportsPage() {
                     },
                   });
                 }}
-                className="text-[10px] font-mono text-[#484f58] hover:text-[#7d8590] flex items-center gap-1"
+                style={{ fontSize: 10, fontFamily: C.mono, color: C.text4, background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, padding: 0 }}
                 title={t.reports.downloadGoAML}
               >
                 <Download size={10} /> XML
@@ -266,7 +305,7 @@ export function ReportsPage() {
                   });
                 }}
                 disabled={exportReportPdfMutation.isPending}
-                className="text-[10px] font-mono text-red-400/60 hover:text-red-400 flex items-center gap-1 disabled:opacity-40"
+                style={{ fontSize: 10, fontFamily: C.mono, color: C.red, background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, padding: 0, opacity: exportReportPdfMutation.isPending ? 0.4 : 1 }}
                 title="Télécharger PDF"
               >
                 <Download size={10} /> PDF
@@ -303,37 +342,40 @@ export function ReportsPage() {
 
   return (
     <AppLayout>
-      <div className="flex items-center justify-between mb-4">
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
         <div>
-          <h1 className="text-lg font-semibold text-[#e6edf3] font-mono">{t.reports.title}</h1>
-          <p className="text-xs font-mono text-[#7d8590] mt-0.5">
+          <h1 style={{ fontSize: 22, fontWeight: 400, fontFamily: C.serif, color: C.text1, letterSpacing: "-0.4px", margin: "0 0 4px" }}>{t.reports.title}</h1>
+          <p style={{ fontSize: 11, fontFamily: C.mono, color: C.text3, margin: 0 }}>
             {data ? formatNumber(data.total) : "—"} {t.reports.subtitle}
           </p>
         </div>
         {pageTab === "reports" && (
           <button
             onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 px-3 py-1.5 text-xs font-mono bg-[#1f6feb]/20 border border-[#1f6feb]/30 hover:bg-[#1f6feb]/30 text-[#58a6ff] rounded-md transition-colors"
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", background: `${C.blue}14`, border: `1px solid ${C.blue}40`, borderRadius: 7, fontSize: 11, fontFamily: C.mono, color: C.blue, cursor: "pointer" }}
           >
             <FilePlus size={13} /> {t.reports.generateReport}
           </button>
         )}
       </div>
 
-      {/* Onglets */}
-      <div className="flex gap-0 border-b border-[#21262d] mb-5">
+      {/* Tab bar */}
+      <div style={{ display: "flex", borderBottom: `1px solid ${C.border}`, marginBottom: 20 }}>
         {([
-          { id: "reports", label: "SAR / STR", icon: FileText },
-          { id: "amld6",   label: "AMLD6 KPIs", icon: BarChart3 },
-        ] as const).map(({ id, label, icon: Icon }) => (
+          { id: "reports" as const, label: "SAR / STR", icon: FileText },
+          { id: "amld6"   as const, label: "AMLD6 KPIs", icon: BarChart3 },
+        ]).map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             onClick={() => setPageTab(id)}
-            className={`flex items-center gap-1.5 px-4 py-2 text-xs font-mono border-b-2 transition-colors ${
-              pageTab === id
-                ? "border-[#58a6ff] text-[#58a6ff]"
-                : "border-transparent text-[#7d8590] hover:text-[#e6edf3]"
-            }`}
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "9px 14px", fontSize: 11, fontFamily: C.mono,
+              color: pageTab === id ? C.gold : C.text3,
+              background: "none", border: "none", borderBottom: `2px solid ${pageTab === id ? C.gold : "transparent"}`,
+              cursor: "pointer", marginBottom: -1,
+            }}
           >
             <Icon size={12} /> {label}
           </button>
@@ -343,11 +385,12 @@ export function ReportsPage() {
       {pageTab === "amld6" && <Amld6Panel canApprove={canApprove} />}
 
       {pageTab === "reports" && <>
-        <div className="flex gap-3 mb-4">
+        {/* Filters */}
+        <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
           <select
             value={reportType}
-            onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => { setReportType(e.target.value); setPage(1); }}
-            className="bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#7d8590] focus:outline-none focus:border-[#58a6ff]/40"
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setReportType(e.target.value); setPage(1); }}
+            style={{ background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "7px 11px", fontSize: 11, fontFamily: C.mono, color: C.text2, outline: "none" }}
           >
             <option value="">{t.reports.sarAndStr}</option>
             <option value="SAR">{t.reports.sarOnly}</option>
@@ -355,8 +398,8 @@ export function ReportsPage() {
           </select>
           <select
             value={status}
-            onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => { setStatus(e.target.value); setPage(1); }}
-            className="bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#7d8590] focus:outline-none focus:border-[#58a6ff]/40"
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setStatus(e.target.value); setPage(1); }}
+            style={{ background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "7px 11px", fontSize: 11, fontFamily: C.mono, color: C.text2, outline: "none" }}
           >
             <option value="">{t.common.all}</option>
             <option value="DRAFT">{t.reports.statusDraft}</option>
@@ -367,7 +410,8 @@ export function ReportsPage() {
           </select>
         </div>
 
-        <div className="bg-[#0d1117] border border-[#21262d] rounded-lg overflow-hidden">
+        {/* Table */}
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
           <DataTable
             columns={COLUMNS}
             data={(data?.data ?? []) as unknown as Report[]}
@@ -384,41 +428,43 @@ export function ReportsPage() {
 
       {/* Modal création */}
       {showCreate && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in p-4">
-          <div className="bg-[#0d1117] border border-[#30363d] rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col animate-slide-in">
-            <div className="px-6 pt-5 pb-0 flex-shrink-0">
-              <h3 className="text-sm font-semibold text-[#e6edf3] font-mono mb-4">{t.reports.newReport}</h3>
-              <div className="flex gap-0 border-b border-[#21262d]">
-                {(["SAR", "STR"] as const).map((t) => (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 16 }}>
+          <div style={{ background: C.surface, border: `1px solid ${C.border2}`, borderRadius: 12, width: "100%", maxWidth: 640, maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
+            <div style={{ padding: "20px 24px 0", flexShrink: 0 }}>
+              <h3 style={{ fontSize: 13, fontWeight: 600, fontFamily: C.mono, color: C.text1, margin: "0 0 16px" }}>{t.reports.newReport}</h3>
+              <div style={{ display: "flex", borderBottom: `1px solid ${C.border}` }}>
+                {(["SAR", "STR"] as const).map((tab) => (
                   <button
-                    key={t}
-                    onClick={() => setCreateTab(t)}
-                    className={`px-4 py-2 text-xs font-mono border-b-2 transition-colors ${
-                      createTab === t
-                        ? "border-[#58a6ff] text-[#58a6ff]"
-                        : "border-transparent text-[#7d8590] hover:text-[#e6edf3]"
-                    }`}
+                    key={tab}
+                    onClick={() => setCreateTab(tab)}
+                    style={{
+                      padding: "9px 14px", fontSize: 11, fontFamily: C.mono,
+                      borderBottom: `2px solid ${createTab === tab ? C.gold : "transparent"}`,
+                      color: createTab === tab ? C.gold : C.text3,
+                      background: "none", border: "none",
+                      cursor: "pointer", marginBottom: -1,
+                    }}
                   >
-                    {t === "SAR" ? "SAR — Activité suspecte" : "STR — Transaction suspecte"}
+                    {tab === "SAR" ? "SAR — Activité suspecte" : "STR — Transaction suspecte"}
                   </button>
                 ))}
               </div>
             </div>
-            <div className="overflow-y-auto px-6 py-4 flex-1">
+            <div style={{ overflowY: "auto", padding: "16px 24px", flex: 1 }}>
               {createTab === "SAR"
                 ? <SarFormFields form={sarForm} onChange={setSarForm} />
                 : <StrFormFields form={strForm} onChange={setStrForm} />
               }
               {(createSarMutation.error ?? createStrMutation.error) && (
-                <p className="mt-3 text-xs font-mono text-red-400">
+                <p style={{ marginTop: 12, fontSize: 12, fontFamily: C.mono, color: C.red }}>
                   {(createSarMutation.error ?? createStrMutation.error)?.message}
                 </p>
               )}
             </div>
-            <div className="px-6 pb-5 pt-3 flex gap-2 flex-shrink-0 border-t border-[#21262d]">
+            <div style={{ padding: "12px 24px 20px", display: "flex", gap: 8, flexShrink: 0, borderTop: `1px solid ${C.border}` }}>
               <button
                 onClick={() => { setShowCreate(false); setSarForm(DEFAULT_SAR); setStrForm(DEFAULT_STR); }}
-                className="flex-1 py-2 text-xs font-mono border border-[#30363d] text-[#7d8590] hover:text-[#e6edf3] rounded-md"
+                style={{ flex: 1, padding: "8px 0", fontSize: 12, fontFamily: C.mono, background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 7, color: C.text2, cursor: "pointer" }}
               >
                 {t.common.cancel}
               </button>
@@ -428,7 +474,7 @@ export function ReportsPage() {
                   createSarMutation.isPending || createStrMutation.isPending
                 }
                 onClick={createTab === "SAR" ? handleCreateSar : handleCreateStr}
-                className="flex-1 py-2 text-xs font-mono bg-[#1f6feb]/20 border border-[#1f6feb]/30 hover:bg-[#1f6feb]/30 text-[#58a6ff] rounded-md disabled:opacity-40"
+                style={{ flex: 1, padding: "8px 0", fontSize: 12, fontFamily: C.mono, background: `${C.blue}14`, border: `1px solid ${C.blue}40`, borderRadius: 7, color: C.blue, cursor: "pointer", opacity: ((createTab === "SAR" ? !sarValid : !strValid) || createSarMutation.isPending || createStrMutation.isPending) ? 0.4 : 1 }}
               >
                 {createSarMutation.isPending || createStrMutation.isPending
                   ? t.common.loading
@@ -507,8 +553,8 @@ function Amld6Panel({ canApprove }: { canApprove: boolean }) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <p className="text-xs font-mono text-[#7d8590] animate-pulse">{t.reports.computingKpis}</p>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 0" }}>
+        <p className="animate-pulse" style={{ fontSize: 12, fontFamily: C.mono, color: C.text3 }}>{t.reports.computingKpis}</p>
       </div>
     );
   }
@@ -519,12 +565,12 @@ function Amld6Panel({ canApprove }: { canApprove: boolean }) {
     title: string; value: string | number; sub?: string; accent?: string;
   }) {
     return (
-      <div className="bg-[#0d1117] border border-[#21262d] rounded-lg p-4">
-        <p className="text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-2">{title}</p>
-        <p className={`text-2xl font-bold font-mono ${accent ?? "text-[#e6edf3]"}`}>
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: 16 }}>
+        <p style={{ fontSize: 10, fontFamily: C.mono, color: C.text3, letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 8, margin: "0 0 8px" }}>{title}</p>
+        <p style={{ fontSize: 24, fontWeight: 700, fontFamily: C.mono, color: accent ?? C.text1, margin: "0 0 4px" }}>
           {typeof value === "number" ? formatNumber(value) : value}
         </p>
-        {sub && <p className="text-[10px] font-mono text-[#484f58] mt-1">{sub}</p>}
+        {sub && <p style={{ fontSize: 10, fontFamily: C.mono, color: C.text4, margin: 0 }}>{sub}</p>}
       </div>
     );
   }
@@ -532,27 +578,28 @@ function Amld6Panel({ canApprove }: { canApprove: boolean }) {
   const { transactions: tx, alerts: al, declarations: decl, customers: cust, screening: sc, cases: cs, compliance: sla } = kpis;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-mono text-[#7d8590]">
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      {/* Period + export */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <p style={{ fontSize: 12, fontFamily: C.mono, color: C.text3, margin: 0 }}>
           Période : 1 janv. {now.getFullYear()} → aujourd'hui
           {kpis.generatedAt
             ? ` · Généré ${new Date(kpis.generatedAt).toLocaleTimeString("fr-FR")}`
             : ""}
         </p>
         {canApprove && (
-          <div className="flex gap-2">
+          <div style={{ display: "flex", gap: 8 }}>
             <button
               onClick={() => exportCsvMutation.mutate(exportInput)}
               disabled={exportCsvMutation.isPending}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono border border-[#30363d] text-[#7d8590] hover:text-[#e6edf3] rounded-md disabled:opacity-40"
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 7, fontSize: 11, fontFamily: C.mono, color: C.text2, cursor: "pointer", opacity: exportCsvMutation.isPending ? 0.4 : 1 }}
             >
               <Download size={11} /> {exportCsvMutation.isPending ? "…" : "CSV"}
             </button>
             <button
               onClick={() => exportPdfMutation.mutate(exportInput)}
               disabled={exportPdfMutation.isPending}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono bg-[#1f6feb]/10 border border-[#1f6feb]/30 text-[#58a6ff] hover:bg-[#1f6feb]/20 rounded-md disabled:opacity-40"
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", background: `${C.blue}14`, border: `1px solid ${C.blue}40`, borderRadius: 7, fontSize: 11, fontFamily: C.mono, color: C.blue, cursor: "pointer", opacity: exportPdfMutation.isPending ? 0.4 : 1 }}
             >
               <Download size={11} /> {exportPdfMutation.isPending ? t.amld6.generating : "PDF"}
             </button>
@@ -562,27 +609,27 @@ function Amld6Panel({ canApprove }: { canApprove: boolean }) {
 
       {/* KPI 1 — Transactions */}
       <div>
-        <p className="text-[10px] font-mono text-[#58a6ff] tracking-widest uppercase mb-3">
+        <p style={{ fontSize: 10, fontFamily: C.mono, color: C.blue, letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 12 }}>
           {t.amld6.txAnalyzed}
         </p>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
           <KpiCard title={t.amld6.totalLabel} value={tx.total} />
           <KpiCard title={t.amld6.amountEur} value={`${(tx.totalAmount / 1_000_000).toFixed(2)} M`} />
-          <KpiCard title={t.amld6.suspicious_} value={tx.suspicious} accent="text-amber-400" />
+          <KpiCard title={t.amld6.suspicious_} value={tx.suspicious} accent={C.amber} />
           <KpiCard title={t.amld6.detectionRate} value={`${tx.detectionRate.toFixed(2)} %`}
-            sub="% tx flaggées" accent={tx.detectionRate > 5 ? "text-red-400" : "text-emerald-400"} />
+            sub="% tx flaggées" accent={tx.detectionRate > 5 ? C.red : C.green} />
         </div>
       </div>
 
       {/* KPI 2 — Alertes */}
       <div>
-        <p className="text-[10px] font-mono text-[#58a6ff] tracking-widest uppercase mb-3">
+        <p style={{ fontSize: 10, fontFamily: C.mono, color: C.blue, letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 12 }}>
           {t.amld6.amlAlerts}
         </p>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
           <KpiCard title={t.amld6.totalAlerts} value={al.total} />
-          <KpiCard title="CRITICAL" value={al.byLevel.critical} accent="text-red-400" />
-          <KpiCard title="HIGH" value={al.byLevel.high} accent="text-orange-400" />
+          <KpiCard title="CRITICAL" value={al.byLevel.critical} accent={C.red} />
+          <KpiCard title="HIGH" value={al.byLevel.high} accent={C.amber} />
           <KpiCard title={t.amld6.falsePositives} value={`${al.falsePositiveRate.toFixed(1)} %`}
             sub="alertes rejetées" />
         </div>
@@ -590,49 +637,49 @@ function Amld6Panel({ canApprove }: { canApprove: boolean }) {
 
       {/* KPI 3 — SAR/STR */}
       <div>
-        <p className="text-[10px] font-mono text-[#58a6ff] tracking-widest uppercase mb-3">
+        <p style={{ fontSize: 10, fontFamily: C.mono, color: C.blue, letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 12 }}>
           {t.amld6.sarStrDecl}
         </p>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <KpiCard title={t.amld6.sarFiled} value={decl.sarCount} accent="text-purple-400" />
-          <KpiCard title={t.amld6.strFiled} value={decl.strCount} accent="text-orange-400" />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+          <KpiCard title={t.amld6.sarFiled} value={decl.sarCount} accent="var(--wr-purple, #c084fc)" />
+          <KpiCard title={t.amld6.strFiled} value={decl.strCount} accent={C.amber} />
           <KpiCard title={t.amld6.submitted_} value={decl.submitted} />
           <KpiCard title={t.amld6.avgDelay} value={`${decl.avgDaysToSubmit.toFixed(1)} j`}
-            sub="création → soumission" accent={decl.avgDaysToSubmit > 5 ? "text-red-400" : "text-emerald-400"} />
+            sub="création → soumission" accent={decl.avgDaysToSubmit > 5 ? C.red : C.green} />
         </div>
       </div>
 
       {/* KPI 4 — KYC & Screening */}
       <div>
-        <p className="text-[10px] font-mono text-[#58a6ff] tracking-widest uppercase mb-3">
+        <p style={{ fontSize: 10, fontFamily: C.mono, color: C.blue, letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 12 }}>
           {t.amld6.kycSanctions}
         </p>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
           <KpiCard title={t.amld6.kycCoverage} value={`${cust.kycCoverage.toFixed(1)} %`}
-            accent={cust.kycCoverage > 90 ? "text-emerald-400" : "text-amber-400"} />
-          <KpiCard title={t.amld6.pepActive} value={cust.pepActive} accent="text-amber-400" />
+            accent={cust.kycCoverage > 90 ? C.green : C.amber} />
+          <KpiCard title={t.amld6.pepActive} value={cust.pepActive} accent={C.amber} />
           <KpiCard title={t.amld6.sanctionMatch} value={sc.matchCount}
-            accent={sc.matchCount > 0 ? "text-red-400" : "text-emerald-400"} />
+            accent={sc.matchCount > 0 ? C.red : C.green} />
           <KpiCard title={t.amld6.sanctionReview} value={sc.reviewCount} />
         </div>
       </div>
 
       {/* KPI 5 — Dossiers & SLA */}
       <div>
-        <p className="text-[10px] font-mono text-[#58a6ff] tracking-widest uppercase mb-3">
+        <p style={{ fontSize: 10, fontFamily: C.mono, color: C.blue, letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 12 }}>
           {t.amld6.amlSla}
         </p>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <KpiCard title={t.amld6.opened} value={cs.opened} accent="text-amber-400" />
-          <KpiCard title={t.amld6.closed_} value={cs.closed} accent="text-emerald-400" />
-          <KpiCard title={t.amld6.escalated} value={cs.escalated} accent="text-red-400" />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+          <KpiCard title={t.amld6.opened} value={cs.opened} accent={C.amber} />
+          <KpiCard title={t.amld6.closed_} value={cs.closed} accent={C.green} />
+          <KpiCard title={t.amld6.escalated} value={cs.escalated} accent={C.red} />
           <KpiCard title={t.amld6.slaBreached} value={sla.alertSlaBreaches}
-            sub="alertes > 5 j ouvrés" accent={sla.alertSlaBreaches > 0 ? "text-red-400" : "text-emerald-400"} />
+            sub="alertes > 5 j ouvrés" accent={sla.alertSlaBreaches > 0 ? C.red : C.green} />
         </div>
       </div>
 
       {(exportCsvMutation.error || exportPdfMutation.error) && (
-        <p className="text-xs font-mono text-red-400">
+        <p style={{ fontSize: 12, fontFamily: C.mono, color: C.red, margin: 0 }}>
           {(exportCsvMutation.error ?? exportPdfMutation.error)?.message}
         </p>
       )}
@@ -647,16 +694,13 @@ function FieldRow({ label, required, children }: {
 }) {
   return (
     <div>
-      <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">
-        {label}{required && <span className="text-red-400 ml-1">*</span>}
+      <label style={{ display: "block", fontSize: 9, fontFamily: C.mono, letterSpacing: "0.15em", textTransform: "uppercase", color: C.text3, marginBottom: 6 }}>
+        {label}{required && <span style={{ color: C.red, marginLeft: 4 }}>*</span>}
       </label>
       {children}
     </div>
   );
 }
-
-const inputCls = "w-full bg-[#161b22] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff]/40";
-const textCls  = `${inputCls} resize-none`;
 
 // ─── Formulaire SAR ───────────────────────────────────────────────────────────
 
@@ -668,54 +712,54 @@ function SarFormFields({ form, onChange }: {
       onChange({ ...form, [k]: e.target.value });
 
   return (
-    <div className="space-y-3">
-      <p className="text-[10px] font-mono text-[#484f58] mb-3">
-        Signalement d'activité suspecte — champs marqués <span className="text-red-400">*</span> obligatoires
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <p style={{ fontSize: 10, fontFamily: C.mono, color: C.text4, margin: "0 0 4px" }}>
+        Signalement d'activité suspecte — champs marqués <span style={{ color: C.red }}>*</span> obligatoires
       </p>
-      <div className="grid grid-cols-2 gap-3">
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <FieldRow label="ID Client" required>
-          <input type="number" value={form.customerId} onChange={set("customerId")} placeholder="123" className={inputCls} />
+          <input type="number" value={form.customerId} onChange={set("customerId")} placeholder="123" style={inputStyle} />
         </FieldRow>
         <FieldRow label="ID Dossier">
-          <input type="number" value={form.caseId} onChange={set("caseId")} placeholder="456" className={inputCls} />
+          <input type="number" value={form.caseId} onChange={set("caseId")} placeholder="456" style={inputStyle} />
         </FieldRow>
       </div>
       <FieldRow label="Titre" required>
-        <input value={form.title} onChange={set("title")} placeholder="Ex : Structuration suspectée — client XYZ" className={inputCls} />
+        <input value={form.title} onChange={set("title")} placeholder="Ex : Structuration suspectée — client XYZ" style={inputStyle} />
       </FieldRow>
       <FieldRow label="Type de suspicion" required>
-        <input value={form.suspicionType} onChange={set("suspicionType")} placeholder="Ex : Structuring, PEP Transaction, High Frequency..." className={inputCls} />
+        <input value={form.suspicionType} onChange={set("suspicionType")} placeholder="Ex : Structuring, PEP Transaction, High Frequency..." style={inputStyle} />
       </FieldRow>
-      <div className="grid grid-cols-2 gap-3">
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <FieldRow label="Montant impliqué">
-          <input value={form.amountInvolved} onChange={set("amountInvolved")} placeholder="50000.00" className={inputCls} />
+          <input value={form.amountInvolved} onChange={set("amountInvolved")} placeholder="50000.00" style={inputStyle} />
         </FieldRow>
         <FieldRow label="Devise">
-          <input value={form.currency} onChange={set("currency")} placeholder="EUR" maxLength={3} className={inputCls} />
+          <input value={form.currency} onChange={set("currency")} placeholder="EUR" maxLength={3} style={inputStyle} />
         </FieldRow>
       </div>
-      <div className="pt-2 border-t border-[#21262d]">
-        <p className="text-[10px] font-mono text-[#58a6ff] mb-3 tracking-widest uppercase">Contenu du rapport</p>
+      <div style={{ paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
+        <p style={{ fontSize: 10, fontFamily: C.mono, color: C.blue, marginBottom: 12, letterSpacing: "0.16em", textTransform: "uppercase" }}>Contenu du rapport</p>
       </div>
       <FieldRow label="Description du sujet (min 10 car.)" required>
         <textarea value={form.subjectDescription} onChange={set("subjectDescription")} rows={2}
-          placeholder="Identité, activité, relation bancaire..." className={textCls} />
+          placeholder="Identité, activité, relation bancaire..." style={textareaStyle} />
       </FieldRow>
       <FieldRow label="Activités suspectes — une par ligne" required>
         <textarea value={form.suspiciousActivities} onChange={set("suspiciousActivities")} rows={3}
-          placeholder={"Virements fractionnés\nDépôts cash récurrents\nTransactions vers pays à risque"} className={textCls} />
+          placeholder={"Virements fractionnés\nDépôts cash récurrents\nTransactions vers pays à risque"} style={textareaStyle} />
       </FieldRow>
       <FieldRow label="Résumé des preuves (min 20 car.)" required>
         <textarea value={form.evidenceSummary} onChange={set("evidenceSummary")} rows={2}
-          placeholder="Documents collectés, incohérences détectées..." className={textCls} />
+          placeholder="Documents collectés, incohérences détectées..." style={textareaStyle} />
       </FieldRow>
       <FieldRow label="Narration détaillée (min 50 car.)" required>
         <textarea value={form.narrativeSummary} onChange={set("narrativeSummary")} rows={4}
-          placeholder="Description chronologique des faits suspects..." className={textCls} />
+          placeholder="Description chronologique des faits suspects..." style={textareaStyle} />
       </FieldRow>
       <FieldRow label="Action recommandée">
         <textarea value={form.recommendedAction} onChange={set("recommendedAction")} rows={2}
-          placeholder="Bloquer, signaler au régulateur, surveillance accrue..." className={textCls} />
+          placeholder="Bloquer, signaler au régulateur, surveillance accrue..." style={textareaStyle} />
       </FieldRow>
     </div>
   );
@@ -731,66 +775,66 @@ function StrFormFields({ form, onChange }: {
       onChange({ ...form, [k]: e.target.value });
 
   return (
-    <div className="space-y-3">
-      <p className="text-[10px] font-mono text-[#484f58] mb-3">
-        Signalement de transaction suspecte — champs marqués <span className="text-red-400">*</span> obligatoires
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <p style={{ fontSize: 10, fontFamily: C.mono, color: C.text4, margin: "0 0 4px" }}>
+        Signalement de transaction suspecte — champs marqués <span style={{ color: C.red }}>*</span> obligatoires
       </p>
-      <div className="grid grid-cols-2 gap-3">
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <FieldRow label="ID Client" required>
-          <input type="number" value={form.customerId} onChange={set("customerId")} placeholder="123" className={inputCls} />
+          <input type="number" value={form.customerId} onChange={set("customerId")} placeholder="123" style={inputStyle} />
         </FieldRow>
         <FieldRow label="ID Dossier">
-          <input type="number" value={form.caseId} onChange={set("caseId")} placeholder="456" className={inputCls} />
+          <input type="number" value={form.caseId} onChange={set("caseId")} placeholder="456" style={inputStyle} />
         </FieldRow>
       </div>
       <FieldRow label="Titre" required>
-        <input value={form.title} onChange={set("title")} placeholder="Ex : Virement suspect vers pays tiers" className={inputCls} />
+        <input value={form.title} onChange={set("title")} placeholder="Ex : Virement suspect vers pays tiers" style={inputStyle} />
       </FieldRow>
       <FieldRow label="Type de suspicion" required>
-        <input value={form.suspicionType} onChange={set("suspicionType")} placeholder="Ex : Layering, Smurfing..." className={inputCls} />
+        <input value={form.suspicionType} onChange={set("suspicionType")} placeholder="Ex : Layering, Smurfing..." style={inputStyle} />
       </FieldRow>
-      <div className="grid grid-cols-2 gap-3">
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <FieldRow label="Montant impliqué" required>
-          <input value={form.amountInvolved} onChange={set("amountInvolved")} placeholder="50000.00" className={inputCls} />
+          <input value={form.amountInvolved} onChange={set("amountInvolved")} placeholder="50000.00" style={inputStyle} />
         </FieldRow>
         <FieldRow label="Devise">
-          <input value={form.currency} onChange={set("currency")} placeholder="EUR" maxLength={3} className={inputCls} />
+          <input value={form.currency} onChange={set("currency")} placeholder="EUR" maxLength={3} style={inputStyle} />
         </FieldRow>
       </div>
-      <div className="pt-2 border-t border-[#21262d]">
-        <p className="text-[10px] font-mono text-[#58a6ff] mb-3 tracking-widest uppercase">Détails de la transaction</p>
+      <div style={{ paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
+        <p style={{ fontSize: 10, fontFamily: C.mono, color: C.blue, marginBottom: 12, letterSpacing: "0.16em", textTransform: "uppercase" }}>Détails de la transaction</p>
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <FieldRow label="ID Transaction" required>
-          <input value={form.transactionId} onChange={set("transactionId")} placeholder="TXN-XXXXXXXX" className={inputCls} />
+          <input value={form.transactionId} onChange={set("transactionId")} placeholder="TXN-XXXXXXXX" style={inputStyle} />
         </FieldRow>
         <FieldRow label="Date" required>
-          <input type="datetime-local" value={form.transactionDate} onChange={set("transactionDate")} className={inputCls} />
+          <input type="datetime-local" value={form.transactionDate} onChange={set("transactionDate")} style={inputStyle} />
         </FieldRow>
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <FieldRow label="Montant tx" required>
-          <input value={form.transactionAmount} onChange={set("transactionAmount")} placeholder="12500.00" className={inputCls} />
+          <input value={form.transactionAmount} onChange={set("transactionAmount")} placeholder="12500.00" style={inputStyle} />
         </FieldRow>
         <FieldRow label="Type tx" required>
-          <input value={form.transactionType} onChange={set("transactionType")} placeholder="TRANSFER, DEPOSIT..." className={inputCls} />
+          <input value={form.transactionType} onChange={set("transactionType")} placeholder="TRANSFER, DEPOSIT..." style={inputStyle} />
         </FieldRow>
       </div>
       <FieldRow label="Parties impliquées — une par ligne" required>
         <textarea value={form.involvedParties} onChange={set("involvedParties")} rows={2}
-          placeholder={"Nom Prenom — Banque X\nSociété Y — Pays Z"} className={textCls} />
+          placeholder={"Nom Prenom — Banque X\nSociété Y — Pays Z"} style={textareaStyle} />
       </FieldRow>
       <FieldRow label="Base de la suspicion (min 10 car.)" required>
         <textarea value={form.suspicionBasis} onChange={set("suspicionBasis")} rows={2}
-          placeholder="Raisons précises pour lesquelles cette transaction est suspecte..." className={textCls} />
+          placeholder="Raisons précises pour lesquelles cette transaction est suspecte..." style={textareaStyle} />
       </FieldRow>
       <FieldRow label="Résumé des preuves (min 20 car.)" required>
         <textarea value={form.evidenceSummary} onChange={set("evidenceSummary")} rows={2}
-          placeholder="Documents, relevés, communications analysés..." className={textCls} />
+          placeholder="Documents, relevés, communications analysés..." style={textareaStyle} />
       </FieldRow>
       <FieldRow label="Narration détaillée (min 50 car.)" required>
         <textarea value={form.narrativeSummary} onChange={set("narrativeSummary")} rows={4}
-          placeholder="Description chronologique des faits et contexte..." className={textCls} />
+          placeholder="Description chronologique des faits et contexte..." style={textareaStyle} />
       </FieldRow>
     </div>
   );
@@ -809,51 +853,52 @@ function ActionModal({ target, onClose, onConfirm, isPending }: {
   const { action, report } = target;
   const canConfirm = action !== "reject" || rejectNote.length >= 10;
 
+  const confirmBtnStyle: React.CSSProperties =
+    action === "approve"
+      ? { flex: 1, padding: "8px 0", fontSize: 12, fontFamily: C.mono, background: `${C.green}14`, border: `1px solid ${C.green}40`, borderRadius: 7, color: C.green, cursor: "pointer" }
+      : action === "reject"
+      ? { flex: 1, padding: "8px 0", fontSize: 12, fontFamily: C.mono, background: `${C.red}14`, border: `1px solid ${C.red}40`, borderRadius: 7, color: C.red, cursor: "pointer" }
+      : { flex: 1, padding: "8px 0", fontSize: 12, fontFamily: C.mono, background: `${C.blue}14`, border: `1px solid ${C.blue}40`, borderRadius: 7, color: C.blue, cursor: "pointer" };
+
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
-      <div className="bg-[#0d1117] border border-[#30363d] rounded-xl p-6 w-full max-w-sm animate-slide-in">
-        <div className="flex items-center gap-2 mb-3">
-          {action === "approve" && <CheckCircle size={16} className="text-emerald-400" />}
-          {action === "reject"  && <XCircle    size={16} className="text-red-400" />}
-          {action === "submit"  && <Send       size={16} className="text-[#58a6ff]" />}
-          <h3 className="text-sm font-semibold text-[#e6edf3] font-mono">
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 24, width: "100%", maxWidth: 400 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+          {action === "approve" && <CheckCircle size={16} style={{ color: C.green }} />}
+          {action === "reject"  && <XCircle    size={16} style={{ color: C.red }} />}
+          {action === "submit"  && <Send       size={16} style={{ color: C.blue }} />}
+          <h3 style={{ fontSize: 13, fontWeight: 600, fontFamily: C.mono, color: C.text1, margin: 0 }}>
             {action === "submit"  ? "Soumettre pour révision" :
              action === "approve" ? "Approuver le rapport"    :
                                     "Rejeter le rapport"}
           </h3>
         </div>
-        <p className="text-xs font-mono text-[#7d8590] mb-4">
+        <p style={{ fontSize: 12, fontFamily: C.mono, color: C.text3, marginBottom: 16 }}>
           {report.reportId} — {report.title}
         </p>
         {action === "reject" && (
-          <div className="mb-4">
-            <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">
-              Motif <span className="text-red-400">*</span>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: "block", fontSize: 9, fontFamily: C.mono, letterSpacing: "0.15em", textTransform: "uppercase", color: C.text3, marginBottom: 6 }}>
+              Motif <span style={{ color: C.red }}>*</span>
             </label>
             <textarea
               value={rejectNote}
-              onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setRejectNote(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setRejectNote(e.target.value)}
               rows={3}
               placeholder="Informations manquantes, erreurs... (min 10 car.)"
-              className="w-full bg-[#161b22] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-red-400/40 resize-none"
+              style={{ ...textareaStyle }}
             />
           </div>
         )}
-        <div className="flex gap-2">
+        <div style={{ display: "flex", gap: 8 }}>
           <button onClick={onClose}
-            className="flex-1 py-2 text-xs font-mono border border-[#30363d] text-[#7d8590] rounded-md">
+            style={{ flex: 1, padding: "8px 0", fontSize: 12, fontFamily: C.mono, background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 7, color: C.text2, cursor: "pointer" }}>
             {t.common.cancel}
           </button>
           <button
             disabled={!canConfirm || isPending}
             onClick={onConfirm}
-            className={`flex-1 py-2 text-xs font-mono rounded-md border disabled:opacity-40
-              ${action === "approve"
-                ? "bg-emerald-400/10 border-emerald-400/30 text-emerald-400"
-                : action === "reject"
-                ? "bg-red-400/10 border-red-400/30 text-red-400"
-                : "bg-[#1f6feb]/20 border-[#1f6feb]/30 text-[#58a6ff]"
-              }`}
+            style={{ ...confirmBtnStyle, opacity: (!canConfirm || isPending) ? 0.4 : 1 }}
           >
             {isPending ? "En cours..." : t.common.confirm}
           </button>
@@ -898,65 +943,69 @@ function TransmitModal({ report, onClose, onConfirm, isPending, result, error }:
     declarantEmail:     "",
   });
 
-  const inputCls = "w-full bg-[#161b22] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-purple-400/40";
   const isValid  = declarant.declarantFirstName.length >= 2
                 && declarant.declarantLastName.length  >= 2
                 && declarant.declarantEmail.includes("@");
+
+  const transmitInputStyle: React.CSSProperties = { ...inputStyle };
 
   // Après transmission réussie — afficher le résultat
   if (result) {
     const isSimulation = result.mode === "SIMULATION";
     return (
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div className={`bg-[#0d1117] border rounded-xl p-6 w-full max-w-md ${
-          result.status === "ERROR" ? "border-red-400/30" : "border-emerald-400/30"
-        }`}>
-          <div className="flex items-center gap-2 mb-4">
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 16 }}>
+        <div style={{
+          background: C.surface,
+          border: `1px solid ${result.status === "ERROR" ? C.red + "50" : C.green + "50"}`,
+          borderRadius: 12, padding: 24, width: "100%", maxWidth: 440,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
             {result.status === "ERROR"
-              ? <XCircle size={18} className="text-red-400" />
-              : <CheckCircle size={18} className="text-emerald-400" />
+              ? <XCircle size={18} style={{ color: C.red }} />
+              : <CheckCircle size={18} style={{ color: C.green }} />
             }
-            <h3 className="text-sm font-semibold text-[#e6edf3] font-mono">
+            <h3 style={{ fontSize: 13, fontWeight: 600, fontFamily: C.mono, color: C.text1, margin: 0 }}>
               {result.status === "ERROR" ? "Échec de transmission" : "Transmission réussie"}
             </h3>
           </div>
 
-          <div className="space-y-2 mb-5">
-            <div className="flex justify-between text-xs font-mono">
-              <span className="text-[#7d8590]">Rapport</span>
-              <span className="text-[#e6edf3]">{result.reportId}</span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontFamily: C.mono }}>
+              <span style={{ color: C.text3 }}>Rapport</span>
+              <span style={{ color: C.text1 }}>{result.reportId}</span>
             </div>
-            <div className="flex justify-between text-xs font-mono">
-              <span className="text-[#7d8590]">Transmission ID</span>
-              <span className="text-[#e6edf3] text-[10px]">{result.transmissionId}</span>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontFamily: C.mono }}>
+              <span style={{ color: C.text3 }}>Transmission ID</span>
+              <span style={{ color: C.text1, fontSize: 10 }}>{result.transmissionId}</span>
             </div>
             {result.fiuRefNumber && (
-              <div className="flex justify-between text-xs font-mono">
-                <span className="text-[#7d8590]">Réf. régulateur</span>
-                <span className="text-emerald-400 font-semibold">{result.fiuRefNumber}</span>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontFamily: C.mono }}>
+                <span style={{ color: C.text3 }}>Réf. régulateur</span>
+                <span style={{ color: C.green, fontWeight: 600 }}>{result.fiuRefNumber}</span>
               </div>
             )}
-            <div className="flex justify-between text-xs font-mono">
-              <span className="text-[#7d8590]">Mode</span>
-              <span className={`px-1.5 py-0.5 rounded text-[10px] border ${
-                isSimulation
-                  ? "text-amber-400 bg-amber-400/10 border-amber-400/20"
-                  : "text-emerald-400 bg-emerald-400/10 border-emerald-400/20"
-              }`}>{result.mode}</span>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontFamily: C.mono }}>
+              <span style={{ color: C.text3 }}>Mode</span>
+              <span style={{
+                padding: "2px 6px", borderRadius: 4, fontSize: 10, border: "1px solid",
+                color: isSimulation ? C.amber : C.green,
+                background: isSimulation ? `${C.amber}14` : `${C.green}14`,
+                borderColor: isSimulation ? `${C.amber}30` : `${C.green}30`,
+              }}>{result.mode}</span>
             </div>
-            <div className="flex justify-between text-xs font-mono">
-              <span className="text-[#7d8590]">Taille XML</span>
-              <span className="text-[#7d8590]">{(result.xmlSize / 1024).toFixed(1)} Ko</span>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontFamily: C.mono }}>
+              <span style={{ color: C.text3 }}>Taille XML</span>
+              <span style={{ color: C.text3 }}>{(result.xmlSize / 1024).toFixed(1)} Ko</span>
             </div>
-            <div className="flex justify-between text-xs font-mono">
-              <span className="text-[#7d8590]">Checksum</span>
-              <span className="text-[#484f58] text-[10px]">{result.xmlChecksum.slice(0, 16)}…</span>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontFamily: C.mono }}>
+              <span style={{ color: C.text3 }}>Checksum</span>
+              <span style={{ color: C.text4, fontSize: 10 }}>{result.xmlChecksum.slice(0, 16)}…</span>
             </div>
           </div>
 
           {isSimulation && (
-            <div className="bg-amber-400/10 border border-amber-400/20 rounded-lg p-3 mb-4">
-              <p className="text-xs font-mono text-amber-400">
+            <div style={{ background: `${C.amber}14`, border: `1px solid ${C.amber}30`, borderRadius: 8, padding: 12, marginBottom: 16 }}>
+              <p style={{ fontSize: 12, fontFamily: C.mono, color: C.amber, margin: 0 }}>
                 Mode SIMULATION — le XML GoAML a été généré et validé mais pas transmis.
                 Configurez TRANSMISSION_MODE=TRACFIN_PORTAL en production.
               </p>
@@ -964,7 +1013,7 @@ function TransmitModal({ report, onClose, onConfirm, isPending, result, error }:
           )}
 
           <button onClick={onClose}
-            className="w-full py-2 text-xs font-mono bg-[#161b22] border border-[#30363d] text-[#e6edf3] rounded-md hover:bg-[#21262d]">
+            style={{ width: "100%", padding: "8px 0", fontSize: 12, fontFamily: C.mono, background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 7, color: C.text1, cursor: "pointer" }}>
             Fermer
           </button>
         </div>
@@ -973,103 +1022,103 @@ function TransmitModal({ report, onClose, onConfirm, isPending, result, error }:
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-[#0d1117] border border-purple-400/20 rounded-xl w-full max-w-md">
-        <div className="px-6 py-5 border-b border-[#21262d]">
-          <div className="flex items-center gap-2 mb-1">
-            <Radio size={15} className="text-purple-400" />
-            <h3 className="text-sm font-semibold text-[#e6edf3] font-mono">
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 16 }}>
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, width: "100%", maxWidth: 440 }}>
+        <div style={{ padding: "20px 24px 16px", borderBottom: `1px solid ${C.border}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+            <Radio size={15} style={{ color: "var(--wr-purple, #c084fc)" }} />
+            <h3 style={{ fontSize: 13, fontWeight: 600, fontFamily: C.mono, color: C.text1, margin: 0 }}>
               Transmission GoAML / TRACFIN
             </h3>
           </div>
-          <p className="text-xs font-mono text-[#7d8590]">
+          <p style={{ fontSize: 12, fontFamily: C.mono, color: C.text3, margin: 0 }}>
             {report.reportId} — {report.title}
           </p>
         </div>
 
-        <div className="px-6 py-4 space-y-3">
-          <p className="text-[10px] font-mono text-[#484f58]">
+        <div style={{ padding: "16px 24px", display: "flex", flexDirection: "column", gap: 12 }}>
+          <p style={{ fontSize: 10, fontFamily: C.mono, color: C.text4, margin: 0 }}>
             Générera le XML GoAML 2.0 et le transmettra au régulateur.
             La personne ci-dessous sera inscrite comme déclarant officiel.
           </p>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
-              <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1">
+              <label style={{ display: "block", fontSize: 9, fontFamily: C.mono, letterSpacing: "0.15em", textTransform: "uppercase", color: C.text3, marginBottom: 6 }}>
                 Prénom *
               </label>
               <input
                 value={declarant.declarantFirstName}
-                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   setDeclarant((d: TransmitDeclarant) => ({ ...d, declarantFirstName: e.target.value }))}
                 placeholder="Marie"
-                className={inputCls}
+                style={transmitInputStyle}
               />
             </div>
             <div>
-              <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1">
+              <label style={{ display: "block", fontSize: 9, fontFamily: C.mono, letterSpacing: "0.15em", textTransform: "uppercase", color: C.text3, marginBottom: 6 }}>
                 Nom *
               </label>
               <input
                 value={declarant.declarantLastName}
-                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   setDeclarant((d: TransmitDeclarant) => ({ ...d, declarantLastName: e.target.value }))}
                 placeholder="Martin"
-                className={inputCls}
+                style={transmitInputStyle}
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1">
+            <label style={{ display: "block", fontSize: 9, fontFamily: C.mono, letterSpacing: "0.15em", textTransform: "uppercase", color: C.text3, marginBottom: 6 }}>
               Fonction
             </label>
             <input
               value={declarant.declarantTitle}
-              onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                 setDeclarant((d: TransmitDeclarant) => ({ ...d, declarantTitle: e.target.value }))}
               placeholder="Responsable Conformité"
-              className={inputCls}
+              style={transmitInputStyle}
             />
           </div>
 
           <div>
-            <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1">
+            <label style={{ display: "block", fontSize: 9, fontFamily: C.mono, letterSpacing: "0.15em", textTransform: "uppercase", color: C.text3, marginBottom: 6 }}>
               Email *
             </label>
             <input
               type="email"
               value={declarant.declarantEmail}
-              onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                 setDeclarant((d: TransmitDeclarant) => ({ ...d, declarantEmail: e.target.value }))}
               placeholder="compliance@banque.fr"
-              className={inputCls}
+              style={transmitInputStyle}
             />
           </div>
 
           {error && (
-            <div className="bg-red-400/10 border border-red-400/20 rounded p-2">
-              <p className="text-xs font-mono text-red-400">{error}</p>
+            <div style={{ background: `${C.red}14`, border: `1px solid ${C.red}30`, borderRadius: 6, padding: 8 }}>
+              <p style={{ fontSize: 12, fontFamily: C.mono, color: C.red, margin: 0 }}>{error}</p>
             </div>
           )}
 
-          <div className="bg-[#161b22] border border-[#21262d] rounded-lg p-3">
-            <p className="text-[10px] font-mono text-[#484f58] leading-relaxed">
+          <div style={{ background: C.hover, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
+            <p style={{ fontSize: 10, fontFamily: C.mono, color: C.text4, lineHeight: 1.6, margin: 0 }}>
               Le rapport sera transmis conformément au format XML GoAML 2.0 (FATF/UNODC).
               Un accusé de réception avec numéro de référence TRACFIN sera enregistré.
             </p>
           </div>
         </div>
 
-        <div className="px-6 pb-5 flex gap-2">
+        <div style={{ padding: "0 24px 20px", display: "flex", gap: 8 }}>
           <button onClick={onClose}
-            className="flex-1 py-2 text-xs font-mono border border-[#30363d] text-[#7d8590] rounded-md">
+            style={{ flex: 1, padding: "8px 0", fontSize: 12, fontFamily: C.mono, background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 7, color: C.text2, cursor: "pointer" }}>
             {t.common.cancel}
           </button>
           <button
             disabled={!isValid || isPending}
             onClick={() => onConfirm(declarant)}
-            className="flex-1 py-2 text-xs font-mono bg-purple-400/10 border border-purple-400/30 text-purple-400 hover:bg-purple-400/20 rounded-md disabled:opacity-40"
+            style={{ flex: 1, padding: "8px 0", fontSize: 12, fontFamily: C.mono, background: "var(--wr-purple, #c084fc)14", border: "1px solid var(--wr-purple, #c084fc)30", borderRadius: 7, color: "var(--wr-purple, #c084fc)", cursor: "pointer", opacity: (!isValid || isPending) ? 0.4 : 1 }}
           >
             {isPending ? t.common.loading : t.reports.transmit}
           </button>
