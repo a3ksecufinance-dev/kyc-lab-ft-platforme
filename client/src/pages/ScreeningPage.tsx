@@ -684,6 +684,7 @@ function ListsTab({ canAdmin }: { canAdmin: boolean }) {
   const { t } = useI18n();
   const utils = trpc.useUtils();
   const { data, isLoading } = trpc.screening.listsStatus.useQuery(undefined, { refetchInterval: 60_000 });
+  const { data: health } = trpc.screening.listsHealth.useQuery(undefined, { refetchInterval: 120_000 });
   const refreshMutation = trpc.screening.forceRefresh.useMutation({
     onSuccess: () => utils.screening.listsStatus.invalidate(),
   });
@@ -793,6 +794,39 @@ function ListsTab({ canAdmin }: { canAdmin: boolean }) {
                   {s.count.toLocaleString("fr-FR")}
                 </span>
                 {s.error && <span style={{ fontSize: 10, fontFamily: C.mono, color: C.amber }}>{s.error}</span>}
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Diagnostic santé des listes */}
+      {health && (
+        <Card title="Diagnostic santé des listes">
+          <div style={{ display: "flex", gap: 12, marginBottom: 14 }}>
+            {([
+              { label: "Entités totales",  value: health.totalEntities.toLocaleString("fr-FR"), color: C.text1 },
+              { label: "Listes obsolètes", value: health.staleCount,                            color: health.staleCount > 0 ? C.amber : C.green },
+            ] as const).map(({ label, value, color }) => (
+              <div key={label} style={{ flex: 1, background: C.hover, borderRadius: 8, padding: "10px 14px", border: `1px solid ${C.border}` }}>
+                <div style={{ fontSize: 18, fontFamily: C.mono, fontWeight: 600, color }}>{value}</div>
+                <div style={{ fontSize: 10, fontFamily: C.mono, color: C.text4, marginTop: 2 }}>{label}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {health.reports.map((r) => (
+              <div key={r.provider} style={{ display: "grid", gridTemplateColumns: "80px 1fr 80px 80px", alignItems: "center", gap: 12, padding: "8px 12px", borderRadius: 6, background: r.isStale ? `${C.amber}06` : "transparent", border: `1px solid ${r.isStale ? `${C.amber}25` : C.border}` }}>
+                <span style={{ fontSize: 10, fontFamily: C.mono, fontWeight: 700, color: r.isStale ? C.amber : C.green }}>{r.provider}</span>
+                <span style={{ fontSize: 10, fontFamily: C.mono, color: C.text4 }}>
+                  {r.lastUpdate ? `Mis à jour ${formatRelative(new Date(r.lastUpdate))}` : "Jamais chargé"}
+                </span>
+                <span style={{ fontSize: 11, fontFamily: C.mono, color: C.text2, textAlign: "right" }}>
+                  {r.count.toLocaleString("fr-FR")}
+                </span>
+                <span style={{ fontSize: 10, fontFamily: C.mono, color: r.ageHours !== null && r.ageHours > 24 ? C.amber : C.text4, textAlign: "right" }}>
+                  {r.ageHours !== null ? (r.ageHours < 1 ? "< 1h" : `${r.ageHours}h`) : "—"}
+                </span>
               </div>
             ))}
           </div>

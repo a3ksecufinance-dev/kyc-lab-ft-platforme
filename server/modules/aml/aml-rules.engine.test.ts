@@ -35,6 +35,9 @@ const baseTx = {
   isSuspicious: false, flagReason: null,
   transactionDate: new Date("2024-06-01T10:00:00Z"),
   createdAt: new Date("2024-06-01T10:00:00Z"),
+  walletId: null as number | null,
+  agentId: null as number | null,
+  ussdSession: null as string | null,
 };
 
 const baseCustomer = {

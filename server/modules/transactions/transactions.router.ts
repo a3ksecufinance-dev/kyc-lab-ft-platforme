@@ -12,7 +12,12 @@ import {
   getAlertsByCustomer,
 } from "./transactions.service";
 
-const transactionTypeEnum = z.enum(["TRANSFER", "DEPOSIT", "WITHDRAWAL", "PAYMENT", "EXCHANGE"]);
+// Types de base + types mobiles (migration 0006)
+const transactionTypeEnum = z.enum([
+  "TRANSFER", "DEPOSIT", "WITHDRAWAL", "PAYMENT", "EXCHANGE",
+  "AGENT_CASH_IN", "AGENT_CASH_OUT", "MOBILE_MONEY_IN", "MOBILE_MONEY_OUT",
+  "P2P_TRANSFER", "MERCHANT_PAYMENT", "BILL_PAYMENT", "BULK_DISBURSEMENT",
+]);
 const channelEnum = z.enum(["ONLINE", "MOBILE", "BRANCH", "ATM", "API"]);
 const transactionStatusEnum = z.enum(["PENDING", "COMPLETED", "FLAGGED", "BLOCKED", "REVERSED"]);
 
@@ -23,29 +28,31 @@ export const transactionsRouter = router({
    */
   list: analystProc
     .input(z.object({
-      page:          z.number().int().positive().default(1),
-      limit:         z.number().int().min(1).max(100).default(20),
-      customerId:    z.number().int().positive().optional(),
-      status:        transactionStatusEnum.optional(),
-      isSuspicious:  z.boolean().optional(),
-      dateFrom:      z.string().datetime().optional(),
-      dateTo:        z.string().datetime().optional(),
-      amountMin:     z.number().positive().optional(),
-      amountMax:     z.number().positive().optional(),
-      search:        z.string().max(100).optional(),
+      page:            z.number().int().positive().default(1),
+      limit:           z.number().int().min(1).max(100).default(20),
+      customerId:      z.number().int().positive().optional(),
+      status:          transactionStatusEnum.optional(),
+      isSuspicious:    z.boolean().optional(),
+      dateFrom:        z.string().datetime().optional(),
+      dateTo:          z.string().datetime().optional(),
+      amountMin:       z.number().positive().optional(),
+      amountMax:       z.number().positive().optional(),
+      search:          z.string().max(100).optional(),
+      transactionType: transactionTypeEnum.optional(),
     }))
     .query(async ({ input }) => {
       return listTransactions({
         page:         input.page,
         limit:        input.limit,
-        ...(input.customerId    !== undefined && { customerId:   input.customerId }),
-        ...(input.status        !== undefined && { status:       input.status }),
-        ...(input.isSuspicious  !== undefined && { isSuspicious: input.isSuspicious }),
-        ...(input.amountMin     !== undefined && { amountMin:    input.amountMin }),
-        ...(input.amountMax     !== undefined && { amountMax:    input.amountMax }),
-        ...(input.dateFrom      !== undefined && { dateFrom:     new Date(input.dateFrom) }),
-        ...(input.dateTo        !== undefined && { dateTo:       new Date(input.dateTo) }),
-        ...(input.search        !== undefined && { search:       input.search }),
+        ...(input.customerId       !== undefined && { customerId:       input.customerId }),
+        ...(input.status           !== undefined && { status:           input.status }),
+        ...(input.isSuspicious     !== undefined && { isSuspicious:     input.isSuspicious }),
+        ...(input.amountMin        !== undefined && { amountMin:        input.amountMin }),
+        ...(input.amountMax        !== undefined && { amountMax:        input.amountMax }),
+        ...(input.dateFrom         !== undefined && { dateFrom:         new Date(input.dateFrom) }),
+        ...(input.dateTo           !== undefined && { dateTo:           new Date(input.dateTo) }),
+        ...(input.search           !== undefined && { search:           input.search }),
+        ...(input.transactionType  !== undefined && { transactionType:  input.transactionType }),
       });
     }),
 

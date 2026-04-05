@@ -7,7 +7,7 @@ import { StatCard } from "../components/ui/StatCard";
 import { trpc } from "../lib/trpc";
 import { formatDateTime, formatRelative, formatNumber } from "../lib/utils";
 import {
-  Shield, Activity, Plus, Key, ToggleLeft, ToggleRight,
+  Shield, Activity, Plus, Key, ToggleLeft, ToggleRight, Brain, Eye,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useI18n } from "../hooks/useI18n";
@@ -73,7 +73,7 @@ function actionColor(action: string): string {
 
 // ─── Onglets ──────────────────────────────────────────────────────────────────
 
-type Tab = "users" | "audit";
+type Tab = "users" | "audit" | "ml";
 
 export function AdminPage() {
   const { t } = useI18n();
@@ -83,6 +83,7 @@ export function AdminPage() {
   const tabs = [
     { key: "users" as Tab, label: t.admin.users },
     { key: "audit" as Tab, label: t.admin.auditLog },
+    { key: "ml"    as Tab, label: "ML / Scoring" },
   ];
 
   return (
@@ -113,7 +114,9 @@ export function AdminPage() {
         ))}
       </div>
 
-      {tab === "users" ? <UsersTab meId={me?.id ?? undefined} /> : <AuditTab />}
+      {tab === "users" && <UsersTab meId={me?.id ?? undefined} />}
+      {tab === "audit" && <AuditTab />}
+      {tab === "ml" && <MlTab />}
     </AppLayout>
   );
 }
@@ -135,6 +138,11 @@ function UsersTab({ meId }: { meId?: number | undefined }) {
   const [editTarget, setEditTarget] = useState<User | null>(null);
   const [resetTarget, setResetTarget] = useState<User | null>(null);
   const [newPassword, setNewPassword] = useState("");
+  const [detailTarget, setDetailTarget] = useState<User | null>(null);
+
+  const { data: userDetail } = trpc.admin.getUser.useQuery(
+    { id: detailTarget?.id ?? 0 }, { enabled: !!detailTarget }
+  );
 
   const utils = trpc.useUtils();
 
@@ -195,6 +203,8 @@ function UsersTab({ meId }: { meId?: number | undefined }) {
         <span style={{ fontSize: 10, fontFamily: C.mono, color: C.text4 }}>Vous</span>
       ) : (
         <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setDetailTarget(r); }}
+            style={{ fontSize: 10, fontFamily: C.mono, color: C.text3, background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 3 }}><Eye size={10} /></button>
           <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setEditTarget(r); }}
             style={{ fontSize: 10, fontFamily: C.mono, color: C.blue, background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>{t.admin.editUser}</button>
           <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setResetTarget(r); }}
@@ -289,6 +299,43 @@ function UsersTab({ meId }: { meId?: number | undefined }) {
                 {resetMutation.isPending ? "En cours..." : "Réinitialiser"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal détail utilisateur */}
+      {detailTarget && userDetail && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
+          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 24, width: "100%", maxWidth: 400 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+              <div style={{ width: 40, height: 40, borderRadius: "50%", background: `${C.blue}1a`, border: `1px solid ${C.blue}4d`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <span style={{ fontSize: 16, fontFamily: C.mono, color: C.blue }}>{userDetail.name.charAt(0).toUpperCase()}</span>
+              </div>
+              <div>
+                <p style={{ fontSize: 14, fontWeight: 600, color: C.text1, margin: 0 }}>{userDetail.name}</p>
+                <p style={{ fontSize: 11, fontFamily: C.mono, color: C.text3, margin: 0 }}>{userDetail.email}</p>
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+              {[
+                { label: "Rôle",           value: userDetail.role },
+                { label: "Département",    value: userDetail.department ?? "—" },
+                { label: "Statut",         value: userDetail.isActive ? "Actif" : "Inactif" },
+                { label: "Dernière conn.", value: userDetail.lastSignedIn ? formatRelative(userDetail.lastSignedIn) : "Jamais" },
+                { label: "Créé le",        value: formatDateTime(userDetail.createdAt) },
+              ].map(({ label, value }) => (
+                <div key={label} style={{ background: C.hover, borderRadius: 6, padding: "8px 10px" }}>
+                  <p style={{ fontSize: 9, fontFamily: C.mono, textTransform: "uppercase", letterSpacing: "0.1em", color: C.text3, margin: "0 0 2px" }}>{label}</p>
+                  <p style={{ fontSize: 11, fontFamily: C.mono, color: C.text1, margin: 0 }}>{value}</p>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => setDetailTarget(null)}
+              style={{ width: "100%", padding: "7px 0", fontSize: 12, fontFamily: C.mono, color: C.text3, background: "none", border: `1px solid ${C.border2}`, borderRadius: 7, cursor: "pointer" }}
+            >
+              Fermer
+            </button>
           </div>
         </div>
       )}
@@ -523,5 +570,95 @@ function AuditTab() {
         />
       </div>
     </>
+  );
+}
+
+// ─── Tab ML / Scoring ─────────────────────────────────────────────────────────
+
+function MlTab() {
+  const { data: mlStatus } = trpc.admin.mlRetrainStatus.useQuery();
+  const mlRetrainMut = trpc.admin.mlRetrain.useMutation();
+  const seedMut = trpc.amlRules.seedDefaults.useMutation();
+
+  return (
+    <div style={{ maxWidth: 600 }}>
+      <h3 style={{ fontSize: 13, fontWeight: 600, fontFamily: "var(--wr-font-mono)", color: "var(--wr-text-1)", margin: "0 0 16px", display: "flex", alignItems: "center", gap: 8 }}>
+        <Brain size={14} style={{ color: "var(--wr-blue)" }} /> Moteur ML — Scoring de risque
+      </h3>
+
+      {/* Status card */}
+      {mlStatus && (
+        <div style={{ background: "var(--wr-card)", border: "1px solid var(--wr-border)", borderRadius: 10, padding: 16, marginBottom: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 8 }}>
+            {[
+              { label: "En cours",     value: mlStatus.isRunning ? "OUI" : "NON" },
+              { label: "Dernier run",  value: mlStatus.lastRunAt ? new Date(mlStatus.lastRunAt).toLocaleDateString("fr-FR") : "—" },
+              { label: "Statut run",   value: mlStatus.lastRunStatus ?? "—" },
+              { label: "Prochain run", value: mlStatus.nextRunAt ? new Date(mlStatus.nextRunAt).toLocaleDateString("fr-FR") : "—" },
+              { label: "Planification", value: mlStatus.config.auto ? mlStatus.config.cron : "Manuel" },
+            ].map(({ label, value }) => (
+              <div key={label} style={{ background: "var(--wr-hover)", borderRadius: 6, padding: "10px 12px" }}>
+                <p style={{ fontSize: 9, fontFamily: "var(--wr-font-mono)", textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--wr-text-3)", margin: "0 0 4px" }}>{label}</p>
+                <p style={{ fontSize: 14, fontWeight: 600, fontFamily: "var(--wr-font-mono)", color: "var(--wr-blue)", margin: 0 }}>{value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Retrain */}
+      <div style={{ background: "var(--wr-card)", border: "1px solid var(--wr-border)", borderRadius: 10, padding: 16 }}>
+        <p style={{ fontSize: 12, color: "var(--wr-text-2)", margin: "0 0 12px", fontFamily: "var(--wr-font-mono)" }}>
+          Lance un réentraînement complet du modèle ML sur les données de transactions et d'alertes récentes.
+          Cette opération peut prendre plusieurs minutes.
+        </p>
+        {mlRetrainMut.data && (
+          <div style={{ background: mlRetrainMut.data.success ? "rgba(52,211,153,0.1)" : "rgba(248,113,113,0.1)", border: `1px solid ${mlRetrainMut.data.success ? "rgba(52,211,153,0.3)" : "rgba(248,113,113,0.3)"}`, borderRadius: 6, padding: "8px 12px", marginBottom: 12 }}>
+            <p style={{ fontSize: 11, fontFamily: "var(--wr-font-mono)", color: mlRetrainMut.data.success ? "var(--wr-green)" : "var(--wr-red)", margin: 0 }}>
+              {mlRetrainMut.data.success ? `Réentraînement réussi — ${(mlRetrainMut.data as { message?: string }).message ?? ""}` : "Échec du réentraînement"}
+            </p>
+          </div>
+        )}
+        {mlRetrainMut.error && (
+          <p style={{ fontSize: 11, fontFamily: "var(--wr-font-mono)", color: "var(--wr-red)", marginBottom: 12 }}>{mlRetrainMut.error.message}</p>
+        )}
+        <button
+          disabled={mlRetrainMut.isPending}
+          onClick={() => mlRetrainMut.mutate({ force: true })}
+          style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", background: "rgba(88,166,255,0.14)", border: "1px solid rgba(88,166,255,0.4)", borderRadius: 7, fontSize: 11, fontFamily: "var(--wr-font-mono)", color: "var(--wr-blue)", cursor: "pointer", opacity: mlRetrainMut.isPending ? 0.5 : 1 }}
+        >
+          <Activity size={12} />
+          {mlRetrainMut.isPending ? "Réentraînement en cours…" : "Lancer le réentraînement ML"}
+        </button>
+      </div>
+
+      {/* Seed règles AML par défaut */}
+      <div style={{ background: "var(--wr-card)", border: "1px solid var(--wr-border)", borderRadius: 10, padding: 16, marginTop: 12 }}>
+        <h4 style={{ fontSize: 12, fontWeight: 600, fontFamily: "var(--wr-font-mono)", color: "var(--wr-text-1)", margin: "0 0 8px", display: "flex", alignItems: "center", gap: 6 }}>
+          <Shield size={12} style={{ color: "var(--wr-amber)" }} /> Règles AML par défaut
+        </h4>
+        <p style={{ fontSize: 11, fontFamily: "var(--wr-font-mono)", color: "var(--wr-text-3)", margin: "0 0 12px" }}>
+          Initialise les règles AML de référence (OFAC, PEP, structuration, fréquence…). Sans effet si des règles existent déjà.
+        </p>
+        {seedMut.data && (
+          <div style={{ padding: "8px 12px", borderRadius: 6, marginBottom: 10, background: seedMut.data.seeded > 0 ? "rgba(52,211,153,0.1)" : "rgba(212,175,55,0.1)", border: `1px solid ${seedMut.data.seeded > 0 ? "rgba(52,211,153,0.3)" : "rgba(212,175,55,0.3)"}` }}>
+            <p style={{ fontSize: 11, fontFamily: "var(--wr-font-mono)", margin: 0, color: seedMut.data.seeded > 0 ? "var(--wr-green)" : "var(--wr-amber)" }}>
+              {seedMut.data.message} {seedMut.data.seeded > 0 && `(${seedMut.data.seeded} règles créées)`}
+            </p>
+          </div>
+        )}
+        {seedMut.error && (
+          <p style={{ fontSize: 11, fontFamily: "var(--wr-font-mono)", color: "var(--wr-red)", marginBottom: 10 }}>{seedMut.error.message}</p>
+        )}
+        <button
+          disabled={seedMut.isPending}
+          onClick={() => seedMut.mutate()}
+          style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.3)", borderRadius: 7, fontSize: 11, fontFamily: "var(--wr-font-mono)", color: "var(--wr-amber)", cursor: "pointer", opacity: seedMut.isPending ? 0.5 : 1 }}
+        >
+          <Shield size={12} />
+          {seedMut.isPending ? "Initialisation…" : "Initialiser les règles AML par défaut"}
+        </button>
+      </div>
+    </div>
   );
 }

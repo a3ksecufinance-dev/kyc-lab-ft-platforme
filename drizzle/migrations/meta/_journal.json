@@ -43,6 +43,13 @@
       "when": 1774866808093,
       "tag": "0005_security_compliance",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1775030400000,
+      "tag": "0006_multi_institution",
+      "breakpoints": true
     }
   ]
 }

@@ -176,10 +176,10 @@ const TEMPLATES = [
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const inputCls  = "w-full bg-[#0d1117] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff]/50 transition-colors";
-const labelCls  = "block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5";
-const btnBlue   = "px-3 py-1.5 text-xs font-mono bg-[#1f6feb]/20 border border-[#1f6feb]/40 text-[#58a6ff] rounded-md hover:bg-[#1f6feb]/30 transition-colors";
-const btnGhost  = "px-3 py-1.5 text-xs font-mono border border-[#30363d] text-[#7d8590] rounded-md hover:border-[#484f58] transition-colors";
+const inputCls  = "w-full bg-[var(--wr-hover)] border border-[var(--wr-border2)] rounded-md px-3 py-2 text-xs font-mono text-[var(--wr-text-1)] placeholder-[var(--wr-text-4)] focus:outline-none focus:border-[var(--wr-blue)] transition-colors";
+const labelCls  = "block text-[10px] font-mono text-[var(--wr-text-3)] tracking-widest uppercase mb-1.5";
+const btnBlue   = "px-3 py-1.5 text-xs font-mono bg-[var(--wr-blue)]/20 border border-[var(--wr-blue)]/40 text-[var(--wr-blue)] rounded-md hover:bg-[var(--wr-blue)]/30 transition-colors";
+const btnGhost  = "px-3 py-1.5 text-xs font-mono border border-[var(--wr-border2)] text-[var(--wr-text-3)] rounded-md hover:border-[var(--wr-border)] transition-colors";
 const btnRed    = "px-3 py-1.5 text-xs font-mono bg-red-500/10 border border-red-500/20 text-red-400 rounded-md hover:bg-red-500/20 transition-colors";
 
 function conditionToJson(c: Condition): unknown {
@@ -226,7 +226,7 @@ function ConditionBuilder({
   onRemove?: (() => void) | undefined;
   depth?: number | undefined;
 }) {
-  const indent = depth > 0 ? "ml-5 pl-4 border-l border-[#30363d]" : "";
+  const indent = depth > 0 ? "ml-5 pl-4 border-l border-[var(--wr-border2)]" : "";
 
   if (cond.type === "compound") {
     const addSimple = () => onChange({
@@ -260,11 +260,11 @@ function ConditionBuilder({
                 : "bg-amber-500/20 border-amber-500/40 text-amber-400"
             }`}
           >{cond.logic}</button>
-          <span className="text-[10px] font-mono text-[#484f58]">
+          <span className="text-[10px] font-mono text-[var(--wr-text-4)]">
             {cond.logic === "AND" ? "toutes les conditions" : "au moins une condition"}
           </span>
           {onRemove && (
-            <button onClick={onRemove} className="ml-auto text-[#484f58] hover:text-red-400 transition-colors">
+            <button onClick={onRemove} className="ml-auto text-[var(--wr-text-4)] hover:text-red-400 transition-colors">
               <Trash2 size={12} />
             </button>
           )}
@@ -298,7 +298,7 @@ function ConditionBuilder({
       <select
         value={cond.field}
         onChange={e => onChange({ ...cond, field: e.target.value })}
-        className="bg-[#0d1117] border border-[#30363d] rounded px-2 py-1.5 text-[11px] font-mono text-[#e6edf3] focus:outline-none focus:border-[#58a6ff]/50 w-44"
+        className="bg-[var(--wr-bg)] border border-[var(--wr-border2)] rounded px-2 py-1.5 text-[11px] font-mono text-[var(--wr-text-1)] focus:outline-none focus:border-[var(--wr-blue)]/50 w-44"
       >
         {FIELDS.map(g => (
           <optgroup key={g.group} label={g.group}>
@@ -309,7 +309,7 @@ function ConditionBuilder({
       <select
         value={cond.op}
         onChange={e => onChange({ ...cond, op: e.target.value as SimpleCondition["op"] })}
-        className="bg-[#0d1117] border border-[#30363d] rounded px-2 py-1.5 text-[11px] font-mono text-[#e6edf3] focus:outline-none focus:border-[#58a6ff]/50 w-36"
+        className="bg-[var(--wr-bg)] border border-[var(--wr-border2)] rounded px-2 py-1.5 text-[11px] font-mono text-[var(--wr-text-1)] focus:outline-none focus:border-[var(--wr-blue)]/50 w-36"
       >
         {OPERATORS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
@@ -317,10 +317,10 @@ function ConditionBuilder({
         value={cond.value}
         onChange={e => onChange({ ...cond, value: e.target.value })}
         placeholder={cond.op === "in" || cond.op === "not_in" ? "KP,IR,RU" : "valeur"}
-        className="bg-[#0d1117] border border-[#30363d] rounded px-2 py-1.5 text-[11px] font-mono text-[#e6edf3] focus:outline-none focus:border-[#58a6ff]/50 w-28 placeholder-[#484f58]"
+        className="bg-[var(--wr-bg)] border border-[var(--wr-border2)] rounded px-2 py-1.5 text-[11px] font-mono text-[var(--wr-text-1)] focus:outline-none focus:border-[var(--wr-blue)]/50 w-28 placeholder-[var(--wr-text-4)]"
       />
       {onRemove && (
-        <button onClick={onRemove} className="text-[#484f58] hover:text-red-400 transition-colors flex-shrink-0">
+        <button onClick={onRemove} className="text-[var(--wr-text-4)] hover:text-red-400 transition-colors flex-shrink-0">
           <Trash2 size={12} />
         </button>
       )}
@@ -365,15 +365,15 @@ function RuleSimulator({ cond }: { cond: Condition }) {
 
   return (
     <div className="space-y-3">
-      <p className="text-[10px] font-mono text-[#7d8590] uppercase tracking-widest">Transaction de test</p>
+      <p className="text-[10px] font-mono text-[var(--wr-text-3)] uppercase tracking-widest">Transaction de test</p>
       <div className="grid grid-cols-2 gap-2">
         {simuFields.map(([key, label]) => (
           <div key={key}>
-            <label className="text-[9px] font-mono text-[#484f58] uppercase block mb-0.5">{label}</label>
+            <label className="text-[9px] font-mono text-[var(--wr-text-4)] uppercase block mb-0.5">{label}</label>
             <input
               value={tx[key as keyof typeof tx]}
               onChange={e => setTx(prev => ({ ...prev, [key as string]: e.target.value }))}
-              className="w-full bg-[#161b22] border border-[#21262d] rounded px-2 py-1 text-[11px] font-mono text-[#e6edf3] focus:outline-none focus:border-[#58a6ff]/40"
+              className="w-full bg-[var(--wr-card)] border border-[var(--wr-border)] rounded px-2 py-1 text-[11px] font-mono text-[var(--wr-text-1)] focus:outline-none focus:border-[var(--wr-blue)]/40"
             />
           </div>
         ))}
@@ -391,7 +391,7 @@ function RuleSimulator({ cond }: { cond: Condition }) {
           <p className={`text-xs font-mono font-bold ${triggered ? "text-red-400" : "text-emerald-400"}`}>
             {triggered ? "RÈGLE DÉCLENCHÉE" : "Aucun déclenchement"}
           </p>
-          <p className="text-[10px] font-mono text-[#7d8590]">
+          <p className="text-[10px] font-mono text-[var(--wr-text-3)]">
             {triggered ? "Cette transaction créerait une alerte AML" : "Transaction passerait sans alerte"}
           </p>
         </div>
@@ -403,9 +403,10 @@ function RuleSimulator({ cond }: { cond: Condition }) {
 // ─── Modal création/édition ───────────────────────────────────────────────────
 
 function RuleModal({
-  onClose, initial,
+  onClose, initial, editId,
 }: {
   onClose: () => void;
+  editId?: number;
   initial?: Partial<{
     name: string; description: string; category: string; status: string;
     score: number; priority: string; alertType: string;
@@ -414,7 +415,8 @@ function RuleModal({
 }) {
   const { t } = useI18n();
   const utils = trpc.useUtils();
-  const [tab, setTab] = useState<"builder" | "simulate" | "json" | "templates">("builder");
+  const isEdit = editId !== undefined;
+  const [tab, setTab] = useState<"builder" | "simulate" | "json" | "templates" | "backtest">(isEdit ? "builder" : "builder");
 
   const [name,      setName]     = useState(initial?.name      ?? "");
   const [desc,      setDesc]     = useState(initial?.description ?? "");
@@ -431,9 +433,16 @@ function RuleModal({
 
   const jsonPreview = JSON.stringify(conditionToJson(cond), null, 2);
 
-  const mutation = trpc.amlRules.create.useMutation({
+  const createMut = trpc.amlRules.create.useMutation({
     onSuccess: () => { utils.amlRules.list.invalidate(); onClose(); },
   });
+  const updateMut = trpc.amlRules.update.useMutation({
+    onSuccess: () => { utils.amlRules.list.invalidate(); onClose(); },
+  });
+  const mutation = isEdit ? updateMut : createMut;
+  const [backtestDays, setBacktestDays] = useState(90);
+  const [backtestMaxTx, setBacktestMaxTx] = useState(2000);
+  const backtestMut = trpc.amlRules.backtest.useMutation();
 
   const applyTemplate = (t: typeof TEMPLATES[0]) => {
     setCond(t.conditions);
@@ -451,36 +460,37 @@ function RuleModal({
   );
 
   const TABS = [
-    { id: "templates", label: "Templates",  icon: <Zap size={11} /> },
+    ...(isEdit ? [] : [{ id: "templates", label: "Templates", icon: <Zap size={11} /> }]),
     { id: "builder",   label: "Builder",    icon: <GitBranch size={11} /> },
     { id: "simulate",  label: "Simulateur", icon: <Play size={11} /> },
     { id: "json",      label: "JSON",       icon: <Code size={11} /> },
-  ] as const;
+    ...(isEdit ? [{ id: "backtest", label: "Backtest", icon: <FlaskConical size={11} /> }] : []),
+  ] as { id: "templates" | "builder" | "simulate" | "json" | "backtest"; label: string; icon: React.ReactNode }[];
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-[#0d1117] border border-[#30363d] rounded-xl w-full max-w-2xl max-h-[92vh] flex flex-col shadow-2xl">
+      <div className="bg-[var(--wr-bg)] border border-[var(--wr-border2)] rounded-xl w-full max-w-2xl max-h-[92vh] flex flex-col shadow-2xl">
 
         {/* Header */}
-        <div className="px-6 py-4 border-b border-[#21262d] flex-shrink-0">
-          <h3 className="text-sm font-semibold text-[#e6edf3] font-mono flex items-center gap-2">
-            <Shield size={14} className="text-[#58a6ff]" /> Nouvelle règle AML
+        <div className="px-6 py-4 border-b border-[var(--wr-border)] flex-shrink-0">
+          <h3 className="text-sm font-semibold text-[var(--wr-text-1)] font-mono flex items-center gap-2">
+            <Shield size={14} className="text-[var(--wr-blue)]" /> {isEdit ? "Modifier la règle" : "Nouvelle règle AML"}
           </h3>
-          <p className="text-[10px] font-mono text-[#484f58] mt-0.5">
-            Active immédiatement — aucun redéploiement requis
+          <p className="text-[10px] font-mono text-[var(--wr-text-4)] mt-0.5">
+            {isEdit ? "Modifications appliquées immédiatement" : "Active immédiatement — aucun redéploiement requis"}
           </p>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-[#21262d] flex-shrink-0">
+        <div className="flex border-b border-[var(--wr-border)] flex-shrink-0">
           {TABS.map(t => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
               className={`flex items-center gap-1.5 px-4 py-2.5 text-[11px] font-mono border-b-2 transition-colors ${
                 tab === t.id
-                  ? "border-[#58a6ff] text-[#58a6ff]"
-                  : "border-transparent text-[#7d8590] hover:text-[#e6edf3]"
+                  ? "border-[var(--wr-blue)] text-[var(--wr-blue)]"
+                  : "border-transparent text-[var(--wr-text-3)] hover:text-[var(--wr-text-1)]"
               }`}
             >
               {t.icon}{t.label}
@@ -492,7 +502,7 @@ function RuleModal({
 
           {/* Métadonnées (toujours visible) */}
           {tab !== "templates" && (
-            <div className="space-y-3 mb-5 pb-4 border-b border-[#21262d]">
+            <div className="space-y-3 mb-5 pb-4 border-b border-[var(--wr-border)]">
               <div>
                 <label className={labelCls}>Nom <span className="text-red-400">*</span></label>
                 <input value={name} onChange={e => setName(e.target.value)}
@@ -524,8 +534,8 @@ function RuleModal({
                   <div className="flex items-center gap-2">
                     <input type="range" min={0} max={100} value={score}
                       onChange={e => setScore(Number(e.target.value))}
-                      className="flex-1 accent-[#58a6ff]" />
-                    <span className="text-xs font-mono text-[#58a6ff] w-8 text-right">{score}</span>
+                      className="flex-1 accent-[var(--wr-blue)]" />
+                    <span className="text-xs font-mono text-[var(--wr-blue)] w-8 text-right">{score}</span>
                   </div>
                 </div>
                 <div>
@@ -545,19 +555,19 @@ function RuleModal({
           {/* Tab: Templates */}
           {tab === "templates" && (
             <div className="space-y-2">
-              <p className="text-[10px] font-mono text-[#7d8590] mb-3">
+              <p className="text-[10px] font-mono text-[var(--wr-text-3)] mb-3">
                 Règles pré-configurées BAM Maroc / FATF / MENA — cliquer pour appliquer
               </p>
               {TEMPLATES.map((t, i) => (
                 <button key={i} onClick={() => applyTemplate(t)}
-                  className="w-full text-left p-3 bg-[#161b22] border border-[#30363d] rounded-lg hover:border-[#58a6ff]/40 hover:bg-[#1f2937] transition-all group">
+                  className="w-full text-left p-3 bg-[var(--wr-card)] border border-[var(--wr-border2)] rounded-lg hover:border-[var(--wr-blue)]/40 hover:bg-[var(--wr-hover)] transition-all group">
                   <div className="flex items-center gap-3">
                     <span className="text-lg">{t.icon}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-mono font-semibold text-[#e6edf3] group-hover:text-[#58a6ff] transition-colors">
+                      <p className="text-xs font-mono font-semibold text-[var(--wr-text-1)] group-hover:text-[var(--wr-blue)] transition-colors">
                         {t.label}
                       </p>
-                      <p className="text-[10px] font-mono text-[#7d8590] mt-0.5 truncate">{t.desc}</p>
+                      <p className="text-[10px] font-mono text-[var(--wr-text-3)] mt-0.5 truncate">{t.desc}</p>
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
                       <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${CATEGORY_COLORS[t.category] ?? ""}`}>
@@ -579,7 +589,7 @@ function RuleModal({
           {tab === "builder" && (
             <div className="space-y-3">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[10px] font-mono text-[#7d8590] uppercase tracking-widest">
+                <p className="text-[10px] font-mono text-[var(--wr-text-3)] uppercase tracking-widest">
                   Conditions de déclenchement
                 </p>
                 {cond.type === "simple" && (
@@ -591,10 +601,10 @@ function RuleModal({
                   </button>
                 )}
               </div>
-              <div className="bg-[#161b22] border border-[#21262d] rounded-lg p-4">
+              <div className="bg-[var(--wr-card)] border border-[var(--wr-border)] rounded-lg p-4">
                 <ConditionBuilder cond={cond} onChange={setCond} />
               </div>
-              <p className="text-[9px] font-mono text-[#484f58]">
+              <p className="text-[9px] font-mono text-[var(--wr-text-4)]">
                 Champs agrégés (recentTxCount, recentTxVolume, volumeVariation) utilisent les données des 24h précédentes.
               </p>
             </div>
@@ -609,7 +619,7 @@ function RuleModal({
           {tab === "json" && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-mono text-[#7d8590] uppercase tracking-widest">
+                <p className="text-[10px] font-mono text-[var(--wr-text-3)] uppercase tracking-widest">
                   Aperçu JSON envoyé à l'API
                 </p>
                 <button
@@ -619,37 +629,129 @@ function RuleModal({
                   <Copy size={10} /> Copier
                 </button>
               </div>
-              <pre className="bg-[#161b22] border border-[#21262d] rounded-lg p-4 text-[11px] font-mono text-[#79c0ff] overflow-x-auto whitespace-pre-wrap">
+              <pre className="bg-[var(--wr-card)] border border-[var(--wr-border)] rounded-lg p-4 text-[11px] font-mono text-[var(--wr-blue)] overflow-x-auto whitespace-pre-wrap">
                 {jsonPreview}
               </pre>
+            </div>
+          )}
+
+          {/* Tab: Backtest (edit only) */}
+          {tab === "backtest" && isEdit && (
+            <div className="space-y-4">
+              <p className="text-[10px] font-mono text-[var(--wr-text-3)]">
+                Simule la règle sur les transactions historiques sans créer d'alertes réelles.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Période (jours)</label>
+                  <input type="number" min={7} max={180} value={backtestDays}
+                    onChange={e => setBacktestDays(Number(e.target.value))}
+                    className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Max transactions</label>
+                  <input type="number" min={100} max={10000} value={backtestMaxTx}
+                    onChange={e => setBacktestMaxTx(Number(e.target.value))}
+                    className={inputCls} />
+                </div>
+              </div>
+              <button
+                disabled={backtestMut.isPending}
+                onClick={() => backtestMut.mutate({ ruleId: editId!, daysPeriod: backtestDays, maxTx: backtestMaxTx, compareWithActive: true })}
+                className={`${btnBlue} flex items-center gap-1.5 disabled:opacity-40`}
+              >
+                <Play size={11} /> {backtestMut.isPending ? "Simulation en cours…" : "Lancer le backtest"}
+              </button>
+
+              {backtestMut.isError && (
+                <p className="text-xs font-mono text-red-400">{backtestMut.error.message}</p>
+              )}
+
+              {backtestMut.data && (() => {
+                const r = backtestMut.data;
+                return (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-3 gap-3">
+                      {[
+                        { label: "Transactions analysées", val: r.corpus.analyzed },
+                        { label: "Déclenchements",         val: r.simulation.triggered },
+                        { label: "Taux déclench.",         val: `${r.simulation.triggerRate}%` },
+                        { label: "Score moyen",            val: r.simulation.avgScore },
+                        { label: "Durée (ms)",             val: r.durationMs },
+                        { label: "Période",                val: `${r.period.days}j` },
+                      ].map(({ label, val }) => (
+                        <div key={label} className="bg-[var(--wr-card)] border border-[var(--wr-border)] rounded p-2">
+                          <div className="text-xs font-mono font-bold text-[var(--wr-text-1)]">{String(val)}</div>
+                          <div className="text-[9px] font-mono text-[var(--wr-text-4)] mt-0.5">{label}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {r.comparison && (
+                      <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+                        <p className="text-[9px] font-mono text-amber-400 uppercase tracking-widest mb-2">Comparaison avec alertes existantes</p>
+                        <div className="grid grid-cols-4 gap-2 text-[11px] font-mono">
+                          <div><span className="text-[var(--wr-text-3)]">Alertes actuelles :</span> <span className="text-[var(--wr-text-1)]">{r.comparison.existingAlerts}</span></div>
+                          <div><span className="text-[var(--wr-text-3)]">Overlap :</span> <span className="text-[var(--wr-text-1)]">{r.comparison.overlap}</span></div>
+                          <div><span className="text-[var(--wr-text-3)]">Nouveaux hits :</span> <span className="text-emerald-400">{r.comparison.newDetections}</span></div>
+                          <div><span className="text-[var(--wr-text-3)]">FP estimés :</span> <span className="text-red-400">{r.comparison.estimatedFP}</span></div>
+                        </div>
+                      </div>
+                    )}
+                    {r.simulation.sampleTriggers.length > 0 && (
+                      <div>
+                        <p className="text-[9px] font-mono text-[var(--wr-text-4)] uppercase tracking-widest mb-1">Échantillon déclenchements</p>
+                        <div className="space-y-1 max-h-40 overflow-y-auto">
+                          {r.simulation.sampleTriggers.slice(0, 5).map((s, i) => (
+                            <div key={i} className="flex items-center gap-3 text-[11px] font-mono bg-[var(--wr-card)] border border-[var(--wr-border)] rounded px-3 py-1.5">
+                              <span className="text-[var(--wr-blue)]">{s.transactionId}</span>
+                              <span className="text-[var(--wr-text-3)]">Client #{s.customerId}</span>
+                              <span className="text-[var(--wr-text-1)]">{s.amount.toLocaleString()} {s.currency}</span>
+                              <span className={`ml-auto ${s.score >= 70 ? "text-red-400" : "text-amber-400"}`}>score {s.score}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-[#21262d] flex gap-2 flex-shrink-0">
+        <div className="px-6 py-4 border-t border-[var(--wr-border)] flex gap-2 flex-shrink-0">
           {mutation.error && (
             <p className="text-xs font-mono text-red-400 mr-auto self-center">{mutation.error.message}</p>
           )}
           <button onClick={onClose} className={btnGhost}>{t.common.cancel}</button>
-          <button
-            disabled={!isValid || mutation.isPending}
-            onClick={() => mutation.mutate({
-              name: name.trim(),
-              description:    desc || undefined,
-              category:       category as "THRESHOLD" | "FREQUENCY" | "PATTERN" | "GEOGRAPHY" | "COUNTERPARTY" | "VELOCITY" | "CUSTOMER",
-              status:         status as "ACTIVE" | "INACTIVE" | "TESTING",
-              baseScore:      score,
-              priority:       priority as "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
-              alertType:      alertType as "THRESHOLD" | "PATTERN" | "VELOCITY" | "SANCTIONS" | "FRAUD" | "PEP" | "NETWORK",
-              conditions:     conditionToJson(cond),
-              thresholdValue: threshold || undefined,
-              windowMinutes:  window_ ? parseInt(window_) : undefined,
-            })}
-            className={`${btnBlue} disabled:opacity-40`}
-          >
-            {mutation.isPending ? "Création..." : t.amlRules.addRule}
-          </button>
+          {tab !== "backtest" && (
+            <button
+              disabled={!isValid || mutation.isPending}
+              onClick={() => {
+                const payload = {
+                  name:           name.trim(),
+                  description:    desc || undefined,
+                  category:       category as "THRESHOLD" | "FREQUENCY" | "PATTERN" | "GEOGRAPHY" | "COUNTERPARTY" | "VELOCITY" | "CUSTOMER",
+                  status:         status as "ACTIVE" | "INACTIVE" | "TESTING",
+                  baseScore:      score,
+                  priority:       priority as "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
+                  alertType:      alertType as "THRESHOLD" | "PATTERN" | "VELOCITY" | "SANCTIONS" | "FRAUD" | "PEP" | "NETWORK",
+                  conditions:     conditionToJson(cond),
+                  thresholdValue: threshold || undefined,
+                  windowMinutes:  window_ ? parseInt(window_) : undefined,
+                };
+                if (isEdit) {
+                  updateMut.mutate({ id: editId!, ...payload });
+                } else {
+                  createMut.mutate(payload);
+                }
+              }}
+              className={`${btnBlue} disabled:opacity-40`}
+            >
+              {mutation.isPending ? (isEdit ? "Enregistrement…" : "Création...") : (isEdit ? "Enregistrer" : t.amlRules.addRule)}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -664,6 +766,7 @@ function RuleCard({ rule, canEdit, canDelete }: { rule: AmlRule; canEdit: boolea
   const [open, setOpen] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackNote, setFeedbackNote] = useState("");
+  const [showEdit, setShowEdit] = useState(false);
 
   const { data: stats } = trpc.amlRules.stats.useQuery(
     { id: rule.id, days: 30 },
@@ -701,19 +804,19 @@ function RuleCard({ rule, canEdit, canDelete }: { rule: AmlRule; canEdit: boolea
   const STATUS_LABELS = { ACTIVE: "Actif", INACTIVE: "Inactif", TESTING: "Test A/B" };
   const STATUS_STYLES = {
     ACTIVE:   "text-emerald-400 bg-emerald-400/10 border-emerald-400/20",
-    INACTIVE: "text-[#484f58]  bg-[#21262d]      border-[#30363d]",
+    INACTIVE: "text-[var(--wr-text-4)]  bg-[var(--wr-border)]      border-[var(--wr-border2)]",
     TESTING:  "text-amber-400  bg-amber-400/10   border-amber-400/20",
   };
 
   return (
-    <div className={`bg-[#161b22] border rounded-lg transition-all ${
-      open ? "border-[#58a6ff]/30" : "border-[#21262d] hover:border-[#30363d]"
+    <div className={`bg-[var(--wr-card)] border rounded-lg transition-all ${
+      open ? "border-[var(--wr-blue)]/30" : "border-[var(--wr-border)] hover:border-[var(--wr-border2)]"
     }`}>
       <div className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-mono font-semibold text-[#e6edf3]">{rule.name}</span>
+              <span className="text-xs font-mono font-semibold text-[var(--wr-text-1)]">{rule.name}</span>
               <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${CATEGORY_COLORS[rule.category] ?? ""}`}>
                 {CATEGORY_LABELS[rule.category] ?? rule.category}
               </span>
@@ -725,7 +828,7 @@ function RuleCard({ rule, canEdit, canDelete }: { rule: AmlRule; canEdit: boolea
               )}
             </div>
             {rule.description && (
-              <p className="text-[10px] font-mono text-[#7d8590] mt-1 line-clamp-1">{rule.description}</p>
+              <p className="text-[10px] font-mono text-[var(--wr-text-3)] mt-1 line-clamp-1">{rule.description}</p>
             )}
           </div>
 
@@ -734,28 +837,37 @@ function RuleCard({ rule, canEdit, canDelete }: { rule: AmlRule; canEdit: boolea
               <div className={`text-sm font-mono font-bold ${
                 rule.baseScore >= 75 ? "text-red-400" : rule.baseScore >= 50 ? "text-amber-400" : "text-emerald-400"
               }`}>{rule.baseScore}</div>
-              <div className="text-[9px] font-mono text-[#484f58]">score</div>
+              <div className="text-[9px] font-mono text-[var(--wr-text-4)]">score</div>
             </div>
 
             {canEdit && (
-              <button
-                onClick={() => toggleMut.mutate({
-                  id: rule.id,
-                  status: rule.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
-                })}
-                className="text-[#484f58] hover:text-[#58a6ff] transition-colors"
-                title={rule.status === "ACTIVE" ? "Désactiver" : "Activer"}
-              >
-                {rule.status === "ACTIVE"
-                  ? <ToggleRight size={18} className="text-emerald-400" />
-                  : <ToggleLeft size={18} />
-                }
-              </button>
+              <>
+                <button
+                  onClick={() => setShowEdit(true)}
+                  className="text-[var(--wr-text-4)] hover:text-[var(--wr-blue)] transition-colors"
+                  title="Modifier la règle"
+                >
+                  <Pencil size={14} />
+                </button>
+                <button
+                  onClick={() => toggleMut.mutate({
+                    id: rule.id,
+                    status: rule.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
+                  })}
+                  className="text-[var(--wr-text-4)] hover:text-[var(--wr-blue)] transition-colors"
+                  title={rule.status === "ACTIVE" ? "Désactiver" : "Activer"}
+                >
+                  {rule.status === "ACTIVE"
+                    ? <ToggleRight size={18} className="text-emerald-400" />
+                    : <ToggleLeft size={18} />
+                  }
+                </button>
+              </>
             )}
 
             <button
               onClick={() => setShowFeedback(true)}
-              className="text-[#484f58] hover:text-amber-400 transition-colors"
+              className="text-[var(--wr-text-4)] hover:text-amber-400 transition-colors"
               title="Signaler faux positif"
             >
               <ThumbsDown size={14} />
@@ -764,13 +876,13 @@ function RuleCard({ rule, canEdit, canDelete }: { rule: AmlRule; canEdit: boolea
             {canDelete && (
               <button
                 onClick={() => { if (confirm("Supprimer cette règle ?")) deleteMut.mutate({ id: rule.id }); }}
-                className="text-[#484f58] hover:text-red-400 transition-colors"
+                className="text-[var(--wr-text-4)] hover:text-red-400 transition-colors"
               >
                 <Trash2 size={14} />
               </button>
             )}
 
-            <button onClick={() => setOpen(!open)} className="text-[#484f58] hover:text-[#e6edf3] transition-colors">
+            <button onClick={() => setOpen(!open)} className="text-[var(--wr-text-4)] hover:text-[var(--wr-text-1)] transition-colors">
               {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
             </button>
           </div>
@@ -803,9 +915,29 @@ function RuleCard({ rule, canEdit, canDelete }: { rule: AmlRule; canEdit: boolea
         </div>
       )}
 
+      {/* Edit modal */}
+      {showEdit && (
+        <RuleModal
+          onClose={() => setShowEdit(false)}
+          editId={rule.id}
+          initial={{
+            name:        rule.name,
+            description: rule.description ?? "",
+            category:    rule.category,
+            status:      rule.status,
+            score:       rule.baseScore,
+            priority:    rule.priority,
+            alertType:   rule.alertType,
+            conditions:  rule.conditions as Condition,
+            threshold:   rule.thresholdValue ?? "",
+            window:      rule.windowMinutes ? String(rule.windowMinutes) : "",
+          }}
+        />
+      )}
+
       {/* Expand: stats + graph */}
       {open && (
-        <div className="border-t border-[#21262d] p-4 space-y-4">
+        <div className="border-t border-[var(--wr-border)] p-4 space-y-4">
           {/* Stats */}
           <div className="grid grid-cols-4 gap-3">
             {[
@@ -814,9 +946,9 @@ function RuleCard({ rule, canEdit, canDelete }: { rule: AmlRule; canEdit: boolea
               { label: "Taux déclench.",   val: `${stats?.triggerRate ?? 0}%` },
               { label: "Règle ID",         val: rule.ruleId },
             ].map(({ label, val }) => (
-              <div key={label} className="bg-[#0d1117] border border-[#21262d] rounded p-2">
-                <div className="text-xs font-mono font-bold text-[#e6edf3]">{String(val)}</div>
-                <div className="text-[9px] font-mono text-[#484f58] mt-0.5">{label}</div>
+              <div key={label} className="bg-[var(--wr-bg)] border border-[var(--wr-border)] rounded p-2">
+                <div className="text-xs font-mono font-bold text-[var(--wr-text-1)]">{String(val)}</div>
+                <div className="text-[9px] font-mono text-[var(--wr-text-4)] mt-0.5">{label}</div>
               </div>
             ))}
           </div>
@@ -824,20 +956,20 @@ function RuleCard({ rule, canEdit, canDelete }: { rule: AmlRule; canEdit: boolea
           {/* Graphe recharts */}
           {chartData.length > 0 && (
             <div>
-              <p className="text-[9px] font-mono text-[#484f58] uppercase tracking-widest mb-2 flex items-center gap-1">
+              <p className="text-[9px] font-mono text-[var(--wr-text-4)] uppercase tracking-widest mb-2 flex items-center gap-1">
                 <TrendingUp size={10} /> Déclenchements / jour (14 derniers jours)
               </p>
               <ResponsiveContainer width="100%" height={80}>
                 <LineChart data={chartData} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#21262d" />
-                  <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#484f58", fontFamily: "monospace" }} />
-                  <YAxis tick={{ fontSize: 9, fill: "#484f58", fontFamily: "monospace" }} width={20} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--wr-border)" />
+                  <XAxis dataKey="date" tick={{ fontSize: 9, fill: "var(--wr-text-4)", fontFamily: "monospace" }} />
+                  <YAxis tick={{ fontSize: 9, fill: "var(--wr-text-4)", fontFamily: "monospace" }} width={20} />
                   <Tooltip
                     contentStyle={{ background: "var(--wr-card)", border: "1px solid var(--wr-border)", borderRadius: 4, fontSize: 10, fontFamily: "monospace", color: "var(--wr-text-1)" }}
                     labelStyle={{ color: "var(--wr-text-2)" }}
                   />
-                  <Line type="monotone" dataKey="triggered" stroke="#f97316" strokeWidth={1.5} dot={false} name="Déclenchés" />
-                  <Line type="monotone" dataKey="total" stroke="#30363d" strokeWidth={1} dot={false} name="Analysés" />
+                  <Line type="monotone" dataKey="triggered" stroke="var(--wr-amber)" strokeWidth={1.5} dot={false} name="Déclenchés" />
+                  <Line type="monotone" dataKey="total" stroke="var(--wr-border2)" strokeWidth={1} dot={false} name="Analysés" />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -845,8 +977,8 @@ function RuleCard({ rule, canEdit, canDelete }: { rule: AmlRule; canEdit: boolea
 
           {/* Conditions JSON */}
           <div>
-            <p className="text-[9px] font-mono text-[#484f58] uppercase tracking-widest mb-1">Conditions JSON</p>
-            <pre className="bg-[#0d1117] border border-[#21262d] rounded p-3 text-[10px] font-mono text-[#79c0ff] overflow-x-auto whitespace-pre-wrap">
+            <p className="text-[9px] font-mono text-[var(--wr-text-4)] uppercase tracking-widest mb-1">Conditions JSON</p>
+            <pre className="bg-[var(--wr-bg)] border border-[var(--wr-border)] rounded p-3 text-[10px] font-mono text-[var(--wr-blue)] overflow-x-auto whitespace-pre-wrap">
               {JSON.stringify(rule.conditions, null, 2)}
             </pre>
           </div>
@@ -890,6 +1022,11 @@ function JurisdictionsPanel({ canEdit }: { canEdit: boolean }) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [editing, setEditing] = useState<Partial<JurisdictionProfile> | Record<string, any> | null>(null);
+  const [lookupCode, setLookupCode] = useState("");
+  const { data: thresholds } = trpc.jurisdictions.effectiveThresholds.useQuery(
+    { countryCode: lookupCode.toUpperCase() },
+    { enabled: lookupCode.length === 2 }
+  );
 
   const activeCount   = jurisdictions?.filter(j => j.isActive).length ?? 0;
   const inactiveCount = (jurisdictions?.length ?? 0) - activeCount;
@@ -900,12 +1037,12 @@ function JurisdictionsPanel({ canEdit }: { canEdit: boolean }) {
       <div className="grid grid-cols-3 gap-4">
         {[
           { label: "Juridictions actives", val: activeCount,   color: "text-emerald-400" },
-          { label: "Désactivées",          val: inactiveCount, color: "text-[#484f58]"   },
-          { label: "Total configuré",      val: jurisdictions?.length ?? 0, color: "text-[#58a6ff]" },
+          { label: "Désactivées",          val: inactiveCount, color: "text-[var(--wr-text-4)]"   },
+          { label: "Total configuré",      val: jurisdictions?.length ?? 0, color: "text-[var(--wr-blue)]" },
         ].map(({ label, val, color }) => (
-          <div key={label} className="bg-[#161b22] border border-[#21262d] rounded-lg p-4">
+          <div key={label} className="bg-[var(--wr-card)] border border-[var(--wr-border)] rounded-lg p-4">
             <div className={`text-xl font-mono font-bold ${color}`}>{val}</div>
-            <div className="text-xs font-mono text-[#e6edf3] mt-0.5">{label}</div>
+            <div className="text-xs font-mono text-[var(--wr-text-1)] mt-0.5">{label}</div>
           </div>
         ))}
       </div>
@@ -923,17 +1060,17 @@ function JurisdictionsPanel({ canEdit }: { canEdit: boolean }) {
 
       {/* Table */}
       {isLoading ? (
-        <div className="text-center py-12 text-[11px] font-mono text-[#484f58]">Chargement…</div>
+        <div className="text-center py-12 text-[11px] font-mono text-[var(--wr-text-4)]">Chargement…</div>
       ) : !jurisdictions?.length ? (
-        <div className="text-center py-16 border border-dashed border-[#21262d] rounded-lg">
-          <Globe size={32} className="mx-auto text-[#21262d] mb-3" />
-          <p className="text-sm font-mono text-[#484f58]">Aucune juridiction configurée</p>
+        <div className="text-center py-16 border border-dashed border-[var(--wr-border)] rounded-lg">
+          <Globe size={32} className="mx-auto text-[var(--wr-border)] mb-3" />
+          <p className="text-sm font-mono text-[var(--wr-text-4)]">Aucune juridiction configurée</p>
         </div>
       ) : (
-        <div className="bg-[#0d1117] border border-[#21262d] rounded-lg overflow-hidden">
+        <div className="bg-[var(--wr-bg)] border border-[var(--wr-border)] rounded-lg overflow-hidden">
           <table className="w-full text-[11px] font-mono">
             <thead>
-              <tr className="border-b border-[#21262d] text-[#484f58] text-[10px] uppercase tracking-wider">
+              <tr className="border-b border-[var(--wr-border)] text-[var(--wr-text-4)] text-[10px] uppercase tracking-wider">
                 <th className="text-left px-4 py-2.5">Code</th>
                 <th className="text-left px-4 py-2.5">Juridiction</th>
                 <th className="text-left px-4 py-2.5">Devise</th>
@@ -945,28 +1082,28 @@ function JurisdictionsPanel({ canEdit }: { canEdit: boolean }) {
                 {canEdit && <th className="text-right px-4 py-2.5">Actions</th>}
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#21262d]/50">
+            <tbody className="divide-y divide-[var(--wr-border)]/50">
               {jurisdictions.map((j) => (
-                <tr key={j.id} className={`hover:bg-[#161b22] transition-colors ${!j.isActive ? "opacity-50" : ""}`}>
+                <tr key={j.id} className={`hover:bg-[var(--wr-card)] transition-colors ${!j.isActive ? "opacity-50" : ""}`}>
                   <td className="px-4 py-2.5">
-                    <span className="bg-[#1f6feb]/15 text-[#58a6ff] border border-[#1f6feb]/30 px-1.5 py-0.5 rounded text-[10px]">
+                    <span className="bg-[var(--wr-blue)]/15 text-[var(--wr-blue)] border border-[var(--wr-blue)]/30 px-1.5 py-0.5 rounded text-[10px]">
                       {j.jurisdictionCode}
                     </span>
                   </td>
-                  <td className="px-4 py-2.5 text-[#e6edf3]">{j.jurisdictionName}</td>
-                  <td className="px-4 py-2.5 text-[#7d8590]">{j.currencyCode}</td>
-                  <td className="px-4 py-2.5 text-right text-[#e6edf3]">
+                  <td className="px-4 py-2.5 text-[var(--wr-text-1)]">{j.jurisdictionName}</td>
+                  <td className="px-4 py-2.5 text-[var(--wr-text-3)]">{j.currencyCode}</td>
+                  <td className="px-4 py-2.5 text-right text-[var(--wr-text-1)]">
                     {j.thresholdSingleTx ? Number(j.thresholdSingleTx).toLocaleString() : "—"}
                   </td>
-                  <td className="px-4 py-2.5 text-right text-[#e6edf3]">
+                  <td className="px-4 py-2.5 text-right text-[var(--wr-text-1)]">
                     {j.thresholdStructuring ? Number(j.thresholdStructuring).toLocaleString() : "—"}
                   </td>
-                  <td className="px-4 py-2.5 text-[#7d8590]">{j.strDelayHours}h</td>
-                  <td className="px-4 py-2.5 text-[#7d8590] truncate max-w-[120px]">
+                  <td className="px-4 py-2.5 text-[var(--wr-text-3)]">{j.strDelayHours}h</td>
+                  <td className="px-4 py-2.5 text-[var(--wr-text-3)] truncate max-w-[120px]">
                     {j.regulatorCode ?? j.regulatorName ?? "—"}
                   </td>
                   <td className="px-4 py-2.5">
-                    <span className={`px-1.5 py-0.5 rounded text-[9px] border ${j.isActive ? "text-emerald-400 bg-emerald-400/10 border-emerald-400/20" : "text-[#484f58] bg-[#21262d] border-[#30363d]"}`}>
+                    <span className={`px-1.5 py-0.5 rounded text-[9px] border ${j.isActive ? "text-emerald-400 bg-emerald-400/10 border-emerald-400/20" : "text-[var(--wr-text-4)] bg-[var(--wr-border)] border-[var(--wr-border2)]"}`}>
                       {j.isActive ? "ACTIVE" : "OFF"}
                     </span>
                   </td>
@@ -975,13 +1112,13 @@ function JurisdictionsPanel({ canEdit }: { canEdit: boolean }) {
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => setEditing(j)}
-                          className="text-[#7d8590] hover:text-[#58a6ff] transition-colors">
+                          className="text-[var(--wr-text-3)] hover:text-[var(--wr-blue)] transition-colors">
                           <Pencil size={11} />
                         </button>
                         <button
                           onClick={() => toggleMut.mutate({ id: j.id, isActive: !j.isActive })}
                           disabled={toggleMut.isPending}
-                          className={`transition-colors disabled:opacity-50 ${j.isActive ? "text-emerald-400 hover:text-[#7d8590]" : "text-[#484f58] hover:text-emerald-400"}`}>
+                          className={`transition-colors disabled:opacity-50 ${j.isActive ? "text-emerald-400 hover:text-[var(--wr-text-3)]" : "text-[var(--wr-text-4)] hover:text-emerald-400"}`}>
                           {j.isActive ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
                         </button>
                       </div>
@@ -993,6 +1130,59 @@ function JurisdictionsPanel({ canEdit }: { canEdit: boolean }) {
           </table>
         </div>
       )}
+
+      {/* Lookup seuils effectifs */}
+      <div className="bg-[var(--wr-card)] border border-[var(--wr-border)] rounded-lg p-4">
+        <h3 className="text-[10px] font-mono font-semibold text-[var(--wr-text-3)] uppercase tracking-widest mb-3">
+          Seuils effectifs par pays
+        </h3>
+        <div className="flex gap-3 items-center mb-3">
+          <input
+            value={lookupCode}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLookupCode(e.target.value.slice(0, 2))}
+            placeholder="FR, MA, US…"
+            maxLength={2}
+            className="w-24 bg-[var(--wr-hover)] border border-[var(--wr-border2)] rounded-md px-3 py-1.5 text-xs font-mono text-[var(--wr-text-1)] uppercase outline-none"
+          />
+          <span className="text-[10px] font-mono text-[var(--wr-text-4)]">Saisir un code ISO-2 pour consulter les seuils appliqués</span>
+        </div>
+        {thresholds && lookupCode.length === 2 && (
+          <div className="grid grid-cols-2 gap-x-8 gap-y-2">
+            {([
+              ["Seuil transaction unique",  thresholds.singleTx,           thresholds.currency],
+              ["Seuil structuration",       thresholds.structuring,         thresholds.currency],
+              ["Fenêtre structuration",     thresholds.structuringWindowH,  "heures"],
+              ["Fréquence max",             thresholds.frequencyCount,      "tx"],
+              ["Seuil espèces",             thresholds.cash,                thresholds.currency],
+              ["STR obligatoire au-dessus", thresholds.strMandatoryAbove,   thresholds.currency],
+              ["Délai STR",                 thresholds.strDelayHours,       "heures"],
+              ["Délai SAR",                 thresholds.sarDelayHours,       "heures"],
+              ["Format rapport",            thresholds.reportingFormat,     ""],
+              ["Code régulateur",           thresholds.regulatorCode,       ""],
+            ] as [string, number | string, string][]).map(([label, value, unit]) => (
+              <div key={label} className="flex justify-between items-center text-[10px] font-mono py-1 border-b border-[var(--wr-border)]/30">
+                <span className="text-[var(--wr-text-4)]">{label}</span>
+                <span className="text-[var(--wr-text-1)] font-semibold">
+                  {typeof value === "number" ? value.toLocaleString("fr-FR") : value}
+                  {unit && <span className="text-[var(--wr-text-4)] font-normal ml-1">{unit}</span>}
+                </span>
+              </div>
+            ))}
+            <div className="flex justify-between items-center text-[10px] font-mono py-1 border-b border-[var(--wr-border)]/30">
+              <span className="text-[var(--wr-text-4)]">DD renforcée PEP</span>
+              <span className={thresholds.enhancedDdPep ? "text-amber-400 font-semibold" : "text-[var(--wr-text-4)]"}>
+                {thresholds.enhancedDdPep ? "OUI" : "NON"}
+              </span>
+            </div>
+            <div className="flex justify-between items-center text-[10px] font-mono py-1 border-b border-[var(--wr-border)]/30">
+              <span className="text-[var(--wr-text-4)]">DD renforcée haut risque</span>
+              <span className={thresholds.enhancedDdHighRisk ? "text-amber-400 font-semibold" : "text-[var(--wr-text-4)]"}>
+                {thresholds.enhancedDdHighRisk ? "OUI" : "NON"}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Edit / Create modal */}
       {editing !== null && (
@@ -1061,78 +1251,78 @@ function JurisdictionModal({
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+      <div className="bg-[var(--wr-card)] border border-[var(--wr-border2)] rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}>
-        <div className="px-5 py-4 border-b border-[#21262d] flex items-center justify-between">
-          <h2 className="text-sm font-semibold font-mono text-[#e6edf3] flex items-center gap-2">
-            <Globe size={14} className="text-[#58a6ff]" />
+        <div className="px-5 py-4 border-b border-[var(--wr-border)] flex items-center justify-between">
+          <h2 className="text-sm font-semibold font-mono text-[var(--wr-text-1)] flex items-center gap-2">
+            <Globe size={14} className="text-[var(--wr-blue)]" />
             {initial.id ? "Modifier juridiction" : "Nouvelle juridiction"}
           </h2>
-          <button onClick={onClose} className="text-[#484f58] hover:text-[#7d8590]">✕</button>
+          <button onClick={onClose} className="text-[var(--wr-text-4)] hover:text-[var(--wr-text-3)]">✕</button>
         </div>
 
         <div className="p-5 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[10px] font-mono text-[#7d8590] uppercase tracking-wider block mb-1">Code ISO *</label>
+              <label className="text-[10px] font-mono text-[var(--wr-text-3)] uppercase tracking-wider block mb-1">Code ISO *</label>
               <input value={form.jurisdictionCode} onChange={field("jurisdictionCode")} maxLength={10}
                 placeholder="FR, MA, UK…" disabled={!!initial.id}
-                className="w-full bg-[#0d1117] border border-[#30363d] rounded px-2.5 py-1.5 text-xs font-mono text-[#e6edf3] focus:outline-none focus:border-[#58a6ff]/50 disabled:opacity-50" />
+                className="w-full bg-[var(--wr-bg)] border border-[var(--wr-border2)] rounded px-2.5 py-1.5 text-xs font-mono text-[var(--wr-text-1)] focus:outline-none focus:border-[var(--wr-blue)]/50 disabled:opacity-50" />
             </div>
             <div>
-              <label className="text-[10px] font-mono text-[#7d8590] uppercase tracking-wider block mb-1">Devise</label>
+              <label className="text-[10px] font-mono text-[var(--wr-text-3)] uppercase tracking-wider block mb-1">Devise</label>
               <input value={form.currencyCode} onChange={field("currencyCode")} maxLength={3}
                 placeholder="EUR, MAD, GBP…"
-                className="w-full bg-[#0d1117] border border-[#30363d] rounded px-2.5 py-1.5 text-xs font-mono text-[#e6edf3] focus:outline-none focus:border-[#58a6ff]/50" />
+                className="w-full bg-[var(--wr-bg)] border border-[var(--wr-border2)] rounded px-2.5 py-1.5 text-xs font-mono text-[var(--wr-text-1)] focus:outline-none focus:border-[var(--wr-blue)]/50" />
             </div>
           </div>
 
           <div>
-            <label className="text-[10px] font-mono text-[#7d8590] uppercase tracking-wider block mb-1">Nom de la juridiction *</label>
+            <label className="text-[10px] font-mono text-[var(--wr-text-3)] uppercase tracking-wider block mb-1">Nom de la juridiction *</label>
             <input value={form.jurisdictionName} onChange={field("jurisdictionName")}
               placeholder="France, Maroc, Royaume-Uni…"
-              className="w-full bg-[#0d1117] border border-[#30363d] rounded px-2.5 py-1.5 text-xs font-mono text-[#e6edf3] focus:outline-none focus:border-[#58a6ff]/50" />
+              className="w-full bg-[var(--wr-bg)] border border-[var(--wr-border2)] rounded px-2.5 py-1.5 text-xs font-mono text-[var(--wr-text-1)] focus:outline-none focus:border-[var(--wr-blue)]/50" />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[10px] font-mono text-[#7d8590] uppercase tracking-wider block mb-1">Seuil tx unique</label>
+              <label className="text-[10px] font-mono text-[var(--wr-text-3)] uppercase tracking-wider block mb-1">Seuil tx unique</label>
               <input value={form.thresholdSingleTx} onChange={field("thresholdSingleTx")}
                 placeholder="10000"
-                className="w-full bg-[#0d1117] border border-[#30363d] rounded px-2.5 py-1.5 text-xs font-mono text-[#e6edf3] focus:outline-none focus:border-[#58a6ff]/50" />
+                className="w-full bg-[var(--wr-bg)] border border-[var(--wr-border2)] rounded px-2.5 py-1.5 text-xs font-mono text-[var(--wr-text-1)] focus:outline-none focus:border-[var(--wr-blue)]/50" />
             </div>
             <div>
-              <label className="text-[10px] font-mono text-[#7d8590] uppercase tracking-wider block mb-1">Seuil structuring</label>
+              <label className="text-[10px] font-mono text-[var(--wr-text-3)] uppercase tracking-wider block mb-1">Seuil structuring</label>
               <input value={form.thresholdStructuring} onChange={field("thresholdStructuring")}
                 placeholder="3000"
-                className="w-full bg-[#0d1117] border border-[#30363d] rounded px-2.5 py-1.5 text-xs font-mono text-[#e6edf3] focus:outline-none focus:border-[#58a6ff]/50" />
+                className="w-full bg-[var(--wr-bg)] border border-[var(--wr-border2)] rounded px-2.5 py-1.5 text-xs font-mono text-[var(--wr-text-1)] focus:outline-none focus:border-[var(--wr-blue)]/50" />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[10px] font-mono text-[#7d8590] uppercase tracking-wider block mb-1">Délai STR (heures)</label>
+              <label className="text-[10px] font-mono text-[var(--wr-text-3)] uppercase tracking-wider block mb-1">Délai STR (heures)</label>
               <input type="number" value={form.strDelayHours} onChange={field("strDelayHours")}
-                className="w-full bg-[#0d1117] border border-[#30363d] rounded px-2.5 py-1.5 text-xs font-mono text-[#e6edf3] focus:outline-none focus:border-[#58a6ff]/50" />
+                className="w-full bg-[var(--wr-bg)] border border-[var(--wr-border2)] rounded px-2.5 py-1.5 text-xs font-mono text-[var(--wr-text-1)] focus:outline-none focus:border-[var(--wr-blue)]/50" />
             </div>
             <div>
-              <label className="text-[10px] font-mono text-[#7d8590] uppercase tracking-wider block mb-1">Délai SAR (heures)</label>
+              <label className="text-[10px] font-mono text-[var(--wr-text-3)] uppercase tracking-wider block mb-1">Délai SAR (heures)</label>
               <input type="number" value={form.sarDelayHours} onChange={field("sarDelayHours")}
-                className="w-full bg-[#0d1117] border border-[#30363d] rounded px-2.5 py-1.5 text-xs font-mono text-[#e6edf3] focus:outline-none focus:border-[#58a6ff]/50" />
+                className="w-full bg-[var(--wr-bg)] border border-[var(--wr-border2)] rounded px-2.5 py-1.5 text-xs font-mono text-[var(--wr-text-1)] focus:outline-none focus:border-[var(--wr-blue)]/50" />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[10px] font-mono text-[#7d8590] uppercase tracking-wider block mb-1">Code régulateur</label>
+              <label className="text-[10px] font-mono text-[var(--wr-text-3)] uppercase tracking-wider block mb-1">Code régulateur</label>
               <input value={form.regulatorCode} onChange={field("regulatorCode")}
                 placeholder="BAM, ACPR, FCA…"
-                className="w-full bg-[#0d1117] border border-[#30363d] rounded px-2.5 py-1.5 text-xs font-mono text-[#e6edf3] focus:outline-none focus:border-[#58a6ff]/50" />
+                className="w-full bg-[var(--wr-bg)] border border-[var(--wr-border2)] rounded px-2.5 py-1.5 text-xs font-mono text-[var(--wr-text-1)] focus:outline-none focus:border-[var(--wr-blue)]/50" />
             </div>
             <div>
-              <label className="text-[10px] font-mono text-[#7d8590] uppercase tracking-wider block mb-1">Format rapport</label>
+              <label className="text-[10px] font-mono text-[var(--wr-text-3)] uppercase tracking-wider block mb-1">Format rapport</label>
               <select value={form.reportingFormat} onChange={field("reportingFormat")}
-                className="w-full bg-[#0d1117] border border-[#30363d] rounded px-2.5 py-1.5 text-xs font-mono text-[#e6edf3] focus:outline-none">
+                className="w-full bg-[var(--wr-bg)] border border-[var(--wr-border2)] rounded px-2.5 py-1.5 text-xs font-mono text-[var(--wr-text-1)] focus:outline-none">
                 {["GOAML_2", "GOAML_3", "TRACFIN_V3", "CUSTOM"].map(f => (
                   <option key={f} value={f}>{f}</option>
                 ))}
@@ -1141,28 +1331,28 @@ function JurisdictionModal({
           </div>
 
           <div>
-            <label className="text-[10px] font-mono text-[#7d8590] uppercase tracking-wider block mb-1">
+            <label className="text-[10px] font-mono text-[var(--wr-text-3)] uppercase tracking-wider block mb-1">
               Pays couverts (ISO 2 séparés par virgules)
             </label>
             <input value={form.coveredCountries} onChange={field("coveredCountries")}
               placeholder="GP, MQ, RE, PM…"
-              className="w-full bg-[#0d1117] border border-[#30363d] rounded px-2.5 py-1.5 text-xs font-mono text-[#e6edf3] focus:outline-none focus:border-[#58a6ff]/50" />
+              className="w-full bg-[var(--wr-bg)] border border-[var(--wr-border2)] rounded px-2.5 py-1.5 text-xs font-mono text-[var(--wr-text-1)] focus:outline-none focus:border-[var(--wr-blue)]/50" />
           </div>
 
           <div className="flex items-center gap-6 pt-1">
-            <label className="flex items-center gap-2 text-[11px] font-mono text-[#7d8590] cursor-pointer">
+            <label className="flex items-center gap-2 text-[11px] font-mono text-[var(--wr-text-3)] cursor-pointer">
               <input type="checkbox" checked={form.enhancedDdPep}
                 onChange={e => setForm(p => ({ ...p, enhancedDdPep: e.target.checked }))}
                 className="rounded" />
               DD renforcée PPE
             </label>
-            <label className="flex items-center gap-2 text-[11px] font-mono text-[#7d8590] cursor-pointer">
+            <label className="flex items-center gap-2 text-[11px] font-mono text-[var(--wr-text-3)] cursor-pointer">
               <input type="checkbox" checked={form.enhancedDdHighRisk}
                 onChange={e => setForm(p => ({ ...p, enhancedDdHighRisk: e.target.checked }))}
                 className="rounded" />
               DD renforcée haut risque
             </label>
-            <label className="flex items-center gap-2 text-[11px] font-mono text-[#7d8590] cursor-pointer">
+            <label className="flex items-center gap-2 text-[11px] font-mono text-[var(--wr-text-3)] cursor-pointer">
               <input type="checkbox" checked={form.isActive}
                 onChange={e => setForm(p => ({ ...p, isActive: e.target.checked }))}
                 className="rounded" />
@@ -1171,7 +1361,7 @@ function JurisdictionModal({
           </div>
         </div>
 
-        <div className="px-5 py-4 border-t border-[#21262d] flex justify-end gap-2">
+        <div className="px-5 py-4 border-t border-[var(--wr-border)] flex justify-end gap-2">
           <button onClick={onClose} className={btnGhost}>Annuler</button>
           <button
             onClick={handleSave}
@@ -1216,10 +1406,10 @@ export function AmlRulesPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-semibold text-[#e6edf3] font-mono flex items-center gap-2">
-              <Shield size={18} className="text-[#58a6ff]" /> {t.amlRules.title}
+            <h1 className="text-lg font-semibold text-[var(--wr-text-1)] font-mono flex items-center gap-2">
+              <Shield size={18} className="text-[var(--wr-blue)]" /> {t.amlRules.title}
             </h1>
-            <p className="text-[11px] font-mono text-[#7d8590] mt-0.5">
+            <p className="text-[11px] font-mono text-[var(--wr-text-3)] mt-0.5">
               {t.amlRules.subtitle}
             </p>
           </div>
@@ -1241,7 +1431,7 @@ export function AmlRulesPage() {
         </div>
 
         {/* Page-level tabs */}
-        <div className="flex gap-0 border-b border-[#21262d]">
+        <div className="flex gap-0 border-b border-[var(--wr-border)]">
           {([
             ["rules",         "Règles AML",     Shield],
             ["jurisdictions", "Juridictions",   Globe ],
@@ -1249,8 +1439,8 @@ export function AmlRulesPage() {
             <button key={t} onClick={() => setPageTab(t)}
               className={`flex items-center gap-1.5 px-4 py-2 text-xs font-mono border-b-2 transition-colors ${
                 pageTab === t
-                  ? "border-[#58a6ff] text-[#58a6ff]"
-                  : "border-transparent text-[#7d8590] hover:text-[#e6edf3]"
+                  ? "border-[var(--wr-blue)] text-[var(--wr-blue)]"
+                  : "border-transparent text-[var(--wr-text-3)] hover:text-[var(--wr-text-1)]"
               }`}>
               <Icon size={12} />
               {label}
@@ -1266,27 +1456,27 @@ export function AmlRulesPage() {
               {[
                 { label: "Actives",     val: active,   sub: "en production",      color: "text-emerald-400" },
                 { label: "En test A/B", val: testing,  sub: "sans alerte réelle", color: "text-amber-400"  },
-                { label: "Inactives",   val: inactive, sub: "désactivées",        color: "text-[#484f58]"  },
-                { label: "Score moyen", val: avgScore, sub: "sur 100",            color: "text-[#58a6ff]"  },
+                { label: "Inactives",   val: inactive, sub: "désactivées",        color: "text-[var(--wr-text-4)]"  },
+                { label: "Score moyen", val: avgScore, sub: "sur 100",            color: "text-[var(--wr-blue)]"  },
               ].map(({ label, val, sub, color }) => (
-                <div key={label} className="bg-[#161b22] border border-[#21262d] rounded-lg p-4">
+                <div key={label} className="bg-[var(--wr-card)] border border-[var(--wr-border)] rounded-lg p-4">
                   <div className={`text-xl font-mono font-bold ${color}`}>{val}</div>
-                  <div className="text-xs font-mono text-[#e6edf3] mt-0.5">{label}</div>
-                  <div className="text-[9px] font-mono text-[#484f58]">{sub}</div>
+                  <div className="text-xs font-mono text-[var(--wr-text-1)] mt-0.5">{label}</div>
+                  <div className="text-[9px] font-mono text-[var(--wr-text-4)]">{sub}</div>
                 </div>
               ))}
             </div>
 
             {/* Liste */}
             {isLoading ? (
-              <div className="text-center py-12 text-[11px] font-mono text-[#484f58]">
+              <div className="text-center py-12 text-[11px] font-mono text-[var(--wr-text-4)]">
                 Chargement des règles...
               </div>
             ) : !rules?.length ? (
-              <div className="text-center py-16 border border-dashed border-[#21262d] rounded-lg">
-                <Shield size={32} className="mx-auto text-[#21262d] mb-3" />
-                <p className="text-sm font-mono text-[#484f58]">{t.amlRules.noRules}</p>
-                <p className="text-[10px] font-mono text-[#484f58] mt-1">
+              <div className="text-center py-16 border border-dashed border-[var(--wr-border)] rounded-lg">
+                <Shield size={32} className="mx-auto text-[var(--wr-border)] mb-3" />
+                <p className="text-sm font-mono text-[var(--wr-text-4)]">{t.amlRules.noRules}</p>
+                <p className="text-[10px] font-mono text-[var(--wr-text-4)] mt-1">
                   Cliquez sur "Charger règles BAM" pour démarrer avec les règles BAM Maroc pré-configurées
                 </p>
               </div>

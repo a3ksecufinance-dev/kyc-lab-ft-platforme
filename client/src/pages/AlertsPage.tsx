@@ -5,9 +5,10 @@ import { DataTable, type Column } from "../components/ui/DataTable";
 import { Badge } from "../components/ui/Badge";
 import { trpc } from "../lib/trpc";
 import { formatRelative, formatNumber } from "../lib/utils";
-import { UserPlus } from "lucide-react";
+import { UserPlus, ExternalLink } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useI18n } from "../hooks/useI18n";
+import { useLocation } from "wouter";
 
 const C = {
   surface: "var(--wr-card)",
@@ -37,11 +38,18 @@ type Alert = {
 export function AlertsPage() {
   const { t } = useI18n();
   const { user } = useAuth();
+  const [, navigate] = useLocation();
   const [page, setPage] = useState(1);
   const [status, setStatus]   = useState<string>("");
   const [priority, setPriority] = useState<string>("");
   const [selected, setSelected] = useState<Alert | null>(null);
   const [resolveNote, setResolveNote] = useState("");
+
+  // Détail complet de l'alerte sélectionnée
+  const { data: detail } = trpc.alerts.getById.useQuery(
+    { id: selected?.id ?? 0 },
+    { enabled: !!selected }
+  );
 
   const utils = trpc.useUtils();
 
@@ -50,6 +58,8 @@ export function AlertsPage() {
     ...(status   ? { status:   status   as "OPEN" | "IN_REVIEW" | "ESCALATED" | "CLOSED" | "FALSE_POSITIVE" } : {}),
     ...(priority ? { priority: priority as "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" } : {}),
   }, { placeholderData: keepPreviousData });
+
+  const { data: alertStats } = trpc.alerts.stats.useQuery();
 
   const assignMutation  = trpc.alerts.assign.useMutation({
     onSuccess: () => { utils.alerts.list.invalidate(); setSelected(null); },
@@ -61,7 +71,11 @@ export function AlertsPage() {
   const COLUMNS: Column<Alert>[] = [
     {
       key: "id", header: t.alerts.alertId, width: "w-36",
-      render: (r) => <span style={{ fontFamily: C.mono, fontSize: 12, color: C.blue }}>{r.alertId}</span>,
+      render: (r) => (
+        <button onClick={() => setSelected(r)} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: C.mono, fontSize: 12, color: C.blue }}>
+          {r.alertId}
+        </button>
+      ),
     },
     {
       key: "scenario", header: t.alerts.scenario,
@@ -126,6 +140,24 @@ export function AlertsPage() {
         </div>
       </div>
 
+      {/* KPI stats */}
+      {alertStats && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginBottom: 16 }}>
+          {([
+            { label: "Total alertes",  value: alertStats.total,                           color: C.text1 },
+            { label: "Ouvertes",       value: alertStats.open,                            color: C.blue  },
+            { label: "30 derniers j.", value: alertStats.last30Days,                      color: C.text2 },
+            { label: "Priorité HIGH",  value: alertStats.byPriority["HIGH"] ?? 0,         color: C.amber },
+            { label: "Priorité CRIT.", value: alertStats.byPriority["CRITICAL"] ?? 0,     color: C.red   },
+          ] as const).map(({ label, value, color }) => (
+            <div key={label} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px" }}>
+              <div style={{ fontSize: 20, fontWeight: 500, fontFamily: C.mono, color }}>{value}</div>
+              <div style={{ fontSize: 10, fontFamily: C.mono, color: C.text4, marginTop: 2 }}>{label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Filtres */}
       <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
         <select
@@ -171,14 +203,43 @@ export function AlertsPage() {
       {selected && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
           <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 24, width: "100%", maxWidth: 440 }}>
-            <h3 style={{ fontSize: 13, fontWeight: 600, fontFamily: C.mono, color: C.text1, margin: "0 0 4px" }}>{selected.alertId}</h3>
-            <p style={{ fontSize: 12, fontFamily: C.mono, color: C.text3, margin: "0 0 16px" }}>{selected.scenario}</p>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 4 }}>
+              <h3 style={{ fontSize: 13, fontWeight: 600, fontFamily: C.mono, color: C.text1, margin: 0 }}>{selected.alertId}</h3>
+              <button
+                onClick={() => navigate(`/customers/${selected.customerId}`)}
+                style={{ fontSize: 11, fontFamily: C.mono, color: C.blue, background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}
+              >
+                Client #{selected.customerId} <ExternalLink size={10} />
+              </button>
+            </div>
+            <p style={{ fontSize: 12, fontFamily: C.mono, color: C.text3, margin: "0 0 12px" }}>{selected.scenario}</p>
 
-            <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "center", flexWrap: "wrap" as const }}>
               <Badge label={selected.priority} variant="priority" />
               <Badge label={selected.status} variant="status" />
               <span style={{ fontSize: 11, fontFamily: C.mono, color: C.text3 }}>{t.alerts.scoreLabel} : {selected.riskScore}</span>
+              <Badge label={selected.alertType} />
             </div>
+
+            {/* Détails supplémentaires (getById) */}
+            {detail?.reason && (
+              <div style={{ background: C.hover, borderRadius: 6, padding: "10px 12px", marginBottom: 12 }}>
+                <div style={{ fontSize: 9, fontFamily: C.mono, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: C.text3, marginBottom: 4 }}>Motif</div>
+                <p style={{ fontSize: 11, color: C.text2, margin: 0, lineHeight: 1.5 }}>{detail.reason}</p>
+              </div>
+            )}
+            {detail?.transactionId && (
+              <div style={{ marginBottom: 12, fontSize: 11, fontFamily: C.mono, color: C.text3 }}>
+                Transaction liée : <span style={{ color: C.blue }}>#{detail.transactionId}</span>
+              </div>
+            )}
+            {detail?.resolvedAt && (
+              <div style={{ background: `${C.green}10`, border: `1px solid ${C.green}30`, borderRadius: 6, padding: "8px 12px", marginBottom: 12 }}>
+                <div style={{ fontSize: 9, fontFamily: C.mono, color: C.green, textTransform: "uppercase" as const, letterSpacing: "0.1em", marginBottom: 4 }}>Résolu</div>
+                <p style={{ fontSize: 11, color: C.text2, margin: 0 }}>{detail.resolution}</p>
+                <p style={{ fontSize: 10, fontFamily: C.mono, color: C.text4, margin: "4px 0 0" }}>{formatRelative(detail.resolvedAt)}</p>
+              </div>
+            )}
 
             {/* Assigner */}
             {user && !selected.assignedTo && (

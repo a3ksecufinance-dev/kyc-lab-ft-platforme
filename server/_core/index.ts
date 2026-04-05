@@ -11,6 +11,11 @@ import { startSanctionsScheduler, stopSanctionsScheduler } from "../modules/scre
 import { startMlRetrainScheduler, stopMlRetrainScheduler } from "../modules/aml/ml-retrain.scheduler";
 import { startPkycScheduler, stopPkycScheduler }           from "../modules/customers/pkyc.scheduler";
 import { handleTransactionWebhook } from "../modules/transactions/transactions.webhook";
+import {
+  handleOrangeMoney,
+  handleWave,
+  handleCihMobile,
+} from "../modules/connectors/mobile-connectors.webhook";
 import { uploadAndProcessDocument } from "../modules/documents/documents.service";
 import { verifyAccessToken }         from "../modules/auth/auth.service";
 import { checkS3Health, validateStorageConfig } from "./upload";
@@ -44,14 +49,16 @@ try {
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
 
-const allowedOrigins = ENV.CORS_ORIGINS.split(",").map((o) => o.trim());
+const rawCorsOrigins = ENV.CORS_ORIGINS.split(",").map((o) => o.trim());
+// CORS_ORIGINS=* → autoriser toutes les origines (utile pour Railway demo)
+const corsWildcard = rawCorsOrigins.includes("*");
 app.use((req, res, next): void => {
   const origin = req.headers.origin;
-  if (origin && allowedOrigins.includes(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
+  if (origin && (corsWildcard || rawCorsOrigins.includes(origin))) {
+    res.setHeader("Access-Control-Allow-Origin", corsWildcard ? "*" : origin);
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
-    res.setHeader("Access-Control-Allow-Credentials", "true");
+    if (!corsWildcard) res.setHeader("Access-Control-Allow-Credentials", "true");
   }
   if (req.method === "OPTIONS") { res.sendStatus(200); return; }
   next();
@@ -88,6 +95,25 @@ app.post(
     await handleTransactionWebhook(req, res);
   }
 );
+
+// ─── WEBHOOKS MOBILE MONEY ────────────────────────────────────────────────────
+//  Même contrainte : ces routes sont enregistrées AVANT express.json() pour
+//  que express.raw() puisse capturer le body brut nécessaire à la vérification HMAC.
+// ─────────────────────────────────────────────────────────────────────────────
+
+for (const [path, handler] of [
+  ["/webhooks/mobile/orange", handleOrangeMoney],
+  ["/webhooks/mobile/wave",   handleWave],
+  ["/webhooks/mobile/cih",    handleCihMobile],
+] as const) {
+  app.post(path, express.raw({ type: "*/*" }), async (req, res) => {
+    const buf: Buffer = Buffer.isBuffer(req.body)
+      ? req.body
+      : Buffer.from(typeof req.body === "string" ? req.body : "{}");
+    (req as unknown as { rawBody?: Buffer }).rawBody = buf;
+    await handler(req, res);
+  });
+}
 
 // ─── express.json() GLOBAL ───────────────────────────────────────────────────
 //
@@ -208,7 +234,9 @@ app.use("/uploads", express.static(uploadsDir));
 // ─── Frontend static (production uniquement) ──────────────────────────────────
 
 if (ENV.NODE_ENV === "production") {
-  const publicDir = path.join(__dirname, "../../public");
+  // En prod le bundle serveur est dist/index.js → __dirname = dist/
+  // Vite build outDir = dist/public → path.join(__dirname, "public")
+  const publicDir = path.join(__dirname, "public");
   app.use(express.static(publicDir));
   app.get("*", (_, res) => {
     res.sendFile(path.join(publicDir, "index.html"));

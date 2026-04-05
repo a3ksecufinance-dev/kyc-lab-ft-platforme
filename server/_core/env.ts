@@ -134,6 +134,13 @@ const envSchema = z.object({
   PKYC_BASELINE_DAYS:    z.coerce.number().int().min(7).max(365).default(30),
   PKYC_WINDOW_DAYS:      z.coerce.number().int().min(1).max(30).default(7),
 
+  // Institution type — détermine les fonctionnalités activées au démarrage
+  // CLASSIC_BANK = comportement actuel inchangé (défaut)
+  // MICROFINANCE  = + wallets, KYC tiers, règles AML cash/agent
+  // PAYMENT_INSTITUTION = + wallets, agents, rapports BAM, connecteurs mobiles
+  INSTITUTION_TYPE: z.enum(["CLASSIC_BANK", "MICROFINANCE", "PAYMENT_INSTITUTION"]).default("CLASSIC_BANK"),
+  INSTITUTION_NAME: z.string().default("Établissement Financier"),
+
   // Rate Limiting
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
   RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().positive().default(60),

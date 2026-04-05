@@ -206,7 +206,7 @@ function GraphCanvas({ graph, selected, onSelect }: {
         ctx.globalAlpha = 0.85;
         // Fond léger
         const tw = ctx.measureText(label).width + 4;
-        ctx.fillStyle = "#0d1117";
+        ctx.fillStyle = "#FFFFFF";
         ctx.fillRect(mx - tw / 2, my - 6, tw, 12);
         ctx.fillStyle = edge.suspicious ? "#E24B4A" : "#7d8590";
         ctx.fillText(label, mx, my);
@@ -347,20 +347,20 @@ function GraphCanvas({ graph, selected, onSelect }: {
         onMouseMove={handleMouseMove}
         onMouseUp={() => setDragging(null)}
         onMouseLeave={() => { setDragging(null); setTooltip(null); }}
-        className="w-full rounded-lg bg-[#0d1117] border border-[#21262d] cursor-crosshair"
+        className="w-full rounded-lg bg-[var(--wr-bg)] border border-[var(--wr-border)] cursor-crosshair"
         style={{ height: H }}
       />
 
       {/* Tooltip hover */}
       {tooltip && (
         <div
-          className="pointer-events-none absolute z-20 bg-[#161b22] border border-[#30363d] rounded-lg p-2.5 text-[10px] font-mono text-[#e6edf3] shadow-xl max-w-48"
+          className="pointer-events-none absolute z-20 bg-[var(--wr-card)] border border-[var(--wr-border2)] rounded-lg p-2.5 text-[10px] font-mono text-[var(--wr-text-1)] shadow-xl max-w-48"
           style={{ left: tooltip.x, top: tooltip.y }}
         >
           {tooltip.node && (
             <div className="space-y-1">
-              <p className="font-semibold text-[#58a6ff] truncate">{tooltip.node.label}</p>
-              <p className="text-[#7d8590] capitalize">{tooltip.node.type}</p>
+              <p className="font-semibold text-[var(--wr-blue)] truncate">{tooltip.node.label}</p>
+              <p className="text-[var(--wr-text-3)] capitalize">{tooltip.node.type}</p>
               {tooltip.node.riskLevel && (
                 <p className={tooltip.node.riskLevel === "CRITICAL" || tooltip.node.riskLevel === "HIGH"
                   ? "text-red-400" : "text-amber-400"}>
@@ -368,7 +368,7 @@ function GraphCanvas({ graph, selected, onSelect }: {
                 </p>
               )}
               {tooltip.node.riskScore !== undefined && (
-                <p className="text-[#7d8590]">Score : {tooltip.node.riskScore}</p>
+                <p className="text-[var(--wr-text-3)]">Score : {tooltip.node.riskScore}</p>
               )}
               {tooltip.node.pepStatus && <p className="text-purple-400">⚠ PEP</p>}
               {tooltip.node.isSuspicious && <p className="text-red-400">⚠ Suspect</p>}
@@ -376,14 +376,14 @@ function GraphCanvas({ graph, selected, onSelect }: {
           )}
           {tooltip.edge && (
             <div className="space-y-1">
-              <p className="font-semibold text-[#e6edf3]">{EDGE_TYPE_LABELS[tooltip.edge.type] ?? tooltip.edge.type}</p>
+              <p className="font-semibold text-[var(--wr-text-1)]">{EDGE_TYPE_LABELS[tooltip.edge.type] ?? tooltip.edge.type}</p>
               {tooltip.edge.weight > 0 && (
-                <p className="text-[#7d8590]">
+                <p className="text-[var(--wr-text-3)]">
                   Montant : {new Intl.NumberFormat("fr-FR").format(Math.round(tooltip.edge.weight))}
                   {tooltip.edge.currency ? ` ${tooltip.edge.currency}` : ""}
                 </p>
               )}
-              <p className="text-[#7d8590]">{tooltip.edge.count} occurrence(s)</p>
+              <p className="text-[var(--wr-text-3)]">{tooltip.edge.count} occurrence(s)</p>
               {tooltip.edge.suspicious && <p className="text-red-400">⚠ Transaction(s) suspecte(s)</p>}
             </div>
           )}
@@ -398,7 +398,7 @@ function GraphCanvas({ graph, selected, onSelect }: {
           { icon: RotateCcw, action: () => { setZoom(1); setPan({ x: 0, y: 0 }); } },
         ].map(({ icon: Icon, action }, i) => (
           <button key={i} onClick={action}
-            className="p-1.5 bg-[#0d1117] border border-[#30363d] rounded text-[#7d8590] hover:text-[#e6edf3]">
+            className="p-1.5 bg-[var(--wr-bg)] border border-[var(--wr-border2)] rounded text-[var(--wr-text-3)] hover:text-[var(--wr-text-1)]">
             <Icon size={13} />
           </button>
         ))}
@@ -413,7 +413,7 @@ function GraphCanvas({ graph, selected, onSelect }: {
           { color: "#EF9F27", label: "Hub suspect" },
           { color: "#FF4444", label: "Dans un cycle" },
         ].map(({ color, label }) => (
-          <span key={label} className="flex items-center gap-1 text-[10px] font-mono text-[#7d8590]">
+          <span key={label} className="flex items-center gap-1 text-[10px] font-mono text-[var(--wr-text-3)]">
             <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: color }} />
             {label}
           </span>
@@ -470,13 +470,13 @@ export function NetworkPage() {
   const g = graph as NetworkGraph | undefined;
   const selectedNode = g?.nodes.find(n => n.id === selected);
 
-  const inputCls = "bg-[#161b22] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff]/40";
+  const inputCls = "bg-[var(--wr-card)] border border-[var(--wr-border2)] rounded-md px-3 py-2 text-xs font-mono text-[var(--wr-text-1)] placeholder-[var(--wr-text-4)] focus:outline-none focus:border-[var(--wr-blue)]/40";
 
   return (
     <AppLayout>
       <div className="mb-6">
-        <h1 className="text-lg font-semibold text-[#e6edf3] font-mono">{t.network.title}</h1>
-        <p className="text-xs font-mono text-[#7d8590] mt-0.5">
+        <h1 className="text-lg font-semibold text-[var(--wr-text-1)] font-mono">{t.network.title}</h1>
+        <p className="text-xs font-mono text-[var(--wr-text-3)] mt-0.5">
           {t.network.subtitle}
         </p>
       </div>
@@ -490,20 +490,20 @@ export function NetworkPage() {
             { label: "Transactions suspectes", value: stats.suspicious_tx },
             { label: "UBOs enregistrés", value: stats.total_ubos },
           ].map(({ label, value }) => (
-            <div key={label} className="bg-[#0d1117] border border-[#21262d] rounded-lg p-3">
-              <p className="text-[10px] font-mono text-[#7d8590] tracking-widest uppercase">{label}</p>
-              <p className="text-xl font-semibold font-mono text-[#e6edf3] mt-1">{value}</p>
+            <div key={label} className="bg-[var(--wr-bg)] border border-[var(--wr-border)] rounded-lg p-3">
+              <p className="text-[10px] font-mono text-[var(--wr-text-3)] tracking-widest uppercase">{label}</p>
+              <p className="text-xl font-semibold font-mono text-[var(--wr-text-1)] mt-1">{value}</p>
             </div>
           ))}
         </div>
       )}
 
       {/* Onglets */}
-      <div className="flex gap-0 border-b border-[#21262d] mb-5">
+      <div className="flex gap-0 border-b border-[var(--wr-border)] mb-5">
         {([["graph", "Graphe réseau"], ["clusters", "Clusters suspects"], ["paths", "Chemins (BFS)"], ["riskpath", "Chemin risqué ⚡"]] as const).map(([tabKey, label]) => (
           <button key={tabKey} onClick={() => setTab(tabKey)}
             className={`px-4 py-2 text-xs font-mono border-b-2 transition-colors ${
-              tab === tabKey ? "border-[#58a6ff] text-[#58a6ff]" : "border-transparent text-[#7d8590] hover:text-[#e6edf3]"
+              tab === tabKey ? "border-[var(--wr-blue)] text-[var(--wr-blue)]" : "border-transparent text-[var(--wr-text-3)] hover:text-[var(--wr-text-1)]"
             }`}>{label}</button>
         ))}
       </div>
@@ -514,13 +514,13 @@ export function NetworkPage() {
           {/* Contrôles */}
           <div className="flex gap-3 items-end flex-wrap">
             <div className="flex-1 min-w-32">
-              <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">{t.customers.clientId}</label>
+              <label className="block text-[10px] font-mono text-[var(--wr-text-3)] tracking-widest uppercase mb-1.5">{t.customers.clientId}</label>
               <input value={customerId}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomerId(e.target.value)}
                 placeholder={t.network.searchEntity} type="number" className={inputCls + " w-full"} />
             </div>
             <div>
-              <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">{t.network.depth}</label>
+              <label className="block text-[10px] font-mono text-[var(--wr-text-3)] tracking-widest uppercase mb-1.5">{t.network.depth}</label>
               <select value={maxDepth}
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setMaxDepth(parseInt(e.target.value))}
                 className={inputCls}>
@@ -528,7 +528,7 @@ export function NetworkPage() {
               </select>
             </div>
             <div>
-              <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">Montant min</label>
+              <label className="block text-[10px] font-mono text-[var(--wr-text-3)] tracking-widest uppercase mb-1.5">Montant min</label>
               <select value={minAmount}
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setMinAmount(parseInt(e.target.value))}
                 className={inputCls}>
@@ -538,7 +538,7 @@ export function NetworkPage() {
               </select>
             </div>
             <button onClick={() => refetch()} disabled={!enabled || isFetching}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-mono bg-[#1f6feb]/20 border border-[#1f6feb]/30 text-[#58a6ff] hover:bg-[#1f6feb]/30 rounded-md disabled:opacity-40">
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-mono bg-[var(--wr-blue)]/20 border border-[var(--wr-blue)]/30 text-[var(--wr-blue)] hover:bg-[var(--wr-blue)]/30 rounded-md disabled:opacity-40">
               <RefreshCw size={12} className={isFetching ? "animate-spin" : ""} />
               {isLoading ? t.common.loading : t.common.refresh}
             </button>
@@ -546,14 +546,14 @@ export function NetworkPage() {
 
           {/* Graphe + résumé */}
           {isLoading && (
-            <div className="h-64 bg-[#0d1117] border border-[#21262d] rounded-lg animate-pulse flex items-center justify-center">
-              <p className="text-xs font-mono text-[#484f58]">{t.common.loading}</p>
+            <div className="h-64 bg-[var(--wr-bg)] border border-[var(--wr-border)] rounded-lg animate-pulse flex items-center justify-center">
+              <p className="text-xs font-mono text-[var(--wr-text-4)]">{t.common.loading}</p>
             </div>
           )}
 
           {!isLoading && enabled && !g && (
-            <div className="h-64 bg-[#0d1117] border border-[#21262d] rounded-lg flex items-center justify-center">
-              <p className="text-xs font-mono text-[#484f58]">{t.network.noGraph}</p>
+            <div className="h-64 bg-[var(--wr-bg)] border border-[var(--wr-border)] rounded-lg flex items-center justify-center">
+              <p className="text-xs font-mono text-[var(--wr-text-4)]">{t.network.noGraph}</p>
             </div>
           )}
 
@@ -582,8 +582,8 @@ export function NetworkPage() {
                 {/* Panel latéral */}
                 <div className="space-y-3">
                   {/* Stats du graphe */}
-                  <div className="bg-[#0d1117] border border-[#21262d] rounded-lg p-3 space-y-2">
-                    <p className="text-[10px] font-mono text-[#7d8590] tracking-widest uppercase">Réseau</p>
+                  <div className="bg-[var(--wr-bg)] border border-[var(--wr-border)] rounded-lg p-3 space-y-2">
+                    <p className="text-[10px] font-mono text-[var(--wr-text-3)] tracking-widest uppercase">Réseau</p>
                     {[
                       [t.network.statsNodes, g.stats.nodeCount],
                       [t.network.statsEdges, g.stats.edgeCount],
@@ -591,9 +591,9 @@ export function NetworkPage() {
                       ["Cycles", g.stats.cycleCount],
                     ].map(([label, val]) => (
                       <div key={String(label)} className="flex justify-between text-xs font-mono">
-                        <span className="text-[#484f58]">{String(label)}</span>
+                        <span className="text-[var(--wr-text-4)]">{String(label)}</span>
                         <span className={`font-medium ${
-                          label === "Cycles" && Number(val) > 0 ? "text-red-400" : "text-[#e6edf3]"
+                          label === "Cycles" && Number(val) > 0 ? "text-red-400" : "text-[var(--wr-text-1)]"
                         }`}>{String(val)}</span>
                       </div>
                     ))}
@@ -601,10 +601,10 @@ export function NetworkPage() {
 
                   {/* Nœud sélectionné */}
                   {selectedNode && (
-                    <div className="bg-[#0d1117] border border-[#58a6ff]/30 rounded-lg p-3 space-y-2">
-                      <p className="text-[10px] font-mono text-[#58a6ff] tracking-widest uppercase">Sélectionné</p>
-                      <p className="text-xs font-mono text-[#e6edf3] font-medium">{selectedNode.label}</p>
-                      <p className="text-[10px] font-mono text-[#484f58]">{selectedNode.type}</p>
+                    <div className="bg-[var(--wr-bg)] border border-[var(--wr-blue)]/30 rounded-lg p-3 space-y-2">
+                      <p className="text-[10px] font-mono text-[var(--wr-blue)] tracking-widest uppercase">Sélectionné</p>
+                      <p className="text-xs font-mono text-[var(--wr-text-1)] font-medium">{selectedNode.label}</p>
+                      <p className="text-[10px] font-mono text-[var(--wr-text-4)]">{selectedNode.type}</p>
                       {selectedNode.riskLevel && (
                         <p className="text-[10px] font-mono text-amber-400">Risque : {selectedNode.riskLevel}</p>
                       )}
@@ -613,7 +613,7 @@ export function NetworkPage() {
                       )}
                       {selectedNode.customerId && (
                         <a href={`/customers/${selectedNode.customerId}`}
-                          className="block text-[10px] font-mono text-[#58a6ff] hover:underline mt-1">
+                          className="block text-[10px] font-mono text-[var(--wr-blue)] hover:underline mt-1">
                           Voir la fiche client →
                         </a>
                       )}
@@ -627,7 +627,7 @@ export function NetworkPage() {
                         {g.cycles.length} cycle(s) détecté(s)
                       </p>
                       {g.cycles.slice(0, 3).map((cycle, i) => (
-                        <div key={i} className="text-[10px] font-mono text-[#7d8590]">
+                        <div key={i} className="text-[10px] font-mono text-[var(--wr-text-3)]">
                           {cycle.map(id => {
                             const n = g.nodes.find(n => n.id === id);
                             return n?.label.slice(0, 10) ?? id;
@@ -646,25 +646,25 @@ export function NetworkPage() {
       {/* ── Onglet Clusters ── */}
       {tab === "clusters" && (
         <div className="space-y-3">
-          <p className="text-xs font-mono text-[#7d8590]">
+          <p className="text-xs font-mono text-[var(--wr-text-3)]">
             Groupes de clients fortement interconnectés — indicateur potentiel de smurfing ou de comptes mules.
           </p>
           {!clusters?.clusters.length ? (
-            <div className="text-center py-12 bg-[#0d1117] border border-[#21262d] rounded-lg">
-              <Users size={28} className="text-[#30363d] mx-auto mb-2" />
-              <p className="text-xs font-mono text-[#484f58]">
+            <div className="text-center py-12 bg-[var(--wr-bg)] border border-[var(--wr-border)] rounded-lg">
+              <Users size={28} className="text-[var(--wr-border2)] mx-auto mb-2" />
+              <p className="text-xs font-mono text-[var(--wr-text-4)]">
                 Aucun cluster suspect détecté (critères : ≥ 3 clients, ≥ 3 transactions croisées)
               </p>
             </div>
           ) : (
             clusters.clusters.map((cluster: { size: number; customerIds: number[]; hasSuspicious: boolean; totalAmount: number; links: unknown[] }, i: number) => (
-              <div key={i} className={`bg-[#0d1117] border rounded-lg p-4 ${
-                cluster.hasSuspicious ? "border-red-400/20" : "border-[#21262d]"
+              <div key={i} className={`bg-[var(--wr-bg)] border rounded-lg p-4 ${
+                cluster.hasSuspicious ? "border-red-400/20" : "border-[var(--wr-border)]"
               }`}>
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono text-[#484f58]">Cluster #{i + 1}</span>
-                    <span className="text-[10px] font-mono px-1.5 py-0.5 bg-[#161b22] border border-[#30363d] rounded">
+                    <span className="text-[10px] font-mono text-[var(--wr-text-4)]">Cluster #{i + 1}</span>
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 bg-[var(--wr-card)] border border-[var(--wr-border2)] rounded">
                       {cluster.size} entités
                     </span>
                     {cluster.hasSuspicious && (
@@ -673,7 +673,7 @@ export function NetworkPage() {
                       </span>
                     )}
                   </div>
-                  <span className="text-xs font-mono text-[#7d8590]">
+                  <span className="text-xs font-mono text-[var(--wr-text-3)]">
                     {new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 })
                       .format(cluster.totalAmount)} total
                   </span>
@@ -682,7 +682,7 @@ export function NetworkPage() {
                   {cluster.customerIds.map((id: number) => (
                     <button key={id}
                       onClick={() => { setTab("graph"); setCustomerId(String(id)); }}
-                      className="text-[10px] font-mono text-[#58a6ff] hover:underline bg-[#1f6feb]/10 border border-[#1f6feb]/20 px-2 py-1 rounded">
+                      className="text-[10px] font-mono text-[var(--wr-blue)] hover:underline bg-[var(--wr-blue)]/10 border border-[var(--wr-blue)]/20 px-2 py-1 rounded">
                       Client #{id}
                     </button>
                   ))}
@@ -696,23 +696,23 @@ export function NetworkPage() {
       {/* ── Onglet Chemin risqué (Dijkstra) ── */}
       {tab === "riskpath" && (
         <div className="space-y-4">
-          <p className="text-xs font-mono text-[#7d8590]">
+          <p className="text-xs font-mono text-[var(--wr-text-3)]">
             Algorithme Dijkstra pondéré par le risque — trouve le chemin transactionnel le plus suspect entre deux clients.
             Contrairement au BFS (sauts minimaux), ce chemin privilégie les arêtes à fort montant ou suspectes.
           </p>
           <div className="flex gap-3 items-end flex-wrap">
             <div className="flex-1">
-              <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">Client source</label>
+              <label className="block text-[10px] font-mono text-[var(--wr-text-3)] tracking-widest uppercase mb-1.5">Client source</label>
               <input value={customerId} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomerId(e.target.value)}
                 placeholder="ID client A" type="number" className={inputCls + " w-full"} />
             </div>
             <div className="flex-1">
-              <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">Client destination</label>
+              <label className="block text-[10px] font-mono text-[var(--wr-text-3)] tracking-widest uppercase mb-1.5">Client destination</label>
               <input value={toId} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setToId(e.target.value)}
                 placeholder="ID client B" type="number" className={inputCls + " w-full"} />
             </div>
             <div>
-              <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">{t.network.depth}</label>
+              <label className="block text-[10px] font-mono text-[var(--wr-text-3)] tracking-widest uppercase mb-1.5">{t.network.depth}</label>
               <select value={maxDepth} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setMaxDepth(parseInt(e.target.value))} className={inputCls}>
                 {[1, 2, 3, 4].map(d => <option key={d} value={d}>{d} niveaux</option>)}
               </select>
@@ -721,13 +721,13 @@ export function NetworkPage() {
 
           {riskPathData && (
             <div className="space-y-3">
-              <p className="text-xs font-mono text-[#7d8590]">{riskPathData.message}</p>
+              <p className="text-xs font-mono text-[var(--wr-text-3)]">{riskPathData.message}</p>
               {riskPathData.path && (() => {
                 const rp = riskPathData.path;
                 return (
-                  <div className={`bg-[#0d1117] border rounded-lg p-4 space-y-3 ${
+                  <div className={`bg-[var(--wr-bg)] border rounded-lg p-4 space-y-3 ${
                     rp.riskScore >= 70 ? "border-red-400/30" :
-                    rp.riskScore >= 40 ? "border-amber-400/30" : "border-[#21262d]"
+                    rp.riskScore >= 40 ? "border-amber-400/30" : "border-[var(--wr-border)]"
                   }`}>
                     {/* Métriques */}
                     <div className="flex gap-4 text-[10px] font-mono">
@@ -738,11 +738,11 @@ export function NetworkPage() {
                       }`}>
                         Risque {rp.riskScore}/100
                       </span>
-                      <span className="px-2 py-1 rounded border border-[#30363d] text-[#7d8590]">
+                      <span className="px-2 py-1 rounded border border-[var(--wr-border2)] text-[var(--wr-text-3)]">
                         {rp.hops} saut(s)
                       </span>
                       {rp.totalAmount > 0 && (
-                        <span className="px-2 py-1 rounded border border-[#30363d] text-[#7d8590]">
+                        <span className="px-2 py-1 rounded border border-[var(--wr-border2)] text-[var(--wr-text-3)]">
                           {new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(rp.totalAmount)} total
                         </span>
                       )}
@@ -756,7 +756,7 @@ export function NetworkPage() {
                             node.type === "customer"
                               ? (node.riskLevel === "CRITICAL" || node.riskLevel === "HIGH")
                                 ? "border-red-400/40 text-red-400 bg-red-400/5"
-                                : "border-[#378ADD]/30 text-[#58a6ff] bg-[#1f6feb]/10"
+                                : "border-[#378ADD]/30 text-[var(--wr-blue)] bg-[var(--wr-blue)]/10"
                               : "border-[#1D9E75]/30 text-emerald-400 bg-emerald-400/10"
                           }`}>
                             <span>{node.label.slice(0, 15)}</span>
@@ -764,10 +764,10 @@ export function NetworkPage() {
                             {(node.isSuspicious) && <span className="text-red-400 text-[8px]">⚠</span>}
                           </span>
                           {j < rp.nodes.length - 1 && (
-                            <span className="text-[#484f58] text-xs flex flex-col items-center">
+                            <span className="text-[var(--wr-text-4)] text-xs flex flex-col items-center">
                               →
                               {rp.edges[j] && (
-                                <span className={`text-[8px] ${(rp.edges[j] as {suspicious?: boolean}).suspicious ? "text-red-400" : "text-[#484f58]"}`}>
+                                <span className={`text-[8px] ${(rp.edges[j] as {suspicious?: boolean}).suspicious ? "text-red-400" : "text-[var(--wr-text-4)]"}`}>
                                   {fmtAmount((rp.edges[j] as {weight: number}).weight || 0)}
                                 </span>
                               )}
@@ -789,12 +789,12 @@ export function NetworkPage() {
         <div className="space-y-4">
           <div className="flex gap-3 items-end flex-wrap">
             <div className="flex-1">
-              <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">Client source</label>
+              <label className="block text-[10px] font-mono text-[var(--wr-text-3)] tracking-widest uppercase mb-1.5">Client source</label>
               <input value={customerId} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomerId(e.target.value)}
                 placeholder="ID client A" type="number" className={inputCls + " w-full"} />
             </div>
             <div className="flex-1">
-              <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1.5">Client destination</label>
+              <label className="block text-[10px] font-mono text-[var(--wr-text-3)] tracking-widest uppercase mb-1.5">Client destination</label>
               <input value={toId} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setToId(e.target.value)}
                 placeholder="ID client B" type="number" className={inputCls + " w-full"} />
             </div>
@@ -802,14 +802,14 @@ export function NetworkPage() {
 
           {paths && (
             <div className="space-y-3">
-              <p className="text-xs font-mono text-[#7d8590]">{paths.message}</p>
+              <p className="text-xs font-mono text-[var(--wr-text-3)]">{paths.message}</p>
               {paths.paths.map((path: { nodes: { id: string; type: string; label: string }[]; length: number; suspicious: boolean }, i: number) => (
-                <div key={i} className={`bg-[#0d1117] border rounded-lg p-4 ${
-                  path.suspicious ? "border-amber-400/20" : "border-[#21262d]"
+                <div key={i} className={`bg-[var(--wr-bg)] border rounded-lg p-4 ${
+                  path.suspicious ? "border-amber-400/20" : "border-[var(--wr-border)]"
                 }`}>
                   <div className="flex items-center gap-2 mb-2">
-                    <GitBranch size={12} className="text-[#484f58]" />
-                    <span className="text-[10px] font-mono text-[#7d8590]">
+                    <GitBranch size={12} className="text-[var(--wr-text-4)]" />
+                    <span className="text-[10px] font-mono text-[var(--wr-text-3)]">
                       Chemin {i + 1} — {path.length} saut(s)
                     </span>
                     {path.suspicious && (
@@ -822,10 +822,10 @@ export function NetworkPage() {
                     {path.nodes.map((node: { id: string; type: string; label: string }, j: number) => (
                       <span key={j} className="flex items-center gap-1">
                         <span className={`text-[10px] font-mono px-2 py-1 rounded border ${
-                          node.type === "customer" ? "border-[#378ADD]/30 text-[#58a6ff] bg-[#1f6feb]/10" :
+                          node.type === "customer" ? "border-[#378ADD]/30 text-[var(--wr-blue)] bg-[var(--wr-blue)]/10" :
                           "border-[#1D9E75]/30 text-emerald-400 bg-emerald-400/10"
                         }`}>{node.label.slice(0, 15)}</span>
-                        {j < path.nodes.length - 1 && <span className="text-[#484f58] text-xs">→</span>}
+                        {j < path.nodes.length - 1 && <span className="text-[var(--wr-text-4)] text-xs">→</span>}
                       </span>
                     ))}
                   </div>

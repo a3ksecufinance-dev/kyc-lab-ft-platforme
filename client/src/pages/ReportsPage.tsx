@@ -104,6 +104,10 @@ export function ReportsPage() {
     report: Report; action: "submit" | "approve" | "reject";
   } | null>(null);
   const [transmitTarget, setTransmitTarget] = useState<Report | null>(null);
+  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editSuspicionType, setEditSuspicionType] = useState("");
 
   const utils = trpc.useUtils();
 
@@ -133,6 +137,17 @@ export function ReportsPage() {
   });
   const downloadXmlMutation    = trpc.reports.downloadXml.useMutation();
   const exportReportPdfMutation = trpc.reports.exportReportPdf.useMutation();
+  const updateContentMutation  = trpc.reports.updateContent.useMutation({
+    onSuccess: () => { utils.reports.list.invalidate(); setEditMode(false); },
+  });
+
+  const { data: reportDetail } = trpc.reports.getById.useQuery(
+    { id: selectedReport?.id ?? 0 }, { enabled: !!selectedReport }
+  );
+  const { data: transmissionStatusData } = trpc.reports.transmissionStatus.useQuery(
+    { id: selectedReport?.id ?? 0 }, { enabled: !!selectedReport }
+  );
+  const { data: reportStats } = trpc.reports.stats.useQuery();
 
   const canApprove = hasRole(user, "compliance_officer");
   const canReject  = hasRole(user, "supervisor");
@@ -231,6 +246,12 @@ export function ReportsPage() {
       key: "actions", header: "", width: "w-44",
       render: (r) => (
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <button
+            onClick={(e: React.MouseEvent) => { e.stopPropagation(); setSelectedReport(r); setEditMode(false); }}
+            style={{ fontSize: 10, fontFamily: C.mono, color: C.blue, background: "none", border: "none", cursor: "pointer", padding: 0 }}
+          >
+            Détail
+          </button>
           {r.status === "DRAFT" && (
             <button
               onClick={(e: React.MouseEvent) => { e.stopPropagation(); setActionTarget({ report: r, action: "submit" }); }}
@@ -385,6 +406,23 @@ export function ReportsPage() {
       {pageTab === "amld6" && <Amld6Panel canApprove={canApprove} />}
 
       {pageTab === "reports" && <>
+        {/* Stats KPI */}
+        {reportStats && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginBottom: 16 }}>
+            {[
+              { label: "Total",     value: reportStats.total,     color: C.text1 },
+              { label: "DRAFT",     value: reportStats.byStatus?.DRAFT ?? 0,     color: C.text3 },
+              { label: "REVIEW",    value: reportStats.byStatus?.REVIEW ?? 0,    color: C.amber },
+              { label: "SUBMITTED", value: reportStats.byStatus?.SUBMITTED ?? 0, color: C.blue },
+              { label: "APPROVED",  value: reportStats.byStatus?.APPROVED ?? 0,  color: C.green },
+            ].map(k => (
+              <div key={k.label} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px" }}>
+                <p style={{ fontSize: 9, color: C.text3, fontFamily: C.mono, textTransform: "uppercase", letterSpacing: "0.1em", margin: "0 0 4px" }}>{k.label}</p>
+                <p style={{ fontSize: 18, fontWeight: 600, fontFamily: C.mono, color: k.color, margin: 0 }}>{k.value}</p>
+              </div>
+            ))}
+          </div>
+        )}
         {/* Filters */}
         <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
           <select
@@ -509,6 +547,99 @@ export function ReportsPage() {
           result={transmitMutation.data ?? null}
           error={transmitMutation.error?.message ?? null}
         />
+      )}
+
+      {/* Modal détail rapport */}
+      {selectedReport && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 16 }}>
+          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 24, width: "100%", maxWidth: 560, maxHeight: "90vh", overflowY: "auto" }}>
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }}>
+              <div>
+                <p style={{ fontSize: 11, fontFamily: C.mono, color: C.text3, margin: "0 0 2px" }}>{selectedReport.reportId}</p>
+                <p style={{ fontSize: 15, fontWeight: 600, color: C.text1, margin: 0 }}>{selectedReport.title}</p>
+              </div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <Badge label={selectedReport.status} variant="status" />
+                {(selectedReport.status === "DRAFT" || selectedReport.status === "REJECTED") && (
+                  <button
+                    onClick={() => { setEditMode(!editMode); setEditTitle(selectedReport.title); }}
+                    style={{ fontSize: 10, fontFamily: C.mono, color: C.amber, background: "none", border: `1px solid ${C.amber}40`, borderRadius: 5, padding: "2px 8px", cursor: "pointer" }}
+                  >
+                    {editMode ? "Annuler" : "Modifier"}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Edit form */}
+            {editMode && (
+              <div style={{ background: `${C.amber}08`, border: `1px solid ${C.amber}30`, borderRadius: 8, padding: 14, marginBottom: 14 }}>
+                <p style={{ fontSize: 9, fontFamily: C.mono, textTransform: "uppercase", letterSpacing: "0.12em", color: C.amber, margin: "0 0 10px" }}>Modifier le rapport</p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div>
+                    <label style={{ fontSize: 9, fontFamily: C.mono, textTransform: "uppercase", letterSpacing: "0.12em", color: C.text3, display: "block", marginBottom: 4 }}>Titre</label>
+                    <input value={editTitle} onChange={e => setEditTitle(e.target.value)} style={{ width: "100%", background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "7px 10px", fontSize: 12, fontFamily: C.mono, color: C.text1, outline: "none", boxSizing: "border-box" as const }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 9, fontFamily: C.mono, textTransform: "uppercase", letterSpacing: "0.12em", color: C.text3, display: "block", marginBottom: 4 }}>Type de suspicion</label>
+                    <input value={editSuspicionType} onChange={e => setEditSuspicionType(e.target.value)} placeholder="Ex: SMURFING, TERROR_FINANCING…" style={{ width: "100%", background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "7px 10px", fontSize: 12, fontFamily: C.mono, color: C.text1, outline: "none", boxSizing: "border-box" as const }} />
+                  </div>
+                  <button
+                    disabled={editTitle.length < 5 || updateContentMutation.isPending}
+                    onClick={() => updateContentMutation.mutate({ id: selectedReport.id, ...(editTitle ? { title: editTitle } : {}), ...(editSuspicionType ? { suspicionType: editSuspicionType } : {}) })}
+                    style={{ padding: "7px 0", fontSize: 11, fontFamily: C.mono, background: `${C.amber}14`, border: `1px solid ${C.amber}40`, borderRadius: 6, color: C.amber, cursor: "pointer", opacity: (editTitle.length < 5 || updateContentMutation.isPending) ? 0.4 : 1 }}
+                  >
+                    {updateContentMutation.isPending ? "Enregistrement…" : "Enregistrer les modifications"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Content details */}
+            {reportDetail && (
+              <div style={{ marginBottom: 14 }}>
+                {(reportDetail.content as Record<string, unknown>) && Object.entries(reportDetail.content as Record<string, unknown>).slice(0, 6).map(([key, value]) => (
+                  <div key={key} style={{ marginBottom: 8 }}>
+                    <p style={{ fontSize: 9, fontFamily: C.mono, textTransform: "uppercase", letterSpacing: "0.1em", color: C.text3, margin: "0 0 2px" }}>{key}</p>
+                    <p style={{ fontSize: 11, color: C.text1, margin: 0, lineHeight: 1.5 }}>
+                      {Array.isArray(value) ? (value as string[]).join(", ") : String(value ?? "—")}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Transmission status */}
+            {transmissionStatusData && (
+              <div style={{ background: C.hover, borderRadius: 8, padding: 12, marginBottom: 14 }}>
+                <p style={{ fontSize: 9, fontFamily: C.mono, textTransform: "uppercase", letterSpacing: "0.12em", color: C.text3, margin: "0 0 6px" }}>Statut de transmission</p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  <div>
+                    <p style={{ fontSize: 9, color: C.text3, fontFamily: C.mono, margin: "0 0 2px" }}>Mode</p>
+                    <p style={{ fontSize: 11, fontFamily: C.mono, color: C.blue, margin: 0 }}>{transmissionStatusData.transmissionMode}</p>
+                  </div>
+                  <div>
+                    <p style={{ fontSize: 9, color: C.text3, fontFamily: C.mono, margin: "0 0 2px" }}>Réf. régulatrice</p>
+                    <p style={{ fontSize: 11, fontFamily: C.mono, color: C.text1, margin: 0 }}>{transmissionStatusData.regulatoryRef ?? "—"}</p>
+                  </div>
+                </div>
+                {transmissionStatusData.lastTransmission && (
+                  <p style={{ fontSize: 10, fontFamily: C.mono, color: C.green, margin: "6px 0 0" }}>
+                    Dernière transmission : {formatRelative(transmissionStatusData.lastTransmission as unknown as Date)}
+                  </p>
+                )}
+              </div>
+            )}
+
+            <button
+              onClick={() => { setSelectedReport(null); setEditMode(false); }}
+              style={{ width: "100%", padding: "7px 0", fontSize: 12, fontFamily: C.mono, color: C.text3, background: "none", border: `1px solid ${C.border2}`, borderRadius: 7, cursor: "pointer" }}
+            >
+              Fermer
+            </button>
+          </div>
+        </div>
       )}
     </AppLayout>
   );

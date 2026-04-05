@@ -7,6 +7,7 @@ import { trpc } from "../lib/trpc";
 import { formatDate, formatRelative, formatNumber } from "../lib/utils";
 import { FolderPlus, Clock, User } from "lucide-react";
 import { useI18n } from "../hooks/useI18n";
+import { useLocation } from "wouter";
 
 const C = {
   surface: "var(--wr-card)",
@@ -37,6 +38,7 @@ type CaseStatus = "OPEN" | "UNDER_INVESTIGATION" | "PENDING_APPROVAL" | "ESCALAT
 
 export function CasesPage() {
   const { t } = useI18n();
+  const [, navigate] = useLocation();
   const [page, setPage] = useState(1);
   const [status, setStatus]     = useState<string>("");
   const [severity, setSeverity] = useState<string>("");
@@ -59,6 +61,8 @@ export function CasesPage() {
     ...(severity ? { severity: severity as "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" } : {}),
   }, { placeholderData: keepPreviousData });
 
+  const { data: caseStats } = trpc.cases.stats.useQuery();
+
   const createMutation = trpc.cases.create.useMutation({
     onSuccess: () => {
       utils.cases.list.invalidate();
@@ -70,7 +74,11 @@ export function CasesPage() {
   const COLUMNS: Column<Case>[] = [
     {
       key: "id", header: t.cases.caseId, width: "w-36",
-      render: (r) => <span style={{ fontFamily: C.mono, fontSize: 12, color: C.blue }}>{r.caseId}</span>,
+      render: (r) => (
+        <button onClick={() => navigate(`/cases/${r.id}`)} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: C.mono, fontSize: 12, color: C.blue }}>
+          {r.caseId}
+        </button>
+      ),
     },
     {
       key: "title", header: t.cases.subject,
@@ -131,6 +139,24 @@ export function CasesPage() {
           {t.cases.openCase}
         </button>
       </div>
+
+      {/* KPI stats */}
+      {caseStats && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginBottom: 16 }}>
+          {([
+            { label: "Total dossiers",  value: caseStats.total,                              color: C.text1 },
+            { label: "Ouverts",         value: caseStats.byStatus["OPEN"] ?? 0,              color: C.blue  },
+            { label: "En approbation",  value: caseStats.byStatus["PENDING_APPROVAL"] ?? 0,  color: C.amber },
+            { label: "Sévérité CRIT.",  value: caseStats.bySeverity["CRITICAL"] ?? 0,        color: C.red   },
+            { label: "Clôturés",        value: caseStats.byStatus["CLOSED"] ?? 0,            color: C.green },
+          ] as const).map(({ label, value, color }) => (
+            <div key={label} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px" }}>
+              <div style={{ fontSize: 20, fontWeight: 500, fontFamily: C.mono, color }}>{value}</div>
+              <div style={{ fontSize: 10, fontFamily: C.mono, color: C.text4, marginTop: 2 }}>{label}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Filtres */}
       <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>

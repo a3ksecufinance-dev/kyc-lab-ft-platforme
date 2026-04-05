@@ -2,7 +2,7 @@ import { useState } from "react";
 import { AppLayout } from "../components/layout/AppLayout";
 import { trpc } from "../lib/trpc";
 import { useI18n } from "../hooks/useI18n";
-import { Shield, ShieldCheck, ShieldOff, Copy, CheckCircle, AlertTriangle, Key } from "lucide-react";
+import { Shield, ShieldCheck, ShieldOff, Copy, CheckCircle, AlertTriangle, Key, Lock } from "lucide-react";
 
 // ─── Composant QR Code (génère via API publique) ──────────────────────────────
 // Utilise l'API QR gratuite de goqr.me sans clé
@@ -365,6 +365,80 @@ export function MfaSettingsPage() {
           </div>
         )}
       </div>
+
+      {/* ── Changement de mot de passe ── */}
+      <ChangePasswordSection />
     </AppLayout>
+  );
+}
+
+// ─── Section changement de mot de passe ──────────────────────────────────────
+
+function ChangePasswordSection() {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword,     setNewPassword]     = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [localError,      setLocalError]      = useState<string | null>(null);
+  const [success,         setSuccess]         = useState(false);
+
+  const mut = trpc.auth.changePassword.useMutation({
+    onSuccess: () => {
+      setSuccess(true);
+      setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
+      setTimeout(() => setSuccess(false), 4000);
+    },
+    onError: (e) => setLocalError(e.message),
+  });
+
+  function submit() {
+    setLocalError(null);
+    if (newPassword !== confirmPassword) { setLocalError("Les mots de passe ne correspondent pas."); return; }
+    if (newPassword.length < 8) { setLocalError("Minimum 8 caractères."); return; }
+    mut.mutate({ currentPassword, newPassword });
+  }
+
+  const inputCls = "w-full bg-[#161b22] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff]/40";
+
+  return (
+    <div className="mt-4 bg-[#0d1117] border border-[#21262d] rounded-xl p-6 max-w-lg">
+      <div className="flex items-center gap-2 mb-4">
+        <Lock size={14} className="text-[#7d8590]" />
+        <h2 className="text-sm font-semibold font-mono text-[#e6edf3]">Changer le mot de passe</h2>
+      </div>
+
+      {success && (
+        <div className="mb-4 flex items-center gap-2 bg-emerald-400/10 border border-emerald-400/20 rounded-lg px-3 py-2">
+          <CheckCircle size={12} className="text-emerald-400" />
+          <p className="text-xs font-mono text-emerald-400">Mot de passe modifié avec succès.</p>
+        </div>
+      )}
+      {(localError ?? mut.error) && (
+        <div className="mb-4 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">
+          <p className="text-xs font-mono text-red-400">{localError ?? mut.error?.message}</p>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        <div>
+          <label className="block text-[9px] font-mono text-[#7d8590] uppercase tracking-wider mb-1">Mot de passe actuel</label>
+          <input type="password" value={currentPassword} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCurrentPassword(e.target.value)} className={inputCls} placeholder="••••••••" />
+        </div>
+        <div>
+          <label className="block text-[9px] font-mono text-[#7d8590] uppercase tracking-wider mb-1">Nouveau mot de passe</label>
+          <input type="password" value={newPassword} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewPassword(e.target.value)} className={inputCls} placeholder="Min. 8 car., 1 maj., 1 chiffre" />
+        </div>
+        <div>
+          <label className="block text-[9px] font-mono text-[#7d8590] uppercase tracking-wider mb-1">Confirmer le nouveau mot de passe</label>
+          <input type="password" value={confirmPassword} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)} className={inputCls} placeholder="••••••••" />
+        </div>
+        <button
+          disabled={mut.isPending || !currentPassword || !newPassword || !confirmPassword}
+          onClick={submit}
+          className="w-full py-2 text-xs font-mono bg-[#1f6feb]/20 border border-[#1f6feb]/40 text-[#58a6ff] rounded-md hover:bg-[#1f6feb]/30 transition-colors disabled:opacity-40"
+        >
+          {mut.isPending ? "Modification…" : "Modifier le mot de passe"}
+        </button>
+      </div>
+    </div>
   );
 }

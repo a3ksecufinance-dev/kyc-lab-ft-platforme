@@ -1,0 +1,40 @@
+import { createContext, useContext } from "react";
+import type { ReactNode } from "react";
+import { trpc } from "../lib/trpc";
+import { CLASSIC_BANK_FLAGS } from "../../../shared/institution.types";
+import type { InstitutionFeatureFlags } from "../../../shared/institution.types";
+
+const InstitutionContext = createContext<InstitutionFeatureFlags>(CLASSIC_BANK_FLAGS);
+
+export function InstitutionProvider({ children }: { children: ReactNode }) {
+  const { data } = trpc.institution.getConfig.useQuery(undefined, {
+    staleTime: Infinity,   // constante de déploiement — jamais revalidée
+    retry: false,
+  });
+
+  const flags: InstitutionFeatureFlags = data
+    ? {
+        institutionType:        data.institutionType,
+        institutionName:        data.institutionName,
+        wallets:                data.features.wallets,
+        agentAccounts:          data.features.agentAccounts,
+        mobileTransactionTypes: data.features.mobileTransactionTypes,
+        walletKyc:              data.features.walletKyc,
+        enhancedOnboarding:     data.features.enhancedOnboarding,
+        walletAml:              data.features.walletAml,
+        bamReports:             data.features.bamReports,
+        mobileConnectors:       data.features.mobileConnectors,
+        agentNetwork:           data.features.agentNetwork,
+      }
+    : CLASSIC_BANK_FLAGS;
+
+  return (
+    <InstitutionContext.Provider value={flags}>
+      {children}
+    </InstitutionContext.Provider>
+  );
+}
+
+export function useInstitution(): InstitutionFeatureFlags {
+  return useContext(InstitutionContext);
+}

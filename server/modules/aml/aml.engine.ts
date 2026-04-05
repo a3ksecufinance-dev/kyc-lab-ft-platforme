@@ -11,6 +11,8 @@
  */
 
 import { ENV } from "../../_core/env";
+import { getInstitutionFlags } from "../../_core/institution";
+import { runWalletAmlRules } from "./aml.wallet-rules";
 import { createLogger } from "../../_core/logger";
 import { nanoid } from "nanoid";
 import {
@@ -85,9 +87,14 @@ export type AmlRuleName =
   | "SANCTION_COUNTERPARTY"
   | "ROUND_AMOUNT"
   | "UNUSUAL_CHANNEL"
-  | "HAWALA_PATTERN"      // Sprint 6 — nouveau
-  | "MENA_STRUCTURING"    // Sprint 6 — nouveau
-  | "CASH_INTENSIVE";     // Sprint 6 — nouveau
+  | "HAWALA_PATTERN"              // Sprint 6 — nouveau
+  | "MENA_STRUCTURING"            // Sprint 6 — nouveau
+  | "CASH_INTENSIVE"              // Sprint 6 — nouveau
+  | "P2P_VELOCITY"                // Multi-institution wallets
+  | "AGENT_MULE"                  // Multi-institution wallets
+  | "SMALL_AMOUNT_ACCUMULATION"   // Multi-institution wallets
+  | "MERCHANT_BYPASS"             // Multi-institution wallets
+  | "DORMANT_WALLET_REACTIVATION"; // Multi-institution wallets
 
 // ─── Pays à risque élevé (inchangé) ──────────────────────────────────────────
 
@@ -427,6 +434,12 @@ export async function runAmlRules(
       ruleMenaStructuring(tx),
       ruleCashIntensive(tx, customer),
     ]);
+
+    // Règles wallet — chargées uniquement si walletAml=true (MICROFINANCE / PAYMENT_INSTITUTION)
+    if (getInstitutionFlags().walletAml) {
+      const walletResults = await runWalletAmlRules(tx, customer);
+      results.push(...(walletResults as typeof results));
+    }
 
     const triggered = results.filter((r) => r.triggered);
 

@@ -29,6 +29,9 @@ export const customerTypeEnum = pgEnum("customer_type", [
   "CORPORATE",
   "PEP",
   "FOREIGN",
+  // ── Multi-institution (migration 0006) ──────────────────────────────────────
+  "AGENT",
+  "MERCHANT",
 ]);
 
 export const kycStatusEnum = pgEnum("kyc_status", [
@@ -76,6 +79,15 @@ export const transactionTypeEnum = pgEnum("transaction_type", [
   "WITHDRAWAL",
   "PAYMENT",
   "EXCHANGE",
+  // ── Multi-institution (migration 0006) ──────────────────────────────────────
+  "AGENT_CASH_IN",
+  "AGENT_CASH_OUT",
+  "MOBILE_MONEY_IN",
+  "MOBILE_MONEY_OUT",
+  "P2P_TRANSFER",
+  "MERCHANT_PAYMENT",
+  "BILL_PAYMENT",
+  "BULK_DISBURSEMENT",
 ]);
 
 export const channelEnum = pgEnum("channel", [
@@ -84,6 +96,12 @@ export const channelEnum = pgEnum("channel", [
   "BRANCH",
   "ATM",
   "API",
+  // ── Multi-institution (migration 0006) ──────────────────────────────────────
+  "AGENT",
+  "USSD",
+  "ORANGE_MONEY",
+  "WAVE",
+  "CIH_MOBILE",
 ]);
 
 export const transactionStatusEnum = pgEnum("transaction_status", [
@@ -102,6 +120,12 @@ export const alertTypeEnum = pgEnum("alert_type", [
   "PEP",
   "FRAUD",
   "NETWORK",
+  // ── Multi-institution (migration 0006) ──────────────────────────────────────
+  "P2P_VELOCITY",
+  "AGENT_MULE",
+  "SMALL_ACCUMULATION",
+  "MERCHANT_BYPASS",
+  "DORMANT_REACTIVATION",
 ]);
 
 export const alertPriorityEnum = pgEnum("alert_priority", [
@@ -170,6 +194,10 @@ export const reportTypeEnum = pgEnum("report_type", [
   "RISK_ASSESSMENT",
   "COMPLIANCE",
   "CUSTOM",
+  // ── Multi-institution (migration 0006) ──────────────────────────────────────
+  "BAM_MONTHLY",
+  "BAM_QUARTERLY",
+  "BAM_ANNUAL",
 ]);
 
 export const reportStatusEnum = pgEnum("report_status", [
@@ -394,12 +422,18 @@ export const transactions = pgTable("transactions", {
   flagReason: text("flag_reason"),
   transactionDate: timestamp("transaction_date").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  // ── Multi-institution (migration 0006) — nullable, zéro impact sur inserts ──
+  walletId:    integer("wallet_id").references(() => wallets.id,        { onDelete: "set null" }),
+  agentId:     integer("agent_id").references(() => agentAccounts.id,   { onDelete: "set null" }),
+  ussdSession: varchar("ussd_session", { length: 100 }),
 }, (t) => ({
   txIdIdx: uniqueIndex("transactions_tx_id_idx").on(t.transactionId),
   customerIdx: index("transactions_customer_idx").on(t.customerId),
   statusIdx: index("transactions_status_idx").on(t.status),
   dateIdx: index("transactions_date_idx").on(t.transactionDate),
   suspiciousIdx: index("transactions_suspicious_idx").on(t.isSuspicious),
+  walletIdx: index("transactions_wallet_idx").on(t.walletId),
+  agentIdx:  index("transactions_agent_idx").on(t.agentId),
 }));
 
 export type Transaction = typeof transactions.$inferSelect;
@@ -673,6 +707,105 @@ export const pkycSnapshots = pgTable("pkyc_snapshots", {
 
 export type PkycSnapshot = typeof pkycSnapshots.$inferSelect;
 
+// ─── Multi-institution (migration 0006) ───────────────────────────────────────
+// Tables uniquement utilisées pour MICROFINANCE et PAYMENT_INSTITUTION.
+// Présentes dans le schéma DB pour tous les déploiements (migration additive),
+// mais jamais écrites si INSTITUTION_TYPE=CLASSIC_BANK.
+
+// ── Wallets ───────────────────────────────────────────────────────────────────
+
+export const wallets = pgTable("wallets", {
+  id:             serial("id").primaryKey(),
+  walletId:       varchar("wallet_id", { length: 50 }).notNull().unique(),
+  customerId:     integer("customer_id").notNull().references(() => customers.id, { onDelete: "restrict" }),
+  provider:       varchar("provider", { length: 50 }).notNull().default("INTERNAL"),
+  phoneNumber:    varchar("phone_number", { length: 30 }),
+  msisdn:         varchar("msisdn", { length: 30 }),
+  balance:        numeric("balance", { precision: 15, scale: 2 }).notNull().default("0"),
+  currency:       varchar("currency", { length: 10 }).notNull().default("MAD"),
+  // KYC tier associé : 'ALLEGED' | 'STANDARD' | 'RENFORCE' (VARCHAR, pas enum PG)
+  kycTier:        varchar("kyc_tier", { length: 20 }).notNull().default("ALLEGED"),
+  dailyLimit:     numeric("daily_limit", { precision: 15, scale: 2 }),
+  monthlyLimit:   numeric("monthly_limit", { precision: 15, scale: 2 }),
+  isActive:       boolean("is_active").notNull().default(true),
+  isDormant:      boolean("is_dormant").notNull().default(false),
+  lastActivityAt: timestamp("last_activity_at"),
+  dormantSince:   timestamp("dormant_since"),
+  reactivatedAt:  timestamp("reactivated_at"),
+  createdAt:      timestamp("created_at").defaultNow().notNull(),
+  updatedAt:      timestamp("updated_at").defaultNow().notNull(),
+}, (t) => ({
+  walletIdIdx:   uniqueIndex("wallets_wallet_id_idx").on(t.walletId),
+  customerIdx:   index("wallets_customer_idx").on(t.customerId),
+  providerIdx:   index("wallets_provider_idx").on(t.provider),
+  tierIdx:       index("wallets_tier_idx").on(t.kycTier),
+  dormantIdx:    index("wallets_dormant_idx").on(t.isDormant),
+}));
+
+export type Wallet       = typeof wallets.$inferSelect;
+export type InsertWallet = typeof wallets.$inferInsert;
+
+// ── Agent Accounts ────────────────────────────────────────────────────────────
+
+export const agentAccounts = pgTable("agent_accounts", {
+  id:             serial("id").primaryKey(),
+  agentId:        varchar("agent_id", { length: 50 }).notNull().unique(),
+  userId:         integer("user_id").references(() => users.id, { onDelete: "set null" }),
+  name:           varchar("name", { length: 200 }).notNull(),
+  phone:          varchar("phone", { length: 30 }),
+  region:         varchar("region", { length: 100 }),
+  city:           varchar("city", { length: 100 }),
+  licenseNumber:  varchar("license_number", { length: 100 }),
+  floatBalance:   numeric("float_balance", { precision: 15, scale: 2 }).notNull().default("0"),
+  currency:       varchar("currency", { length: 10 }).notNull().default("MAD"),
+  dailyTxCount:   integer("daily_tx_count").notNull().default(0),
+  dailyTxVolume:  numeric("daily_tx_volume", { precision: 15, scale: 2 }).notNull().default("0"),
+  isActive:       boolean("is_active").notNull().default(true),
+  lastActivityAt: timestamp("last_activity_at"),
+  riskScore:      integer("risk_score").notNull().default(0),
+  riskFlags:      jsonb("risk_flags"),
+  createdAt:      timestamp("created_at").defaultNow().notNull(),
+  updatedAt:      timestamp("updated_at").defaultNow().notNull(),
+}, (t) => ({
+  agentIdIdx:  uniqueIndex("agent_accounts_agent_id_idx").on(t.agentId),
+  userIdx:     index("agent_accounts_user_idx").on(t.userId),
+  regionIdx:   index("agent_accounts_region_idx").on(t.region),
+  riskIdx:     index("agent_accounts_risk_idx").on(t.riskScore),
+}));
+
+export type AgentAccount       = typeof agentAccounts.$inferSelect;
+export type InsertAgentAccount = typeof agentAccounts.$inferInsert;
+
+// ── KYC Tier Snapshots ────────────────────────────────────────────────────────
+
+export const kycTierSnapshots = pgTable("kyc_tier_snapshots", {
+  id:            serial("id").primaryKey(),
+  customerId:    integer("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+  walletId:      integer("wallet_id").references(() => wallets.id, { onDelete: "set null" }),
+  previousTier:  varchar("previous_tier", { length: 20 }),
+  newTier:       varchar("new_tier", { length: 20 }).notNull(),
+  reason:        text("reason"),
+  triggeredBy:   integer("triggered_by").references(() => users.id, { onDelete: "set null" }),
+  autoTriggered: boolean("auto_triggered").notNull().default(false),
+  createdAt:     timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  customerIdx: index("kyc_tier_snaps_customer_idx").on(t.customerId),
+  walletIdx:   index("kyc_tier_snaps_wallet_idx").on(t.walletId),
+  dateIdx:     index("kyc_tier_snaps_date_idx").on(t.createdAt),
+}));
+
+export type KycTierSnapshot       = typeof kycTierSnapshots.$inferSelect;
+export type InsertKycTierSnapshot = typeof kycTierSnapshots.$inferInsert;
+
+// ── Colonnes additives sur transactions ───────────────────────────────────────
+// Ajoutées via migration 0006 ADD COLUMN IF NOT EXISTS (nullable).
+// Les requêtes existantes ne spécifiant pas ces champs continuent de fonctionner.
+// Drizzle les expose ici pour que le type Transaction les inclue.
+
+// Note : ces champs sont injectés dans la table `transactions` existante.
+// Voir transactions dans schema.ts — on ne redéfinit pas la table ici,
+// on étend via un patch dans le bloc transactions ci-dessous.
+
 // ─── Relations Drizzle ────────────────────────────────────────────────────────
 
 export const customersRelations = relations(customers, ({ many, one }) => ({
@@ -683,6 +816,20 @@ export const customersRelations = relations(customers, ({ many, one }) => ({
   cases: many(cases),
   screeningResults: many(screeningResults),
   assignedAnalystUser: one(users, { fields: [customers.assignedAnalyst], references: [users.id] }),
+  // Multi-institution
+  wallets: many(wallets),
+  kycTierSnapshots: many(kycTierSnapshots),
+}));
+
+export const walletsRelations = relations(wallets, ({ one, many }) => ({
+  customer: one(customers, { fields: [wallets.customerId], references: [customers.id] }),
+  transactions: many(transactions),
+  kycTierSnapshots: many(kycTierSnapshots),
+}));
+
+export const agentAccountsRelations = relations(agentAccounts, ({ one, many }) => ({
+  user: one(users, { fields: [agentAccounts.userId], references: [users.id] }),
+  transactions: many(transactions),
 }));
 
 export const transactionsRelations = relations(transactions, ({ one }) => ({

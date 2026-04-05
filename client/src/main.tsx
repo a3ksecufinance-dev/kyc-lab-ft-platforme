@@ -6,6 +6,7 @@ import { getAccessToken, clearTokens, getStoredUser } from "./lib/auth";
 import { AuthProvider } from "./hooks/useAuth";
 import { I18nProvider, useI18n } from "./hooks/useI18n";
 import { ThemeProvider } from "./context/ThemeContext";
+import { InstitutionProvider } from "./context/InstitutionContext";
 import { startSessionTracker } from "./lib/session";
 import { App } from "./App";
 import "./globals.css";
@@ -88,18 +89,20 @@ function Root() {
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <>
-            {sessionExpired && (
-              <SessionExpiredBanner onDismiss={() => setSessionExpired(false)} />
-            )}
-            {sessionWarning !== null && (
-              <SessionWarningBanner
-                secondsLeft={sessionWarning}
-                onExtend={extendSession}
-              />
-            )}
-            <App />
-          </>
+          <InstitutionProvider>
+            <>
+              {sessionExpired && (
+                <SessionExpiredBanner onDismiss={() => setSessionExpired(false)} />
+              )}
+              {sessionWarning !== null && (
+                <SessionWarningBanner
+                  secondsLeft={sessionWarning}
+                  onExtend={extendSession}
+                />
+              )}
+              <App />
+            </>
+          </InstitutionProvider>
         </AuthProvider>
       </QueryClientProvider>
     </trpc.Provider>

@@ -24,6 +24,14 @@ vi.mock("../transactions/transactions.repository", () => ({
   updateTransaction:    vi.fn(),
   insertAlert:          vi.fn(),
 }));
+vi.mock("../../_core/institution", () => ({
+  getInstitutionFlags: () => ({
+    walletAml: false,   // CLASSIC_BANK par défaut → wallet rules non exécutées
+  }),
+}));
+vi.mock("./aml.wallet-rules", () => ({
+  runWalletAmlRules: vi.fn().mockResolvedValue([]),
+}));
 
 import * as repo from "../transactions/transactions.repository";
 import { runAmlRules } from "./aml.engine";
@@ -57,6 +65,9 @@ const baseTx = {
   flagReason: null as string | null,
   transactionDate: new Date("2024-06-01T10:00:00Z"),
   createdAt: new Date("2024-06-01T10:00:00Z"),
+  walletId: null as number | null,
+  agentId: null as number | null,
+  ussdSession: null as string | null,
 };
 
 const baseCustomer = {

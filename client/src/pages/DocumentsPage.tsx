@@ -10,7 +10,7 @@ import type { TDict } from "../hooks/useI18n";
 import {
   Upload, FileText, Eye, CheckCircle, XCircle,
   AlertTriangle, RefreshCw, ShieldCheck, ShieldAlert,
-  Clock, ChevronDown, ChevronUp,
+  Clock, ChevronDown, ChevronUp, Trash2,
 } from "lucide-react";
 
 const C = {
@@ -190,10 +190,11 @@ function UploadZone({ customerId, onSuccess }: { customerId: number; onSuccess: 
 interface DocumentCardProps {
   doc: KycDocument;
   canVerify: boolean;
+  canDelete: boolean;
   onRefresh: () => void;
 }
 
-function DocumentCard({ doc, canVerify, onRefresh }: DocumentCardProps) {
+function DocumentCard({ doc, canVerify, canDelete, onRefresh }: DocumentCardProps) {
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
   const [showViewer, setShowViewer] = useState(false);
@@ -228,6 +229,9 @@ function DocumentCard({ doc, canVerify, onRefresh }: DocumentCardProps) {
     onSuccess: () => { utils.documents.getByCustomer.invalidate(); onRefresh(); },
   });
   const rejectMutation = trpc.documents.reject.useMutation({
+    onSuccess: () => { utils.documents.getByCustomer.invalidate(); onRefresh(); },
+  });
+  const removeMutation = trpc.documents.remove.useMutation({
     onSuccess: () => { utils.documents.getByCustomer.invalidate(); onRefresh(); },
   });
 
@@ -337,28 +341,40 @@ function DocumentCard({ doc, canVerify, onRefresh }: DocumentCardProps) {
           )}
 
           {/* Actions manuelles */}
-          {canVerify && doc.ekycStatus !== "PASS" && (
-            <div style={{ display: "flex", gap: 8, paddingTop: 4 }}>
-              <button
-                disabled={verifyMutation.isPending}
-                onClick={() => verifyMutation.mutate({ id: doc.id })}
-                style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", background: `${C.green}14`, border: `1px solid ${C.green}40`, borderRadius: 7, fontSize: 11, fontFamily: C.mono, color: C.green, cursor: "pointer" }}
-              >
-                <CheckCircle size={11} />
-                {t.documents.verifyManually}
-              </button>
-              {doc.ekycStatus !== "FAIL" && (
+          <div style={{ display: "flex", gap: 8, paddingTop: 4, flexWrap: "wrap" }}>
+            {canVerify && doc.ekycStatus !== "PASS" && (
+              <>
                 <button
-                  disabled={rejectMutation.isPending}
-                  onClick={() => rejectMutation.mutate({ id: doc.id, reason: "Rejeté manuellement" })}
-                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", background: `${C.red}14`, border: `1px solid ${C.red}40`, borderRadius: 7, fontSize: 11, fontFamily: C.mono, color: C.red, cursor: "pointer" }}
+                  disabled={verifyMutation.isPending}
+                  onClick={() => verifyMutation.mutate({ id: doc.id })}
+                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", background: `${C.green}14`, border: `1px solid ${C.green}40`, borderRadius: 7, fontSize: 11, fontFamily: C.mono, color: C.green, cursor: "pointer" }}
                 >
-                  <XCircle size={11} />
-                  {t.documents.reject}
+                  <CheckCircle size={11} />
+                  {t.documents.verifyManually}
                 </button>
-              )}
-            </div>
-          )}
+                {doc.ekycStatus !== "FAIL" && (
+                  <button
+                    disabled={rejectMutation.isPending}
+                    onClick={() => rejectMutation.mutate({ id: doc.id, reason: "Rejeté manuellement" })}
+                    style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", background: `${C.red}14`, border: `1px solid ${C.red}40`, borderRadius: 7, fontSize: 11, fontFamily: C.mono, color: C.red, cursor: "pointer" }}
+                  >
+                    <XCircle size={11} />
+                    {t.documents.reject}
+                  </button>
+                )}
+              </>
+            )}
+            {canDelete && (
+              <button
+                disabled={removeMutation.isPending}
+                onClick={() => { if (confirm("Supprimer ce document définitivement ?")) removeMutation.mutate({ id: doc.id }); }}
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", background: "rgba(248,113,113,0.06)", border: "1px solid rgba(248,113,113,0.25)", borderRadius: 7, fontSize: 11, fontFamily: C.mono, color: C.red, cursor: "pointer", marginLeft: "auto" }}
+              >
+                <Trash2 size={11} />
+                Supprimer
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -386,6 +402,7 @@ export function DocumentsPage() {
   const { t } = useI18n();
   const { user } = useAuth();
   const canVerify = hasRole(user, "supervisor");
+  const canDelete = hasRole(user, "compliance_officer");
 
   // Lire le customerId depuis l'URL si présent
   const params = new URLSearchParams(window.location.search);
@@ -395,6 +412,11 @@ export function DocumentsPage() {
   const [showUpload, setShowUpload] = useState(false);
 
   const { data: documents, isLoading, refetch } = trpc.documents.getByCustomer.useQuery(
+    { customerId: parseInt(customerId) },
+    { enabled: !!customerId && !isNaN(parseInt(customerId)) }
+  );
+
+  const { data: docStats } = trpc.documents.stats.useQuery(
     { customerId: parseInt(customerId) },
     { enabled: !!customerId && !isNaN(parseInt(customerId)) }
   );
@@ -478,33 +500,31 @@ export function DocumentsPage() {
         </div>
       )}
 
+      {docStats && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginBottom: 16 }}>
+          {([
+            { label: "Total",    value: docStats.total,    color: C.text1 },
+            { label: "Vérifiés", value: docStats.verified, color: C.green },
+            { label: "En attente", value: docStats.pending, color: C.amber },
+            { label: "eKYC ✓",  value: docStats.ekycPass, color: C.green },
+            { label: "eKYC ✗",  value: docStats.ekycFail, color: C.red   },
+          ] as const).map(({ label, value, color }) => (
+            <div key={label} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px" }}>
+              <div style={{ fontSize: 18, fontWeight: 500, fontFamily: C.mono, color }}>{value}</div>
+              <div style={{ fontSize: 10, fontFamily: C.mono, color: C.text4, marginTop: 2 }}>{label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {docs.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {/* Résumé eKYC */}
-          <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "0 4px 4px" }}>
-            <span style={{ fontSize: 11, fontFamily: C.mono, color: C.text3 }}>
-              {docs.length} document(s)
-            </span>
-            <span style={{ fontSize: 10, fontFamily: C.mono, color: C.green }}>
-              {docs.filter(d => d.ekycStatus === "PASS").length} ✓ {t.documents.verified}
-            </span>
-            {docs.some(d => d.ekycStatus === "REVIEW") && (
-              <span style={{ fontSize: 10, fontFamily: C.mono, color: C.amber }}>
-                {docs.filter(d => d.ekycStatus === "REVIEW").length} ⚠ {t.documents.ekycReview}
-              </span>
-            )}
-            {docs.some(d => d.ekycStatus === "FAIL") && (
-              <span style={{ fontSize: 10, fontFamily: C.mono, color: C.red }}>
-                {docs.filter(d => d.ekycStatus === "FAIL").length} ✗ {t.documents.ekycFailed}
-              </span>
-            )}
-          </div>
-
           {docs.map((doc) => (
             <DocumentCard
               key={doc.id}
               doc={doc}
               canVerify={canVerify}
+              canDelete={canDelete}
               onRefresh={(): void => { refetch().catch(() => undefined); }}
             />
           ))}

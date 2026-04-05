@@ -11,9 +11,14 @@ import { adminRouter }        from "./modules/admin/admin.router";
 import { amlRulesRouter }     from "./modules/aml/aml-rules.router";
 import { jurisdictionsRouter } from "./modules/aml/jurisdictions.router";
 
-import { documentsRouter } from "./modules/documents/documents.router";
-import { networkRouter }   from "./modules/network/network.router";
-import { pkycRouter }      from "./modules/customers/pkyc.router";
+import { documentsRouter }    from "./modules/documents/documents.router";
+import { networkRouter }      from "./modules/network/network.router";
+import { pkycRouter }         from "./modules/customers/pkyc.router";
+import { institutionRouter }          from "./modules/institution/institution.router";
+import { walletsRouter }              from "./modules/wallets/wallets.router";
+import { agentsRouter }               from "./modules/agents/agents.router";
+import { bamRouter }                  from "./modules/reports/bam.router";
+import { enhancedOnboardingRouter }   from "./modules/customers/enhanced-onboarding.router";
 
 export const appRouter = router({
   auth:          authRouter,
@@ -30,6 +35,11 @@ export const appRouter = router({
   documents:     documentsRouter,
   network:       networkRouter,
   pkyc:          pkycRouter,
+  institution:         institutionRouter,
+  wallets:             walletsRouter,
+  agents:              agentsRouter,
+  bam:                 bamRouter,
+  enhancedOnboarding:  enhancedOnboardingRouter,
 });
 
 export type AppRouter = typeof appRouter;

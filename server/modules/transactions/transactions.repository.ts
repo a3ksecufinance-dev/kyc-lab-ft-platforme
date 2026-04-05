@@ -22,6 +22,7 @@ export interface ListTransactionsInput {
   amountMin?: number | undefined;
   amountMax?: number | undefined;
   search?: string | undefined;
+  transactionType?: Transaction["transactionType"] | undefined;
 }
 
 // ─── Transactions ─────────────────────────────────────────────────────────────
@@ -30,8 +31,9 @@ export async function findManyTransactions(input: ListTransactionsInput) {
   const offset = (input.page - 1) * input.limit;
   const conditions = [];
 
-  if (input.customerId)    conditions.push(eq(transactions.customerId, input.customerId));
-  if (input.status)        conditions.push(eq(transactions.status, input.status));
+  if (input.customerId)       conditions.push(eq(transactions.customerId, input.customerId));
+  if (input.status)           conditions.push(eq(transactions.status, input.status));
+  if (input.transactionType)  conditions.push(eq(transactions.transactionType, input.transactionType));
   if (input.isSuspicious !== undefined) conditions.push(eq(transactions.isSuspicious, input.isSuspicious));
   if (input.dateFrom)      conditions.push(gte(transactions.transactionDate, input.dateFrom));
   if (input.dateTo)        conditions.push(lte(transactions.transactionDate, input.dateTo));

@@ -192,6 +192,8 @@ export function DashboardPage() {
     { refetchInterval: 30_000 }
   );
 
+  const { data: riskDist } = trpc.dashboard.riskDistribution.useQuery();
+
   const { t } = useI18n();
 
   return (
@@ -429,6 +431,41 @@ export function DashboardPage() {
           </Card>
 
         </div>
+
+        {/* Top 10 clients à risque élevé */}
+        {riskDist && riskDist.highRiskCustomers.length > 0 && (
+          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", marginTop: 16 }}>
+            <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.border}` }}>
+              <h3 style={{ fontSize: 11, fontFamily: C.mono, color: C.text3, letterSpacing: "0.16em", textTransform: "uppercase", margin: 0, fontWeight: 600 }}>
+                Top clients HIGH risk
+              </h3>
+            </div>
+            <table style={{ width: "100%", fontSize: 11, fontFamily: C.mono, borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${C.border}` }}>
+                  {(["ID Client", "Nom", "Score risque", "Niveau", "KYC"] as const).map(h => (
+                    <th key={h} style={{ textAlign: "left", padding: "8px 16px", fontSize: 9, fontFamily: C.mono, color: C.text3, letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 600 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {riskDist.highRiskCustomers.map((c) => (
+                  <tr key={c.id} style={{ borderBottom: `1px solid ${C.border}20` }}>
+                    <td style={{ padding: "8px 16px", color: C.blue }}>{c.customerId}</td>
+                    <td style={{ padding: "8px 16px", color: C.text1 }}>{c.firstName} {c.lastName}</td>
+                    <td style={{ padding: "8px 16px", color: C.red, fontWeight: 600 }}>{c.riskScore}</td>
+                    <td style={{ padding: "8px 16px" }}>
+                      <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: `${C.amber}14`, border: `1px solid ${C.amber}30`, color: C.amber }}>{c.riskLevel}</span>
+                    </td>
+                    <td style={{ padding: "8px 16px" }}>
+                      <span style={{ fontSize: 10, color: C.text3 }}>{c.kycStatus}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
       </div>
     </AppLayout>

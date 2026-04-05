@@ -60,6 +60,9 @@ const mockTransaction = {
   purpose: null, riskScore: 0, riskRules: null,
   status: "PENDING" as const, isSuspicious: false, flagReason: null,
   transactionDate: new Date("2024-01-15"), createdAt: new Date("2024-01-15"),
+  walletId: null as number | null,
+  agentId: null as number | null,
+  ussdSession: null as string | null,
 };
 
 describe("transactions.service — list", () => {

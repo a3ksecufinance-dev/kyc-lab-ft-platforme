@@ -4,11 +4,12 @@ import {
   LayoutDashboard, Users, ArrowLeftRight, Bell,
   FolderOpen, Search, FileText, LogOut, Shield,
   ChevronRight, Settings, BarChart2, Key, Network,
-  Sun, Moon, Repeat2,
+  Sun, Moon, Repeat2, Wallet, Users2,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { useI18n } from "../../hooks/useI18n";
 import { useTheme } from "../../context/ThemeContext";
+import { useInstitution } from "../../context/InstitutionContext";
 import { ROLE_LABELS, hasRole } from "../../lib/auth";
 import type { Lang } from "../../lib/i18n";
 
@@ -25,6 +26,8 @@ type NavItem = {
 type NavGroup = {
   labelKey: keyof ReturnType<typeof useI18n>["t"]["nav"];
   items: NavItem[];
+  /** Si défini, ce groupe n'est affiché que si ce flag institution est true */
+  institutionFlag?: "wallets" | "agentAccounts" | "bamReports" | "agentNetwork";
 };
 
 const NAV_GROUPS: NavGroup[] = [
@@ -60,6 +63,15 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { path: "/mfa",          icon: Key,              labelKey: "mfa",         minRole: "analyst"            as const },
       { path: "/admin",        icon: Settings,         labelKey: "admin",       minRole: "admin"              as const },
+    ],
+  },
+  {
+    labelKey: "mobileInstitution",
+    institutionFlag: "wallets",
+    items: [
+      { path: "/wallets",  icon: Wallet,    labelKey: "wallets", minRole: "analyst"            as const },
+      { path: "/agents",   icon: Users2,    labelKey: "agents",  minRole: "analyst"            as const },
+      { path: "/bam",      icon: BarChart2, labelKey: "bam",     minRole: "compliance_officer" as const },
     ],
   },
 ];
@@ -154,6 +166,7 @@ export function Sidebar({ alertCount }: SidebarProps) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
   const { t } = useI18n();
+  const institutionFlags = useInstitution();
 
   return (
     <aside
@@ -189,6 +202,8 @@ export function Sidebar({ alertCount }: SidebarProps) {
       {/* ── Navigation ────────────────────────────────────────────────────── */}
       <nav style={{ flex: 1, padding: "8px 8px", overflowY: "auto" }}>
         {NAV_GROUPS.map((group) => {
+          // Masquer le groupe si le flag institution requis n'est pas actif
+          if (group.institutionFlag && !institutionFlags[group.institutionFlag]) return null;
           const visible = group.items.filter(({ minRole }) => hasRole(user, minRole));
           if (!visible.length) return null;
           return (
