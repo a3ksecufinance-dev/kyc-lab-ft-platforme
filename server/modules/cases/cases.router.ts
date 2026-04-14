@@ -1,10 +1,12 @@
 import { z } from "zod";
-import { router, analystProc, supervisorProc } from "../../_core/trpc";
+import { TRPCError } from "@trpc/server";
+import { router, analystProc, supervisorProc, complianceProc } from "../../_core/trpc";
 import { createAuditFromContext } from "../../_core/audit";
 import {
   listCases, getCaseOrThrow, createCase, updateCaseStatus,
   assignCase, addFindings, makeDecision, getCaseTimeline, getCaseStats,
 } from "./cases.service";
+import { createApprovalRequest, getPendingApproval } from "../approvals/approvals.service";
 
 const caseStatusEnum = z.enum(["OPEN", "UNDER_INVESTIGATION", "PENDING_APPROVAL", "ESCALATED", "CLOSED", "SAR_SUBMITTED"]);
 const caseSeverityEnum = z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]);
@@ -87,19 +89,52 @@ export const casesRouter = router({
       return c;
     }),
 
-  // Décision finale — superviseur minimum (principe des 4 yeux pour SAR/STR)
-  decide: supervisorProc
+  // Décision finale — compliance officer (4 yeux obligatoires pour SAR_FILED / STR_FILED)
+  decide: complianceProc
     .input(z.object({
       id:            z.number().int().positive(),
       decision:      caseDecisionEnum,
       decisionNotes: z.string().min(20, "Notes de décision requises (min 20 caractères)"),
+      // Pour SAR_FILED/STR_FILED : inclure l'approvalId validé par un second utilisateur
+      approvalId:    z.number().int().positive().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
       const log = createAuditFromContext(ctx);
+
+      // 4-eyes gate : SAR et STR exigent une approbation préalable d'un second utilisateur
+      if (input.decision === "SAR_FILED" || input.decision === "STR_FILED") {
+        const existing = await getPendingApproval("case", input.id);
+
+        if (!existing) {
+          // Aucune demande → créer une demande d'approbation et bloquer
+          const req = await createApprovalRequest({
+            action:        "CASE_DECIDE",
+            entityType:    "case",
+            entityId:      input.id,
+            requestedBy:   ctx.user.id,
+            payload:       { decision: input.decision, decisionNotes: input.decisionNotes },
+            requesterNote: input.decisionNotes,
+          });
+          await log({ action: "CASE_STATUS_CHANGED", entityType: "case",
+            entityId: String(input.id),
+            details: { dualControl: "requested", approvalId: req.id } });
+          return { requiresApproval: true as const, approvalId: req.id, decision: null };
+        }
+
+        if (existing.status === "PENDING") {
+          return { requiresApproval: true as const, approvalId: existing.id, decision: null };
+        }
+
+        if (existing.status === "REJECTED") {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Cette décision a été rejetée par le second valideur" });
+        }
+        // status === "APPROVED" → continuer
+      }
+
       const c = await makeDecision(input.id, input.decision, input.decisionNotes, ctx.user.id);
       await log({ action: "CASE_DECISION_MADE", entityType: "case", entityId: c.caseId,
         details: { decision: input.decision } });
-      return c;
+      return { requiresApproval: false as const, approvalId: null, decision: c };
     }),
 
   getTimeline: analystProc

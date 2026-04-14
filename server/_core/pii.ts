@@ -112,3 +112,32 @@ export function isPiiEncrypted(value: string | null | undefined): boolean {
 export function piiEncryptionEnabled(): boolean {
   return getDerivedKey() !== null;
 }
+
+/**
+ * Vérification au démarrage du serveur.
+ * En production, le chiffrement PII est OBLIGATOIRE pour l'agrément BAM.
+ * Génère une erreur fatale si PII_ENCRYPTION_KEY est absent en prod.
+ */
+export function assertPiiEncryptionReady(): void {
+  const enabled = piiEncryptionEnabled();
+  const isProd  = process.env["NODE_ENV"] === "production";
+
+  if (isProd && !enabled) {
+    const msg =
+      "⛔  ERREUR FATALE : PII_ENCRYPTION_KEY absent en production.\n" +
+      "    Le chiffrement des données personnelles est obligatoire (BAM Circular 5/W/2023).\n" +
+      "    Générez une clé : openssl rand -hex 32\n" +
+      "    Puis ajoutez PII_ENCRYPTION_KEY=<valeur> dans vos variables d'environnement.";
+    log.error(msg);
+    throw new Error("PII_ENCRYPTION_KEY obligatoire en production");
+  }
+
+  if (!enabled) {
+    log.warn(
+      "⚠️  PII_ENCRYPTION_KEY non configuré — les données PII sont stockées en clair. " +
+      "Acceptable en dev/staging uniquement. Obligatoire avant déploiement production.",
+    );
+  } else {
+    log.info("✅  Chiffrement PII AES-256-GCM actif");
+  }
+}

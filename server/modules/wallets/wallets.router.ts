@@ -9,6 +9,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, analystProc, supervisorProc } from "../../_core/trpc";
 import { getInstitutionFlags } from "../../_core/institution";
+import { createAuditFromContext } from "../../_core/audit";
 import {
   listWallets,
   getWalletById,
@@ -18,7 +19,22 @@ import {
   getKycTierHistory,
   reactivateWallet,
   getWalletStats,
+  getWalletTransactions,
+  getWalletUsage,
+  suspendWallet,
+  unsuspendWallet,
+  exportWalletTransactionsCsv,
 } from "./wallets.service";
+import { importWalletTransactions } from "./wallets.import";
+import { bulkImportWalletTransactions } from "./wallets.bulk-import";
+import {
+  getWalletComplianceDashboard,
+  getHighRiskWallets,
+  getWalletSuspiciousTx,
+  getWalletAlerts,
+  createWalletInvestigation,
+  getWalletInvestigations,
+} from "./wallets.compliance";
 
 function requireWallets() {
   if (!getInstitutionFlags().wallets) {
@@ -95,9 +111,14 @@ export const walletsRouter = router({
       newTier:    kycTierEnum,
       reason:     z.string().min(5),
     }))
-    .mutation(({ input, ctx }) => {
+    .mutation(async ({ input, ctx }) => {
       requireWallets();
-      return promoteWalletTier({ ...input, userId: ctx.user.id });
+      const log = createAuditFromContext(ctx);
+      const result = await promoteWalletTier({ ...input, userId: ctx.user.id });
+      await log({ action: "CUSTOMER_KYC_STATUS_CHANGED", entityType: "customer",
+        entityId: String(input.customerId),
+        details: { walletId: input.walletId, newTier: input.newTier, reason: input.reason } });
+      return result;
     }),
 
   tierHistory: analystProc
@@ -118,5 +139,177 @@ export const walletsRouter = router({
     .query(() => {
       requireWallets();
       return getWalletStats();
+    }),
+
+  // ── Transactions du wallet ────────────────────────────────────────────────
+
+  getTransactions: analystProc
+    .input(z.object({
+      walletId: z.number().int().positive(),
+      page:     z.number().int().positive().default(1),
+      limit:    z.number().int().min(1).max(100).default(20),
+    }))
+    .query(({ input }) => {
+      requireWallets();
+      return getWalletTransactions(input.walletId, input.page, input.limit);
+    }),
+
+  // ── Utilisation vs limites de tier ───────────────────────────────────────
+
+  getUsage: analystProc
+    .input(z.object({ walletId: z.number().int().positive() }))
+    .query(({ input }) => {
+      requireWallets();
+      return getWalletUsage(input.walletId);
+    }),
+
+  // ── Suspension / réactivation ─────────────────────────────────────────────
+
+  suspend: supervisorProc
+    .input(z.object({
+      walletId: z.number().int().positive(),
+      reason:   z.string().min(5),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      requireWallets();
+      const log = createAuditFromContext(ctx);
+      const result = await suspendWallet(input.walletId, input.reason, ctx.user.id);
+      await log({ action: "CUSTOMER_RISK_LEVEL_CHANGED", entityType: "customer",
+        entityId: String(input.walletId),
+        details: { walletId: input.walletId, action: "WALLET_SUSPENDED", reason: input.reason } });
+      return result;
+    }),
+
+  unsuspend: supervisorProc
+    .input(z.object({ walletId: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      requireWallets();
+      const log = createAuditFromContext(ctx);
+      const result = await unsuspendWallet(input.walletId);
+      await log({ action: "CUSTOMER_RISK_LEVEL_CHANGED", entityType: "customer",
+        entityId: String(input.walletId),
+        details: { walletId: input.walletId, action: "WALLET_UNSUSPENDED" } });
+      return result;
+    }),
+
+  // ── Import transactions (fichier) ─────────────────────────────────────────
+
+  importTransactions: supervisorProc
+    .input(z.object({
+      walletId:   z.number().int().positive(),
+      customerId: z.number().int().positive(),
+      content:    z.string().min(1).max(5_000_000),
+      dryRun:     z.boolean().optional(),
+    }))
+    .mutation(({ input }) => {
+      requireWallets();
+      return importWalletTransactions({
+        walletId:   input.walletId,
+        customerId: input.customerId,
+        content:    input.content,
+        ...(input.dryRun !== undefined ? { dryRun: input.dryRun } : {}),
+      });
+    }),
+
+  // ── Import global (multi-wallets, un seul fichier) ───────────────────────
+
+  bulkImport: supervisorProc
+    .input(z.object({
+      content:   z.string().min(1).max(10_000_000),
+      provider:  z.string().optional(),
+      currency:  z.string().optional(),
+      dryRun:    z.boolean().optional(),
+    }))
+    .mutation(({ input }) => {
+      requireWallets();
+      return bulkImportWalletTransactions({
+        content:  input.content,
+        ...(input.provider !== undefined ? { provider: input.provider } : {}),
+        ...(input.currency !== undefined ? { currency: input.currency } : {}),
+        ...(input.dryRun   !== undefined ? { dryRun:   input.dryRun   } : {}),
+      });
+    }),
+
+  // ── Conformité ────────────────────────────────────────────────────────────
+
+  complianceDashboard: analystProc
+    .query(() => {
+      requireWallets();
+      return getWalletComplianceDashboard();
+    }),
+
+  highRiskWallets: analystProc
+    .input(z.object({
+      page:  z.number().int().positive().default(1),
+      limit: z.number().int().min(1).max(100).default(20),
+    }))
+    .query(({ input }) => {
+      requireWallets();
+      return getHighRiskWallets(input.page, input.limit);
+    }),
+
+  suspiciousTx: analystProc
+    .input(z.object({
+      page:  z.number().int().positive().default(1),
+      limit: z.number().int().min(1).max(100).default(20),
+    }))
+    .query(({ input }) => {
+      requireWallets();
+      return getWalletSuspiciousTx(input.page, input.limit);
+    }),
+
+  walletAlerts: analystProc
+    .input(z.object({
+      page:  z.number().int().positive().default(1),
+      limit: z.number().int().min(1).max(100).default(20),
+    }))
+    .query(({ input }) => {
+      requireWallets();
+      return getWalletAlerts(input.page, input.limit);
+    }),
+
+  createInvestigation: supervisorProc
+    .input(z.object({
+      walletId:   z.number().int().positive(),
+      customerId: z.number().int().positive(),
+      reason:     z.string().min(10),
+      severity:   z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      requireWallets();
+      const log = createAuditFromContext(ctx);
+      const result = await createWalletInvestigation({ ...input, userId: ctx.user.id });
+      await log({ action: "CASE_CREATED", entityType: "case",
+        entityId: String(input.walletId),
+        details: { walletId: input.walletId, customerId: input.customerId,
+          reason: input.reason, severity: input.severity } });
+      return result;
+    }),
+
+  walletInvestigations: analystProc
+    .input(z.object({
+      page:  z.number().int().positive().default(1),
+      limit: z.number().int().min(1).max(100).default(20),
+    }))
+    .query(({ input }) => {
+      requireWallets();
+      return getWalletInvestigations(input.page, input.limit);
+    }),
+
+  // ── Export CSV ────────────────────────────────────────────────────────────
+
+  exportCsv: analystProc
+    .input(z.object({
+      walletId: z.number().int().positive(),
+      from:     z.string().datetime().optional(),
+      to:       z.string().datetime().optional(),
+    }))
+    .query(({ input }) => {
+      requireWallets();
+      return exportWalletTransactionsCsv(
+        input.walletId,
+        input.from ? new Date(input.from) : undefined,
+        input.to   ? new Date(input.to)   : undefined,
+      );
     }),
 });

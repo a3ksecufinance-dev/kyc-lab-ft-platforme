@@ -345,36 +345,99 @@ function SearchTab({ canReview }: { canReview: boolean }) {
             </div>
           )}
 
-          {/* Breakdown par source */}
+          {/* Breakdown par source + Explication */}
           {(() => {
             const details = result.sanctionsResult?.details as Record<string, unknown> | null;
-            const bySource = details?.bySource as Record<string, { score: number; matched: boolean; entity?: string }> | undefined;
-            return bySource && Object.keys(bySource).length > 0 ? (
-            <div>
-              <p style={{ fontSize: 9, fontFamily: C.mono, letterSpacing: "0.14em", textTransform: "uppercase", color: C.text3, margin: "0 0 8px" }}>
-                Détail par source
-              </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                {Object.entries(bySource).map(([src, info]) => (
-                  <div key={src} style={{
-                    display: "flex", alignItems: "center", justifyContent: "space-between",
-                    padding: "6px 10px", borderRadius: 6,
-                    background: info.matched ? "rgba(248,113,113,0.06)" : C.hover,
-                    border: `1px solid ${info.matched ? "rgba(248,113,113,0.2)" : C.border}`,
+            const bySource    = details?.bySource    as Record<string, { score: number; matched: boolean; entity?: string }> | undefined;
+            const matchMethod = details?.matchMethod as string | undefined;
+            const matchedAlias = details?.matchedAlias as string | undefined;
+            const entityId    = details?.entityId    as string | undefined;
+            const totalChecked = details?.totalChecked as number | undefined;
+
+            const METHOD_LABELS: Record<string, string> = {
+              exact:             "Correspondance exacte",
+              subset:            "Correspondance partielle (sous-ensemble)",
+              arabic_variant:    "Variante orthographique (arabe/latin)",
+              token_set:         "Correspondance par tokens (ordre indépendant)",
+              token_sort:        "Correspondance par tokens triés",
+              particle_filtered: "Correspondance avec filtrage particules",
+            };
+            const methodLabel = matchMethod
+              ? METHOD_LABELS[matchMethod] ?? `Méthode : ${matchMethod}`
+              : null;
+
+            return (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {/* Explication du match */}
+                {(matchMethod || matchedAlias || entityId) && (
+                  <div style={{
+                    padding: "10px 12px", borderRadius: 8,
+                    background: hasMatch ? "rgba(248,113,113,0.05)" : "rgba(52,211,153,0.05)",
+                    border: `1px solid ${hasMatch ? "rgba(248,113,113,0.18)" : "rgba(52,211,153,0.18)"}`,
                   }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: info.matched ? C.red : C.green, flexShrink: 0 }} />
-                      <span style={{ fontSize: 10, fontFamily: C.mono, color: C.text2 }}>{src}</span>
-                      {info.entity && <span style={{ fontSize: 10, fontFamily: C.mono, color: C.red }}>→ {info.entity}</span>}
+                    <p style={{ fontSize: 9, fontFamily: C.mono, letterSpacing: "0.14em", textTransform: "uppercase", color: C.text3, margin: "0 0 8px" }}>
+                      Explication du résultat
+                    </p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                      {methodLabel && (
+                        <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
+                          <span style={{ fontSize: 9, fontFamily: C.mono, color: C.text3, minWidth: 100 }}>Méthode</span>
+                          <span style={{ fontSize: 11, fontFamily: C.mono, color: C.text1 }}>{methodLabel}</span>
+                        </div>
+                      )}
+                      {matchedAlias && (
+                        <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
+                          <span style={{ fontSize: 9, fontFamily: C.mono, color: C.text3, minWidth: 100 }}>Alias correspondant</span>
+                          <span style={{ fontSize: 11, fontFamily: C.mono, color: hasMatch ? C.red : C.text1, fontWeight: 600 }}>
+                            {matchedAlias}
+                          </span>
+                        </div>
+                      )}
+                      {entityId && (
+                        <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
+                          <span style={{ fontSize: 9, fontFamily: C.mono, color: C.text3, minWidth: 100 }}>ID entité</span>
+                          <span style={{ fontSize: 10, fontFamily: C.mono, color: C.text2 }}>{entityId}</span>
+                        </div>
+                      )}
+                      {totalChecked !== undefined && (
+                        <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
+                          <span style={{ fontSize: 9, fontFamily: C.mono, color: C.text3, minWidth: 100 }}>Entités vérifiées</span>
+                          <span style={{ fontSize: 10, fontFamily: C.mono, color: C.text3 }}>{totalChecked.toLocaleString()}</span>
+                        </div>
+                      )}
                     </div>
-                    <span style={{ fontSize: 11, fontFamily: C.mono, color: scoreColor(info.score), fontWeight: 600 }}>
-                      {info.score}/100
-                    </span>
                   </div>
-                ))}
+                )}
+
+                {/* Détail par source */}
+                {bySource && Object.keys(bySource).length > 0 && (
+                  <div>
+                    <p style={{ fontSize: 9, fontFamily: C.mono, letterSpacing: "0.14em", textTransform: "uppercase", color: C.text3, margin: "0 0 8px" }}>
+                      Détail par source
+                    </p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      {Object.entries(bySource).map(([src, info]) => (
+                        <div key={src} style={{
+                          display: "flex", alignItems: "center", justifyContent: "space-between",
+                          padding: "6px 10px", borderRadius: 6,
+                          background: info.matched ? "rgba(248,113,113,0.06)" : C.hover,
+                          border: `1px solid ${info.matched ? "rgba(248,113,113,0.2)" : C.border}`,
+                        }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: info.matched ? C.red : C.green, flexShrink: 0 }} />
+                            <span style={{ fontSize: 10, fontFamily: C.mono, color: C.text2 }}>{src}</span>
+                            {info.entity && <span style={{ fontSize: 10, fontFamily: C.mono, color: C.red }}>→ {info.entity}</span>}
+                          </div>
+                          <span style={{ fontSize: 11, fontFamily: C.mono, color: scoreColor(info.score), fontWeight: 600 }}>
+                            {info.score}/100
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-            ) : null;
+            );
           })()}
         </Card>
       )}

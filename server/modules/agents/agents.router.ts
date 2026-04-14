@@ -6,6 +6,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, analystProc, supervisorProc, adminProc } from "../../_core/trpc";
 import { getInstitutionFlags } from "../../_core/institution";
+import { createAuditFromContext } from "../../_core/audit";
 import {
   listAgents,
   getAgentById,
@@ -81,11 +82,16 @@ export const agentsRouter = router({
   adjustFloat: supervisorProc
     .input(z.object({
       agentId: z.number().int().positive(),
-      delta:   z.number(), // positif = approvisionnement, négatif = retrait
+      delta:   z.number(),
     }))
-    .mutation(({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       requireAgents();
-      return adjustFloat(input.agentId, input.delta);
+      const log = createAuditFromContext(ctx);
+      const result = await adjustFloat(input.agentId, input.delta);
+      await log({ action: "TRANSACTION_CREATED", entityType: "transaction",
+        entityId: String(input.agentId),
+        details: { agentId: input.agentId, delta: input.delta, action: "FLOAT_ADJUSTED" } });
+      return result;
     }),
 
   updateRisk: supervisorProc
@@ -94,9 +100,14 @@ export const agentsRouter = router({
       riskScore: z.number().int().min(0).max(100),
       riskFlags: z.unknown().optional(),
     }))
-    .mutation(({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       requireAgents();
-      return updateAgentRisk(input.agentId, input.riskScore, input.riskFlags);
+      const log = createAuditFromContext(ctx);
+      const result = await updateAgentRisk(input.agentId, input.riskScore, input.riskFlags);
+      await log({ action: "CUSTOMER_RISK_LEVEL_CHANGED", entityType: "customer",
+        entityId: String(input.agentId),
+        details: { agentId: input.agentId, riskScore: input.riskScore } });
+      return result;
     }),
 
   setActive: adminProc
@@ -104,9 +115,14 @@ export const agentsRouter = router({
       agentId:  z.number().int().positive(),
       isActive: z.boolean(),
     }))
-    .mutation(({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       requireAgents();
-      return setAgentActive(input.agentId, input.isActive);
+      const log = createAuditFromContext(ctx);
+      const result = await setAgentActive(input.agentId, input.isActive);
+      await log({ action: "USER_DEACTIVATED", entityType: "user",
+        entityId: String(input.agentId),
+        details: { agentId: input.agentId, isActive: input.isActive } });
+      return result;
     }),
 
   activity: analystProc

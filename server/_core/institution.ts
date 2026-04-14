@@ -25,6 +25,8 @@ const FLAGS_BY_TYPE: Record<InstitutionType, Omit<InstitutionFeatureFlags, "inst
     bamReports:             false,
     mobileConnectors:       false,
     agentNetwork:           false,
+    selfServicePortal:      false,
+    correspondentBanking:   true,    // banques classiques ont des correspondants SWIFT
   },
 
   MICROFINANCE: {
@@ -38,6 +40,8 @@ const FLAGS_BY_TYPE: Record<InstitutionType, Omit<InstitutionFeatureFlags, "inst
     bamReports:             false,
     mobileConnectors:       false,
     agentNetwork:           true,
+    selfServicePortal:      true,    // clients soumettent leurs docs en autonomie
+    correspondentBanking:   false,   // microfinance locale sans correspondants
   },
 
   PAYMENT_INSTITUTION: {
@@ -51,6 +55,8 @@ const FLAGS_BY_TYPE: Record<InstitutionType, Omit<InstitutionFeatureFlags, "inst
     bamReports:             true,
     mobileConnectors:       true,
     agentNetwork:           true,
+    selfServicePortal:      true,
+    correspondentBanking:   true,    // PI ont des partenaires bancaires à évaluer
   },
 };
 

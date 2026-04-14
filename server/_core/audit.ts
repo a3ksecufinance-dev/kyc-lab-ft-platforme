@@ -65,8 +65,18 @@ export type AuditAction =
   | "USER_ROLE_CHANGED"
   | "USER_DEACTIVATED"
   | "SYSTEM_HEALTH_CHECKED"
+  | "MFA_ADMIN_RESET"
   // ML
-  | "ML_RETRAIN_TRIGGERED";
+  | "ML_RETRAIN_TRIGGERED"
+  // Dual Control / Approvals (F6)
+  | "APPROVAL_REQUESTED"
+  | "APPROVAL_GRANTED"
+  | "APPROVAL_REJECTED"
+  // Correspondent Banking (F1)
+  | "CORRESPONDENT_CREATED"
+  | "CORRESPONDENT_ASSESSED"
+  | "CORRESPONDENT_APPROVED"
+  | "CORRESPONDENT_SUSPENDED";
 
 export type EntityType =
   | "user"
@@ -79,7 +89,9 @@ export type EntityType =
   | "screening"
   | "report"
   | "aml_rule"
-  | "system";
+  | "system"
+  | "approval"
+  | "correspondent_bank";
 
 export interface AuditEntry {
   userId?: number | null;

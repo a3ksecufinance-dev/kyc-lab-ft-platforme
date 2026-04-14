@@ -700,9 +700,11 @@ export const pkycSnapshots = pgTable("pkyc_snapshots", {
   baselineDays:     integer("baseline_days").default(30).notNull(),
   windowDays:       integer("window_days").default(7).notNull(),
 }, (t) => ({
-  customerIdx: index("pkyc_customer_idx").on(t.customerId),
-  dateIdx:     index("pkyc_date_idx").on(t.snapshotDate),
-  scoreIdx:    index("pkyc_score_idx").on(t.driftScore),
+  customerIdx:     index("pkyc_customer_idx").on(t.customerId),
+  dateIdx:         index("pkyc_date_idx").on(t.snapshotDate),
+  scoreIdx:        index("pkyc_score_idx").on(t.driftScore),
+  // F4 — index composé pour les requêtes de drift scoring par client + date
+  customerDateIdx: index("pkyc_customer_date_idx").on(t.customerId, t.snapshotDate),
 }));
 
 export type PkycSnapshot = typeof pkycSnapshots.$inferSelect;
@@ -806,6 +808,116 @@ export type InsertKycTierSnapshot = typeof kycTierSnapshots.$inferInsert;
 // Voir transactions dans schema.ts — on ne redéfinit pas la table ici,
 // on étend via un patch dans le bloc transactions ci-dessous.
 
+// ─── F6 — Dual Control / 4-eyes ──────────────────────────────────────────────
+// ACPR art.13 — toute décision critique (STR/SAR, case_decision) doit être
+// validée par un second utilisateur différent du demandeur.
+
+export const approvalStatusEnum = pgEnum("approval_status", [
+  "PENDING",
+  "APPROVED",
+  "REJECTED",
+  "EXPIRED",
+]);
+
+export const approvalActionEnum = pgEnum("approval_action", [
+  "SAR_TRANSMIT",
+  "CASE_DECIDE",
+  "CUSTOMER_BLOCK",
+  "WALLET_SUSPEND",
+]);
+
+export const approvalRequests = pgTable("approval_requests", {
+  id:             serial("id").primaryKey(),
+  action:         approvalActionEnum("action").notNull(),
+  entityType:     varchar("entity_type", { length: 50 }).notNull(),    // "case" | "report" | "customer" ...
+  entityId:       integer("entity_id").notNull(),
+  requestedBy:    integer("requested_by").notNull().references(() => users.id, { onDelete: "cascade" }),
+  reviewedBy:     integer("reviewed_by").references(() => users.id, { onDelete: "set null" }),
+  status:         approvalStatusEnum("status").notNull().default("PENDING"),
+  payload:        jsonb("payload"),                                      // snapshot des données au moment de la demande
+  requesterNote:  text("requester_note"),
+  reviewerNote:   text("reviewer_note"),
+  expiresAt:      timestamp("expires_at"),                              // auto-expiration après 48h
+  createdAt:      timestamp("created_at").defaultNow().notNull(),
+  reviewedAt:     timestamp("reviewed_at"),
+}, (t) => ({
+  entityIdx:      index("approvals_entity_idx").on(t.entityType, t.entityId),
+  statusIdx:      index("approvals_status_idx").on(t.status),
+  requesterIdx:   index("approvals_requester_idx").on(t.requestedBy),
+  pendingIdx:     index("approvals_pending_idx").on(t.status, t.expiresAt),
+}));
+
+export type ApprovalRequest       = typeof approvalRequests.$inferSelect;
+export type InsertApprovalRequest = typeof approvalRequests.$inferInsert;
+
+// ─── F1 — Correspondent Banking Risk (FATF R.13) ──────────────────────────────
+// Évaluation du risque des banques correspondantes.
+// Senior management approval obligatoire pour tout nouveau partenariat.
+
+export const correspondentRiskEnum = pgEnum("correspondent_risk", [
+  "LOW",
+  "MEDIUM",
+  "HIGH",
+  "UNACCEPTABLE",
+]);
+
+export const correspondentStatusEnum = pgEnum("correspondent_status", [
+  "ACTIVE",
+  "UNDER_REVIEW",
+  "SUSPENDED",
+  "TERMINATED",
+]);
+
+export const correspondentBanks = pgTable("correspondent_banks", {
+  id:                serial("id").primaryKey(),
+  name:              varchar("name", { length: 200 }).notNull(),
+  bic:               varchar("bic", { length: 20 }),
+  country:           varchar("country", { length: 3 }).notNull(),       // ISO 3166-1 alpha-3
+  jurisdiction:      varchar("jurisdiction", { length: 100 }),
+  amlRegulator:      varchar("aml_regulator", { length: 200 }),         // régulateur AML local
+  fatfStatus:        varchar("fatf_status", { length: 50 }),            // "compliant" | "grey_list" | "black_list"
+  riskScore:         integer("risk_score").notNull().default(50),       // 0-100
+  riskLevel:         correspondentRiskEnum("risk_level").notNull().default("MEDIUM"),
+  status:            correspondentStatusEnum("status").notNull().default("UNDER_REVIEW"),
+  onboardedBy:       integer("onboarded_by").references(() => users.id, { onDelete: "set null" }),
+  approvedBy:        integer("approved_by").references(() => users.id, { onDelete: "set null" }), // senior mgmt
+  nextReviewDate:    timestamp("next_review_date"),
+  notes:             text("notes"),
+  createdAt:         timestamp("created_at").defaultNow().notNull(),
+  updatedAt:         timestamp("updated_at").defaultNow().notNull(),
+}, (t) => ({
+  bicIdx:        index("corr_bic_idx").on(t.bic),
+  countryIdx:    index("corr_country_idx").on(t.country),
+  riskIdx:       index("corr_risk_idx").on(t.riskLevel),
+  reviewIdx:     index("corr_review_idx").on(t.nextReviewDate),
+}));
+
+export type CorrespondentBank       = typeof correspondentBanks.$inferSelect;
+export type InsertCorrespondentBank = typeof correspondentBanks.$inferInsert;
+
+export const correspondentAssessments = pgTable("correspondent_assessments", {
+  id:              serial("id").primaryKey(),
+  bankId:          integer("bank_id").notNull().references(() => correspondentBanks.id, { onDelete: "cascade" }),
+  assessedBy:      integer("assessed_by").notNull().references(() => users.id, { onDelete: "cascade" }),
+  riskScore:       integer("risk_score").notNull(),
+  riskLevel:       correspondentRiskEnum("risk_level").notNull(),
+  // Critères FATF R.13
+  amlFrameworkScore:    integer("aml_framework_score").notNull().default(0),    // 0-25
+  ownershipTranspScore: integer("ownership_transp_score").notNull().default(0), // 0-25
+  supervisoryScore:     integer("supervisory_score").notNull().default(0),      // 0-25
+  sanctionsRiskScore:   integer("sanctions_risk_score").notNull().default(0),   // 0-25
+  findings:             text("findings"),
+  recommendation:       varchar("recommendation", { length: 50 }),              // "approve" | "conditional" | "reject"
+  approvalRequestId:    integer("approval_request_id").references(() => approvalRequests.id, { onDelete: "set null" }),
+  createdAt:            timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  bankIdx: index("corr_assess_bank_idx").on(t.bankId),
+  dateIdx: index("corr_assess_date_idx").on(t.createdAt),
+}));
+
+export type CorrespondentAssessment       = typeof correspondentAssessments.$inferSelect;
+export type InsertCorrespondentAssessment = typeof correspondentAssessments.$inferInsert;
+
 // ─── Relations Drizzle ────────────────────────────────────────────────────────
 
 export const customersRelations = relations(customers, ({ many, one }) => ({
@@ -846,4 +958,21 @@ export const casesRelations = relations(cases, ({ one, many }) => ({
   customer: one(customers, { fields: [cases.customerId], references: [customers.id] }),
   assignedUser: one(users, { fields: [cases.assignedTo], references: [users.id] }),
   timeline: many(caseTimeline),
+}));
+
+export const approvalRequestsRelations = relations(approvalRequests, ({ one }) => ({
+  requester: one(users, { fields: [approvalRequests.requestedBy], references: [users.id] }),
+  reviewer:  one(users, { fields: [approvalRequests.reviewedBy],  references: [users.id] }),
+}));
+
+export const correspondentBanksRelations = relations(correspondentBanks, ({ one, many }) => ({
+  onboardedByUser: one(users, { fields: [correspondentBanks.onboardedBy], references: [users.id] }),
+  approvedByUser:  one(users, { fields: [correspondentBanks.approvedBy],  references: [users.id] }),
+  assessments:     many(correspondentAssessments),
+}));
+
+export const correspondentAssessmentsRelations = relations(correspondentAssessments, ({ one }) => ({
+  bank:           one(correspondentBanks,  { fields: [correspondentAssessments.bankId],          references: [correspondentBanks.id] }),
+  assessedByUser: one(users,               { fields: [correspondentAssessments.assessedBy],      references: [users.id] }),
+  approvalRequest:one(approvalRequests,    { fields: [correspondentAssessments.approvalRequestId], references: [approvalRequests.id] }),
 }));

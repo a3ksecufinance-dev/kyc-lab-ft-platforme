@@ -20,10 +20,16 @@ import { DocumentsPage }      from "./pages/DocumentsPage";
 import { NetworkPage }        from "./pages/NetworkPage";
 import { PkycPage }           from "./pages/PkycPage";
 import { ResetPasswordPage }  from "./pages/ResetPasswordPage";
-import { WalletsPage }        from "./pages/WalletsPage";
+import { WalletsPage }           from "./pages/WalletsPage";
+import { WalletCompliancePage }  from "./pages/WalletCompliancePage";
 import { AgentsPage }         from "./pages/AgentsPage";
 import { BamReportsPage }     from "./pages/BamReportsPage";
 import { CbsSimulatorPage }   from "./pages/CbsSimulatorPage";
+import { SlaMonitoringPage }  from "./pages/SlaMonitoringPage";
+import { TravelRulePage }     from "./pages/TravelRulePage";
+import { CustomerPortalPage } from "./pages/CustomerPortalPage";
+import { AuditPage }          from "./pages/AuditPage";
+import { CorrespondentPage }  from "./pages/CorrespondentPage";
 
 function PrivateRoute({ component: Component, minRole }: {
   component: () => ReactElement;
@@ -63,9 +69,15 @@ export function App() {
       <Route path="/pkyc"          component={() => <PrivateRoute component={PkycPage} minRole="analyst" />} />
       <Route path="/mfa"           component={() => <PrivateRoute component={MfaSettingsPage} />} />
       <Route path="/admin"        component={() => <PrivateRoute component={AdminPage} minRole="admin" />} />
-      <Route path="/wallets"      component={() => <PrivateRoute component={WalletsPage} minRole="analyst" />} />
+      <Route path="/wallets"             component={() => <PrivateRoute component={WalletsPage}          minRole="analyst" />} />
+      <Route path="/wallet-compliance"  component={() => <PrivateRoute component={WalletCompliancePage} minRole="analyst" />} />
       <Route path="/agents"       component={() => <PrivateRoute component={AgentsPage}  minRole="analyst" />} />
       <Route path="/bam"          component={() => <PrivateRoute component={BamReportsPage} minRole="compliance_officer" />} />
+      <Route path="/sla"          component={() => <PrivateRoute component={SlaMonitoringPage} minRole="analyst" />} />
+      <Route path="/travel-rule"  component={() => <PrivateRoute component={TravelRulePage} minRole="compliance_officer" />} />
+      <Route path="/portal"       component={() => <PrivateRoute component={CustomerPortalPage} />} />
+      <Route path="/audit"         component={() => <PrivateRoute component={AuditPage} minRole="supervisor" />} />
+      <Route path="/correspondent" component={() => <PrivateRoute component={CorrespondentPage} minRole="analyst" />} />
 
       {/* Route publique — simulateur CBS (pas d'auth requise) */}
       <Route path="/cbs" component={CbsSimulatorPage} />

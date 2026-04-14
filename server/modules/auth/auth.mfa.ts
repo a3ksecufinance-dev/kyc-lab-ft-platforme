@@ -190,11 +190,21 @@ export async function confirmMfaSetup(userId: number, code: string): Promise<{
   const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
   if (!user?.mfaSecret) throw new Error("Aucun setup MFA en cours — relancer la configuration");
 
-  const secret = await decryptSecret(user.mfaSecret);
+  let secret: string;
+  try {
+    secret = await decryptSecret(user.mfaSecret);
+  } catch {
+    // AES-GCM auth tag failure : la clé de chiffrement a changé (hot-reload, .env modifié,
+    // ancien secret stocké avec une clé différente). On efface le secret corrompu
+    // pour permettre de relancer la configuration proprement.
+    await db.update(users).set({ mfaSecret: null, updatedAt: new Date() }).where(eq(users.id, userId));
+    log.error({ userId }, "Déchiffrement secret MFA échoué — secret effacé, reconfiguration requise");
+    throw new Error("Erreur de chiffrement MFA — cliquez à nouveau sur « Activer MFA » pour relancer la configuration");
+  }
 
   // Vérifier le code TOTP avec fenêtre ±1
   const valid = await verifyTotpCode(secret, code);
-  if (!valid) throw new Error("Code invalide — vérifier l'heure de votre appareil");
+  if (!valid) throw new Error("Code invalide — vérifiez l'heure de votre appareil et réessayez");
 
   // Générer et hacher les codes de secours
   const plainCodes  = generateBackupCodes(8);
@@ -284,7 +294,13 @@ export async function regenerateBackupCodes(userId: number, totpCode: string): P
   const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
   if (!user?.mfaEnabled || !user.mfaSecret) throw new Error("MFA non activé");
 
-  const secret = await decryptSecret(user.mfaSecret);
+  let secret: string;
+  try {
+    secret = await decryptSecret(user.mfaSecret);
+  } catch {
+    log.error({ userId }, "Déchiffrement secret MFA échoué lors de la régénération des codes");
+    throw new Error("Erreur de chiffrement MFA — désactivez puis réactivez le MFA pour corriger");
+  }
   if (!await verifyTotpCode(secret, totpCode)) throw new Error("Code TOTP invalide");
 
   const plainCodes  = generateBackupCodes(8);

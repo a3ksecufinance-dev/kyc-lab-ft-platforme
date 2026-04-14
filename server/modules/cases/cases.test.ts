@@ -14,6 +14,9 @@ vi.mock("./cases.repository", () => ({
   getCaseStats: vi.fn(),
   findTimelineByCase: vi.fn(),
 }));
+vi.mock("../customers/customers.repository", () => ({
+  requireCustomer: vi.fn().mockResolvedValue({ id: 1 }),
+}));
 
 import * as repo from "./cases.repository";
 import {

@@ -113,11 +113,16 @@ const envSchema = z.object({
   S3_SIGNED_URL_EXPIRES: z.coerce.number().int().positive().default(3600), // secondes (1h)
 
   // Télédéclaration TRACFIN / GoAML
-  TRANSMISSION_MODE:   z.enum(["SIMULATION", "TRACFIN_PORTAL", "GOAML_DIRECT"]).default("SIMULATION"),
+  TRANSMISSION_MODE:   z.enum(["SIMULATION", "TRACFIN_PORTAL", "GOAML_DIRECT", "GOAML_BAM"]).default("SIMULATION"),
   TRACFIN_API_URL:     z.string().url().optional().or(z.literal("").transform(() => undefined)),
   TRACFIN_API_KEY:     z.string().optional(),
   TRACFIN_ENTITY_ID:   z.string().default("SIMU-0000"),
   GOAML_API_URL:       z.string().url().optional().or(z.literal("").transform(() => undefined)),
+  // GoAML BAM — Bank Al-Maghrib (OAuth2 client credentials + numérotation séquentielle ANRF)
+  GOAML_BAM_URL:           z.string().url().optional().or(z.literal("").transform(() => undefined)),
+  GOAML_BAM_CLIENT_ID:     z.string().optional(),
+  GOAML_BAM_CLIENT_SECRET: z.string().optional(),
+  GOAML_BAM_ENTITY_CODE:   z.string().default("EST"),
   // Identité de l'entité déclarante (obligatoire pour le XML)
   ORG_NAME:            z.string().default("Établissement Financier KYC"),
   ORG_ADDRESS:         z.string().default("1 Rue de la Compliance"),
@@ -149,7 +154,7 @@ const envSchema = z.object({
   CORS_ORIGINS: z.string().default("http://localhost:5173,http://localhost:3000"),
 
   // Logs
-  LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal"]).default("info"),
+  LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"]).default("info"),
   LOG_FORMAT: z.enum(["pretty", "json"]).default("pretty"),
 });
 

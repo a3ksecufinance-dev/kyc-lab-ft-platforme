@@ -9,6 +9,35 @@ import {
   type Customer,
   type InsertCustomer,
 } from "../../../drizzle/schema";
+import { encryptPii, decryptPii, piiEncryptionEnabled } from "../../_core/pii";
+
+// ─── Champs PII chiffrés au repos ─────────────────────────────────────────────
+// firstName/lastName/email restent en clair (nécessaires pour la recherche LIKE)
+// phone/dateOfBirth/address/nationality chiffrés (pas de recherche LIKE dessus)
+const PII_FIELDS_ENCRYPTED = ["phone", "dateOfBirth", "address"] as const;
+type PiiField = (typeof PII_FIELDS_ENCRYPTED)[number];
+
+function encryptCustomerPii<T extends Partial<Record<PiiField, string | null | undefined>>>(data: T): T {
+  if (!piiEncryptionEnabled()) return data;
+  const result = { ...data };
+  for (const field of PII_FIELDS_ENCRYPTED) {
+    if (field in result) {
+      const val = result[field];
+      if (typeof val === "string") (result as Record<string, unknown>)[field] = encryptPii(val);
+    }
+  }
+  return result;
+}
+
+function decryptCustomerPii(customer: Customer): Customer {
+  if (!piiEncryptionEnabled()) return customer;
+  return {
+    ...customer,
+    phone:       decryptPii(customer.phone       ?? undefined) || customer.phone,
+    dateOfBirth: decryptPii(customer.dateOfBirth ?? undefined) || customer.dateOfBirth,
+    address:     decryptPii(customer.address     ?? undefined) || customer.address,
+  };
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -95,7 +124,7 @@ export async function findManyCustomers(input: ListCustomersInput) {
   const total = countResult[0]?.total ?? 0;
 
   return {
-    data,
+    data: data.map(decryptCustomerPii),
     total: Number(total),
     page: input.page,
     limit: input.limit,
@@ -109,7 +138,17 @@ export async function findCustomerById(id: number): Promise<Customer | null> {
     .from(customers)
     .where(eq(customers.id, id))
     .limit(1);
-  return customer ?? null;
+  return customer ? decryptCustomerPii(customer) : null;
+}
+
+/** Throws TRPCError NOT_FOUND if the customer does not exist — use before FK-constrained inserts */
+export async function requireCustomer(id: number): Promise<Customer> {
+  const customer = await findCustomerById(id);
+  if (!customer) {
+    const { TRPCError } = await import("@trpc/server");
+    throw new TRPCError({ code: "NOT_FOUND", message: `Client #${id} introuvable` });
+  }
+  return customer;
 }
 
 export async function findCustomerByCustomerId(customerId: string): Promise<Customer | null> {
@@ -124,25 +163,27 @@ export async function findCustomerByCustomerId(customerId: string): Promise<Cust
 export async function insertCustomer(
   values: InsertCustomer
 ): Promise<Customer> {
+  const encrypted = encryptCustomerPii(values as Record<string, unknown>) as InsertCustomer;
   const [customer] = await db
     .insert(customers)
-    .values(values)
+    .values(encrypted)
     .returning();
   if (!customer) throw new Error("Échec insertion customer");
-  return customer;
+  return decryptCustomerPii(customer);
 }
 
 export async function updateCustomer(
   id: number,
   values: UpdateCustomerInput
 ): Promise<Customer> {
+  const encrypted = encryptCustomerPii(values);
   const [updated] = await db
     .update(customers)
-    .set({ ...values, updatedAt: new Date() })
+    .set({ ...encrypted, updatedAt: new Date() })
     .where(eq(customers.id, id))
     .returning();
   if (!updated) throw new Error(`Customer ${id} introuvable`);
-  return updated;
+  return decryptCustomerPii(updated);
 }
 
 export async function getCustomerStats() {

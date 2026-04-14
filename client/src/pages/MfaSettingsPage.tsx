@@ -188,7 +188,7 @@ export function MfaSettingsPage() {
         )}
 
         {/* ── Étape configuration ── */}
-        {step === "setup" && qrData && (
+        {step === "setup" && (qrData !== null || mfaEnabled) && (
           <div className="bg-[#0d1117] border border-[#21262d] rounded-lg overflow-hidden">
             <div className="px-5 py-4 border-b border-[#21262d]">
               <h3 className="text-sm font-semibold text-[#e6edf3] font-mono">
@@ -197,7 +197,7 @@ export function MfaSettingsPage() {
             </div>
 
             <div className="p-5 space-y-5">
-              {!mfaEnabled && (
+              {!mfaEnabled && qrData && (
                 <>
                   <div>
                     <p className="text-xs font-mono text-[#7d8590] mb-3">

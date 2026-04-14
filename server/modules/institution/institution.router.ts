@@ -32,6 +32,8 @@ export const institutionRouter = router({
         bamReports:             flags.bamReports,
         mobileConnectors:       flags.mobileConnectors,
         agentNetwork:           flags.agentNetwork,
+        selfServicePortal:      flags.selfServicePortal,
+        correspondentBanking:   flags.correspondentBanking,
       },
     };
   }),

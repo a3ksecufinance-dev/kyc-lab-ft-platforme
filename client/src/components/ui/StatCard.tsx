@@ -6,111 +6,143 @@ interface StatCardProps {
   sub?:    string;
   icon?:   LucideIcon;
   accent?: "default" | "danger" | "warning" | "success";
+  trend?:  "up" | "down" | "flat";
 }
 
-const ACCENT_TOP: Record<string, string> = {
-  default: "linear-gradient(90deg, var(--wr-gold), rgba(212,175,55,0.05))",
-  danger:  "linear-gradient(90deg, #F87171, rgba(248,113,113,0.05))",
-  warning: "linear-gradient(90deg, #FB923C, rgba(251,146,60,0.05))",
-  success: "linear-gradient(90deg, #34D399, rgba(52,211,153,0.05))",
+const ACCENT_LINE: Record<string, string> = {
+  default: "linear-gradient(90deg, var(--wr-gold), rgba(201,162,39,0.06))",
+  danger:  "linear-gradient(90deg, #FF6570, rgba(255,101,112,0.06))",
+  warning: "linear-gradient(90deg, #F59E0B, rgba(245,158,11,0.06))",
+  success: "linear-gradient(90deg, #2DD4A0, rgba(45,212,160,0.06))",
 };
 
-const ICON_COLORS: Record<string, { bg: string; color: string }> = {
-  default: { bg: "var(--wr-accent-muted)",     color: "var(--wr-gold)" },
-  danger:  { bg: "rgba(248,113,113,0.1)",       color: "var(--wr-red)" },
-  warning: { bg: "rgba(251,146,60,0.1)",        color: "var(--wr-amber)" },
-  success: { bg: "rgba(52,211,153,0.1)",        color: "var(--wr-green)" },
+const ACCENT_GLOW: Record<string, string> = {
+  default: "rgba(201,162,39,0.10)",
+  danger:  "rgba(255,101,112,0.10)",
+  warning: "rgba(245,158,11,0.10)",
+  success: "rgba(45,212,160,0.10)",
+};
+
+const ICON_STYLES: Record<string, { bg: string; color: string; border: string }> = {
+  default: { bg: "rgba(201,162,39,0.09)",   color: "var(--wr-gold)",  border: "rgba(201,162,39,0.18)"  },
+  danger:  { bg: "rgba(255,101,112,0.09)",  color: "#FF6570",         border: "rgba(255,101,112,0.18)" },
+  warning: { bg: "rgba(245,158,11,0.09)",   color: "#F59E0B",         border: "rgba(245,158,11,0.18)"  },
+  success: { bg: "rgba(45,212,160,0.09)",   color: "#2DD4A0",         border: "rgba(45,212,160,0.18)"  },
 };
 
 const VALUE_COLORS: Record<string, string> = {
   default: "var(--wr-text-1)",
-  danger:  "var(--wr-red)",
-  warning: "var(--wr-amber)",
-  success: "var(--wr-green)",
+  danger:  "#FF6570",
+  warning: "#F59E0B",
+  success: "#2DD4A0",
+};
+
+const HOVER_BORDER: Record<string, string> = {
+  default: "rgba(201,162,39,0.22)",
+  danger:  "rgba(255,101,112,0.22)",
+  warning: "rgba(245,158,11,0.22)",
+  success: "rgba(45,212,160,0.22)",
 };
 
 export function StatCard({ label, value, sub, icon: Icon, accent = "default" }: StatCardProps) {
-  const ic = ICON_COLORS[accent] ?? ICON_COLORS["default"]!;
+  const ic   = ICON_STYLES[accent]   ?? ICON_STYLES["default"]!;
+  const glow = ACCENT_GLOW[accent]   ?? ACCENT_GLOW["default"]!;
+  const hBorder = HOVER_BORDER[accent] ?? HOVER_BORDER["default"]!;
+
   return (
-    <div style={{
-      position: "relative",
-      background: "var(--wr-card)",
-      border: "1px solid var(--wr-border)",
-      borderRadius: 10,
-      padding: "16px 18px",
-      overflow: "hidden",
-      cursor: "default",
-      transition: "border-color 0.2s, box-shadow 0.2s",
-      boxShadow: "var(--wr-shadow-sm)",
-    }}
-    onMouseEnter={e => {
-      (e.currentTarget as HTMLElement).style.borderColor = "var(--wr-accent-border)";
-      (e.currentTarget as HTMLElement).style.boxShadow = "var(--wr-shadow-md)";
-    }}
-    onMouseLeave={e => {
-      (e.currentTarget as HTMLElement).style.borderColor = "var(--wr-border)";
-      (e.currentTarget as HTMLElement).style.boxShadow = "var(--wr-shadow-sm)";
-    }}
+    <div
+      style={{
+        position: "relative",
+        background: "var(--wr-card)",
+        border: "1px solid var(--wr-border)",
+        borderRadius: 11,
+        padding: "18px 18px 16px",
+        overflow: "hidden",
+        cursor: "default",
+        transition: "border-color 0.2s, box-shadow 0.2s, transform 0.2s",
+        boxShadow: "var(--wr-shadow-sm), var(--wr-shadow-inset)",
+      }}
+      onMouseEnter={e => {
+        const el = e.currentTarget as HTMLElement;
+        el.style.borderColor = hBorder;
+        el.style.boxShadow = `0 0 0 1px ${glow}, var(--wr-shadow-md), var(--wr-shadow-inset)`;
+        el.style.transform = "translateY(-1px)";
+      }}
+      onMouseLeave={e => {
+        const el = e.currentTarget as HTMLElement;
+        el.style.borderColor = "var(--wr-border)";
+        el.style.boxShadow = "var(--wr-shadow-sm), var(--wr-shadow-inset)";
+        el.style.transform = "translateY(0)";
+      }}
     >
-      {/* Barre accent haut */}
+      {/* Top accent line */}
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, height: 2,
-        background: ACCENT_TOP[accent],
+        background: ACCENT_LINE[accent],
       }} />
 
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+      {/* Background gradient glow */}
+      <div style={{
+        position: "absolute", top: 0, left: 0, width: "60%", height: "100%",
+        background: `radial-gradient(ellipse at 0% 0%, ${glow} 0%, transparent 70%)`,
+        pointerEvents: "none",
+      }} />
+
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, position: "relative" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           {/* Label */}
           <p style={{
-            fontSize: 10,
+            fontSize: 9.5,
             fontFamily: "var(--wr-font-mono)",
-            letterSpacing: "0.14em",
+            letterSpacing: "0.16em",
             textTransform: "uppercase",
             color: "var(--wr-text-3)",
-            margin: "0 0 10px",
+            margin: "0 0 12px",
+            fontWeight: 600,
           }}>
             {label}
           </p>
 
-          {/* Valeur */}
+          {/* Value */}
           <p style={{
-            fontSize: 28,
+            fontSize: 30,
             fontWeight: 600,
             fontFamily: "var(--wr-font-serif)",
             color: VALUE_COLORS[accent],
             lineHeight: 1,
-            margin: "0 0 6px",
-            letterSpacing: "-0.5px",
+            margin: "0 0 8px",
+            letterSpacing: "-0.8px",
           }}>
             {value}
           </p>
 
-          {/* Sous-titre */}
+          {/* Sub */}
           {sub && (
             <p style={{
-              fontSize: 11,
+              fontSize: 10.5,
               fontFamily: "var(--wr-font-mono)",
               color: "var(--wr-text-4)",
               margin: 0,
+              letterSpacing: "0.02em",
             }}>
               {sub}
             </p>
           )}
         </div>
 
-        {/* Icône */}
+        {/* Icon */}
         {Icon && (
           <div style={{
-            width: 36, height: 36,
-            borderRadius: 8,
+            width: 38, height: 38,
+            borderRadius: 9,
             background: ic.bg,
-            border: `1px solid ${ic.color}22`,
+            border: `1px solid ${ic.border}`,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             flexShrink: 0,
           }}>
-            <Icon size={15} style={{ color: ic.color }} />
+            <Icon size={16} style={{ color: ic.color }} />
           </div>
         )}
       </div>

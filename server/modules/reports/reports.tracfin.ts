@@ -16,10 +16,11 @@
  * pour le dev/staging et les hooks pour la prod.
  */
 
-import { redis } from "../../_core/redis";
-import { createLogger } from "../../_core/logger";
-import { validateGoAmlXml } from "./reports.goaml";
-import { ENV } from "../../_core/env";
+import { redis }                    from "../../_core/redis";
+import { createLogger }             from "../../_core/logger";
+import { validateGoAmlXml }         from "./reports.goaml";
+import { transmitBamStr }           from "./reports.goaml-bam";
+import { ENV }                      from "../../_core/env";
 
 const log = createLogger("tracfin-connector");
 
@@ -31,7 +32,8 @@ const TRACFIN_ENTITY_ID   = ENV.TRACFIN_ENTITY_ID;
 const GOAML_ENDPOINT      = ENV.GOAML_API_URL      ?? "";
 const TRANSMISSION_MODE   = ENV.TRANSMISSION_MODE  as TransmissionMode;
 
-type TransmissionMode = "SIMULATION" | "TRACFIN_PORTAL" | "GOAML_DIRECT";
+// GOAML_BAM = transmission réelle vers Bank Al-Maghrib (GoAML v5 + OAuth2)
+type TransmissionMode = "SIMULATION" | "TRACFIN_PORTAL" | "GOAML_DIRECT" | "GOAML_BAM";
 
 const REDIS_PREFIX = "tracfin:transmission:";
 
@@ -304,6 +306,35 @@ async function transmitGoAml(
 
 // ─── Fonction principale ──────────────────────────────────────────────────────
 
+// ─── Mode GOAML_BAM — Bank Al-Maghrib (OAuth2 + retry + DLQ) ─────────────────
+
+async function transmitBam(
+  reportId: string,
+  xml:      string,
+  checksum: string,
+): Promise<TransmissionResult> {
+  const bam = await transmitBamStr(reportId, xml, checksum, "STR");
+
+  const result: TransmissionResult = {
+    success:        bam.success,
+    reportId,
+    transmissionId: bam.uploadId ?? `BAM-${Date.now()}`,
+    fiuRefNumber:   bam.bamRef,
+    mode:           "GOAML_BAM" as TransmissionMode,
+    sentAt:         bam.sentAt,
+    acknowledgedAt: bam.validatedAt,
+    status:         bam.success ? "ACKNOWLEDGED"
+                  : bam.status === "ERROR" ? "ERROR"
+                  : "SENT",
+    ...(bam.errorMessage ? { errorMessage: bam.errorMessage } : {}),
+    xmlChecksum:    checksum,
+    xmlSize:        xml.length,
+  };
+
+  await storeTransmission(result);
+  return result;
+}
+
 export async function transmitReport(
   reportId: string,
   xml:      string,
@@ -320,6 +351,7 @@ export async function transmitReport(
   switch (TRANSMISSION_MODE) {
     case "TRACFIN_PORTAL": return transmitTracfin(reportId, xml, checksum);
     case "GOAML_DIRECT":   return transmitGoAml(reportId, xml, checksum);
+    case "GOAML_BAM":      return transmitBam(reportId, xml, checksum);
     case "SIMULATION":
     default:               return transmitSimulated(reportId, xml, checksum);
   }

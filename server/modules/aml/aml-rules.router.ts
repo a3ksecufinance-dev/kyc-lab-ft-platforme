@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, analystProc, supervisorProc, adminProc } from "../../_core/trpc";
 import { createAuditFromContext } from "../../_core/audit";
+import { explainTransaction } from "./ml-explain.service";
 import { runBacktest } from "./aml-rules.backtest";
 import {
   getAllRules,
@@ -313,5 +314,17 @@ export const amlRulesRouter = router({
       }
 
       return { success: true, message: "Feedback enregistré" };
+    }),
+
+  // ── XAI — Explication ML (RGPD Art.22 / AMLD6 Art.8) ─────────────────────────
+
+  explainTx: analystProc
+    .input(z.object({ transactionDbId: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const result = await explainTransaction(input.transactionDbId);
+      if (!result) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Transaction introuvable pour explication ML" });
+      }
+      return result;
     }),
 });

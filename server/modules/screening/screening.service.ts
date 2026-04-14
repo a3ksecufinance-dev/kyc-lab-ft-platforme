@@ -10,7 +10,7 @@ import {
   updateScreeningDecision,
   getPendingScreenings,
 } from "./screening.repository";
-import { updateCustomer } from "../customers/customers.repository";
+import { updateCustomer, requireCustomer } from "../customers/customers.repository";
 
 const log = createLogger("screening");
 
@@ -30,6 +30,8 @@ export async function screenCustomer(
   sanctionsResult: Awaited<ReturnType<typeof insertScreeningResult>>;
   status:          "CLEAR" | "MATCH" | "REVIEW";
 }> {
+  await requireCustomer(customerId);
+
   const entities        = await getSanctionLists();
   const matchThreshold  = ENV.SCREENING_MATCH_THRESHOLD;
   const reviewThreshold = ENV.SCREENING_REVIEW_THRESHOLD;

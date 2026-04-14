@@ -1048,15 +1048,19 @@ type TransmitDeclarant = {
   declarantEmail:     string;
 };
 
-type TransmitResult = {
-  reportId:       string;
-  transmissionId: string;
-  fiuRefNumber:   string | null;
-  status:         string;
-  mode:           string;
-  xmlChecksum:    string;
-  xmlSize:        number;
-};
+type TransmitResult =
+  | { requiresApproval: true; approvalId: number }
+  | {
+      requiresApproval: false;
+      approvalId:       null;
+      reportId:         string;
+      transmissionId:   string;
+      fiuRefNumber:     string | null;
+      status:           string;
+      mode:             string;
+      xmlChecksum:      string;
+      xmlSize:          number;
+    };
 
 function TransmitModal({ report, onClose, onConfirm, isPending, result, error }: {
   report:     Report;
@@ -1079,6 +1083,28 @@ function TransmitModal({ report, onClose, onConfirm, isPending, result, error }:
                 && declarant.declarantEmail.includes("@");
 
   const transmitInputStyle: React.CSSProperties = { ...inputStyle };
+
+  // Dual Control — approbation requise
+  if (result?.requiresApproval) {
+    return (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 16 }}>
+        <div style={{ background: C.surface, border: `1px solid ${C.amber}50`, borderRadius: 12, padding: 24, width: "100%", maxWidth: 420 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+            <span style={{ fontSize: 16 }}>⏳</span>
+            <h3 style={{ fontSize: 13, fontWeight: 600, fontFamily: C.mono, color: C.amber, margin: 0 }}>
+              Approbation requise (4 yeux)
+            </h3>
+          </div>
+          <p style={{ fontSize: 12, color: C.text3, marginBottom: 12 }}>
+            Une demande d&apos;approbation a été créée (ID: {result.approvalId}). Un second compliance officer doit valider avant transmission.
+          </p>
+          <button onClick={onClose} style={{ width: "100%", padding: "8px", background: `${C.amber}20`, border: `1px solid ${C.amber}40`, borderRadius: 6, color: C.amber, fontSize: 12, cursor: "pointer" }}>
+            Fermer
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Après transmission réussie — afficher le résultat
   if (result) {

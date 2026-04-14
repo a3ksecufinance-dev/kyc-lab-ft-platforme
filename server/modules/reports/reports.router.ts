@@ -19,6 +19,7 @@ import {
 import { updateReport } from "./reports.repository";
 import { generateGoAmlXml } from "./reports.goaml";
 import { transmitReport, getTransmissionStatus, getTransmissionMode } from "./reports.tracfin";
+import { createApprovalRequest, getPendingApproval } from "../approvals/approvals.service";
 import { findCustomerById } from "../customers/customers.repository";
 import { findTransactionsByCustomer } from "../customers/customers.repository";
 import { ENV } from "../../_core/env";
@@ -239,6 +240,30 @@ export const reportsRouter = router({
     .mutation(async ({ input, ctx }) => {
       const log = createAuditFromContext(ctx);
 
+      // ── 4-eyes gate : transmission SAR/STR exige approbation préalable ──────
+      const existingApproval = await getPendingApproval("report", input.id);
+      if (!existingApproval) {
+        const req = await createApprovalRequest({
+          action:      "SAR_TRANSMIT",
+          entityType:  "report",
+          entityId:    input.id,
+          requestedBy: ctx.user.id,
+          payload:     { declarantEmail: input.declarantEmail },
+        });
+        await log({ action: "REPORT_SUBMITTED", entityType: "report",
+          entityId: String(input.id),
+          details: { dualControl: "requested", approvalId: req.id } });
+        return { requiresApproval: true as const, approvalId: req.id };
+      }
+      if (existingApproval.status === "PENDING") {
+        return { requiresApproval: true as const, approvalId: existingApproval.id };
+      }
+      if (existingApproval.status === "REJECTED") {
+        throw new Error("La transmission a été rejetée par le second valideur");
+      }
+      // status === "APPROVED" → continuer
+
+
       // Charger le rapport
       const report = await getReportOrThrow(input.id);
       if (report.status !== "SUBMITTED" && report.status !== "APPROVED") {
@@ -307,14 +332,16 @@ export const reportsRouter = router({
       });
 
       return {
-        reportId:       report.reportId,
-        transmissionId: result.transmissionId,
-        fiuRefNumber:   result.fiuRefNumber,
-        status:         result.status,
-        mode:           result.mode,
-        sentAt:         result.sentAt,
-        xmlChecksum:    result.xmlChecksum,
-        xmlSize:        result.xmlSize,
+        requiresApproval: false as const,
+        approvalId:       null,
+        reportId:         report.reportId,
+        transmissionId:   result.transmissionId,
+        fiuRefNumber:     result.fiuRefNumber,
+        status:           result.status,
+        mode:             result.mode,
+        sentAt:           result.sentAt,
+        xmlChecksum:      result.xmlChecksum,
+        xmlSize:          result.xmlSize,
       };
     }),
 

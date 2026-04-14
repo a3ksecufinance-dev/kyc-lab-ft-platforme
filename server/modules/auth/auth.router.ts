@@ -6,7 +6,6 @@ import { redis } from "../../_core/redis";
 import {
   loginUser,
   loginAfterMfa,
-  registerUser,
   refreshTokens,
   logoutUser,
   changePassword,
@@ -122,38 +121,6 @@ export const authRouter = router({
         tokens,
       };
     }),
-  register: publicProc
-    .input(
-      z.object({
-        email: z.string().email("Email invalide"),
-        password: z
-          .string()
-          .min(8, "Minimum 8 caractères")
-          .regex(/[A-Z]/, "Doit contenir une majuscule")
-          .regex(/[0-9]/, "Doit contenir un chiffre"),
-        name: z.string().min(2, "Nom trop court").max(200),
-      })
-    )
-    .mutation(async ({ input, ctx }) => {
-      const user = await registerUser(input);
-
-      await audit({
-        userId: user.id,
-        action: "AUTH_LOGIN",
-        entityType: "user",
-        entityId: user.id,
-        ipAddress: ctx.req.ip ?? null,
-        details: { email: user.email },
-      });
-
-      return {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-      };
-    }),
-
   /**
    * Renouveler les tokens
    */

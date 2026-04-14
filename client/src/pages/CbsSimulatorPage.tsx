@@ -117,6 +117,13 @@ interface FormData {
   monthlyIncome: string;
 }
 
+interface DocEntry {
+  id:      string;   // uuid local
+  file:    File;
+  docType: string;
+  preview: string;   // URL.createObjectURL
+}
+
 const INIT: FormData = {
   docType: "CIN", docNumber: "", firstName: "", lastName: "",
   dateOfBirth: "", nationality: "MA", phone: "", email: "",
@@ -132,7 +139,8 @@ function StepBar({ current }: { current: number }) {
     { n: 1, label: "Identification" },
     { n: 2, label: "Produit" },
     { n: 3, label: "Compléments" },
-    { n: 4, label: "Transmission" },
+    { n: 4, label: "Documents" },
+    { n: 5, label: "Transmission" },
   ];
   return (
     <div style={{ display: "flex", alignItems: "center", padding: "20px 32px", background: C.bgCard, borderBottom: `1px solid ${C.border}` }}>
@@ -201,9 +209,12 @@ export function CbsSimulatorPage() {
   const [authError, setAuthError]     = useState("");
   const [step, setStep]               = useState(1);
   const [form, setForm]               = useState<FormData>(INIT);
+  const [docs, setDocs]               = useState<DocEntry[]>([]);
+  const [addingDocType, setAddingDocType] = useState("IDENTITY");
+  const [dragOver, setDragOver]       = useState(false);
   const [submitting, setSubmitting]   = useState(false);
   const [submitError, setSubmitError] = useState("");
-  const [result, setResult]           = useState<{ customerId: number; customerRef: string; walletId?: number; txRef?: string; isSuspicious?: boolean } | null>(null);
+  const [result, setResult]           = useState<{ customerId: number; customerRef: string; walletId?: number; txRef?: string; isSuspicious?: boolean; uploadedDocs: number } | null>(null);
   const [attestation, setAttestation] = useState(false);
 
   // ── tRPC mutations ──────────────────────────────────────────────────────────
@@ -229,11 +240,37 @@ export function CbsSimulatorPage() {
     setForm(prev => ({ ...prev, [k]: v }));
   }, []);
 
+  // ── Helpers documents ───────────────────────────────────────────────────────
+  function addFiles(files: FileList | null) {
+    if (!files) return;
+    const allowed = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+    Array.from(files).forEach(file => {
+      if (!allowed.includes(file.type)) return;
+      if (file.size > 10 * 1024 * 1024) return;
+      const entry: DocEntry = {
+        id:      crypto.randomUUID(),
+        file,
+        docType: addingDocType,
+        preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : "",
+      };
+      setDocs(prev => [...prev, entry]);
+    });
+  }
+
+  function removeDoc(id: string) {
+    setDocs(prev => {
+      const removed = prev.find(d => d.id === id);
+      if (removed?.preview) URL.revokeObjectURL(removed.preview);
+      return prev.filter(d => d.id !== id);
+    });
+  }
+
   // ── Validation par étape ────────────────────────────────────────────────────
   function canProceed(): boolean {
     if (step === 1) return !!(form.docNumber && form.firstName && form.lastName && form.dateOfBirth && form.phone);
     if (step === 2) return !!(form.depositAmount && parseFloat(form.depositAmount) > 0);
     if (step === 3) return !!(form.address && form.city && form.profession && form.sourceOfFunds);
+    if (step === 4) return docs.some(d => d.docType === "IDENTITY");
     return true;
   }
 
@@ -264,9 +301,24 @@ export function CbsSimulatorPage() {
         customerType:    "INDIVIDUAL",
       });
 
+      // 2. Upload des documents KYC
+      let uploadedDocs = 0;
+      for (const entry of docs) {
+        try {
+          const fd = new FormData();
+          fd.append("file",         entry.file);
+          fd.append("customerId",   String(customer.id));
+          fd.append("documentType", entry.docType);
+          const resp = await fetch("/api/documents/upload", { method: "POST", body: fd });
+          if (resp.ok) uploadedDocs++;
+        } catch {
+          // Ne pas bloquer si un upload échoue — le service conformité peut redemander
+        }
+      }
+
       let walletId: number | undefined;
 
-      // 2. Créer le wallet si produit mobile money
+      // 3. Créer le wallet si produit mobile money
       if (isMobile) {
         const provider = form.productType === "MOBILE_ORANGE" ? "Orange Money" : "Wave";
         const wallet = await createWallet.mutateAsync({
@@ -280,7 +332,7 @@ export function CbsSimulatorPage() {
         walletId = wallet.id;
       }
 
-      // 3. Créer la transaction de dépôt initial
+      // 4. Créer la transaction de dépôt initial
       const txType: "DEPOSIT" | "MOBILE_MONEY_IN" = isMobile ? "MOBILE_MONEY_IN" : "DEPOSIT";
       const channel: "BRANCH" | "MOBILE" = isMobile ? "MOBILE" : "BRANCH";
 
@@ -299,8 +351,9 @@ export function CbsSimulatorPage() {
         ...(walletId !== undefined ? { walletId } : {}),
         txRef:        tx.transactionId,
         isSuspicious: tx.isSuspicious,
+        uploadedDocs,
       });
-      setStep(5);
+      setStep(6);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erreur lors de la création du dossier";
       setSubmitError(msg);
@@ -335,7 +388,7 @@ export function CbsSimulatorPage() {
   }
 
   // Succès
-  if (step === 5 && result) {
+  if (step === 6 && result) {
     return (
       <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Inter', system-ui, sans-serif" }}>
         <CbsHeader agentName={user?.name ?? undefined} />
@@ -353,6 +406,7 @@ export function CbsSimulatorPage() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
                 <InfoCard label="Référence client CBS" value={result.customerRef} highlight />
                 <InfoCard label="Transaction d'ouverture" value={result.txRef ?? "—"} />
+                <InfoCard label="Documents transmis" value={`${result.uploadedDocs} fichier${result.uploadedDocs > 1 ? "s" : ""} reçu${result.uploadedDocs > 1 ? "s" : ""}`} color={result.uploadedDocs > 0 ? C.green : C.amber} />
                 {result.walletId && <InfoCard label="Portefeuille mobile créé" value={`Wallet #${result.walletId}`} />}
                 <InfoCard
                   label="Analyse AML immédiate"
@@ -389,7 +443,7 @@ export function CbsSimulatorPage() {
                   🔍 Ouvrir dans la Plateforme Conformité
                 </button>
                 <button
-                  onClick={() => { setStep(1); setForm(INIT); setResult(null); setAttestation(false); }}
+                  onClick={() => { setStep(1); setForm(INIT); setDocs([]); setResult(null); setAttestation(false); }}
                   style={{
                     padding: "13px 20px", background: "transparent", color: C.sub,
                     border: `1px solid ${C.border}`, borderRadius: 7, fontSize: 14,
@@ -569,9 +623,113 @@ export function CbsSimulatorPage() {
             </StepContainer>
           )}
 
-          {/* ── ÉTAPE 4 : REVUE & TRANSMISSION ── */}
+          {/* ── ÉTAPE 4 : DOCUMENTS KYC ── */}
           {step === 4 && (
-            <StepContainer title="Revue du dossier & Transmission" subtitle="Vérifiez les informations avant envoi au service conformité">
+            <StepContainer title="Collecte des pièces justificatives" subtitle="Joignez au moins une pièce d'identité (obligatoire) + tout justificatif complémentaire">
+
+              {/* Sélecteur type + zone de dépôt */}
+              <div style={{ display: "flex", gap: 12, marginBottom: 14, alignItems: "flex-end" }}>
+                <div style={{ flex: 1 }}>
+                  <Field label="Type de document à ajouter">
+                    <Select value={addingDocType} onChange={setAddingDocType} options={[
+                      { value: "IDENTITY",         label: "🪪 Pièce d'identité (CIN / Passeport)" },
+                      { value: "PROOF_OF_ADDRESS",  label: "🏠 Justificatif de domicile" },
+                      { value: "INCOME",            label: "💼 Justificatif de revenus / fiche de paie" },
+                      { value: "BUSINESS",          label: "🏢 Document professionnel / RC" },
+                      { value: "SELFIE",            label: "🤳 Photo selfie / biométrie" },
+                      { value: "OTHER",             label: "📎 Autre document" },
+                    ]} />
+                  </Field>
+                </div>
+                <label
+                  style={{
+                    padding: "9px 18px", background: C.blue, color: "#fff", borderRadius: 6,
+                    fontSize: 13, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
+                    fontFamily: "inherit", marginBottom: 14,
+                  }}
+                >
+                  + Ajouter un fichier
+                  <input type="file" multiple accept=".jpg,.jpeg,.png,.webp,.pdf" style={{ display: "none" }}
+                    onChange={e => addFiles(e.target.files)} />
+                </label>
+              </div>
+
+              {/* Zone drag & drop */}
+              <div
+                onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={e => { e.preventDefault(); setDragOver(false); addFiles(e.dataTransfer.files); }}
+                style={{
+                  border: `2px dashed ${dragOver ? C.blue : C.border}`,
+                  borderRadius: 8, padding: "24px 20px", textAlign: "center",
+                  background: dragOver ? "#EFF6FF" : C.bg, marginBottom: 20,
+                  transition: "all 0.15s", cursor: "default",
+                }}
+              >
+                <div style={{ fontSize: 28, marginBottom: 8 }}>📂</div>
+                <div style={{ fontSize: 13, color: C.sub }}>
+                  Glissez-déposez vos fichiers ici, ou utilisez le bouton ci-dessus
+                </div>
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>
+                  Formats acceptés : JPG, PNG, WEBP, PDF — max 10 Mo par fichier
+                </div>
+              </div>
+
+              {/* Exigences obligatoires */}
+              {!docs.some(d => d.docType === "IDENTITY") && (
+                <div style={{ background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 7, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: C.amber }}>
+                  ⚠️ <strong>Obligatoire :</strong> Au moins une pièce d'identité ({form.docType === "CIN" ? "CIN" : form.docType === "PASSPORT" ? "passeport" : "titre de séjour"} n° {form.docNumber || "…"}) est requise pour valider ce dossier.
+                </div>
+              )}
+
+              {/* Liste des fichiers ajoutés */}
+              {docs.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "20px 0", color: C.muted, fontSize: 13 }}>
+                  Aucun document ajouté
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {docs.map(entry => (
+                    <div key={entry.id} style={{
+                      display: "flex", alignItems: "center", gap: 12,
+                      background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 7, padding: "10px 14px",
+                    }}>
+                      {entry.preview
+                        ? <img src={entry.preview} alt="" style={{ width: 44, height: 44, borderRadius: 5, objectFit: "cover", border: `1px solid ${C.border}` }} />
+                        : <div style={{ width: 44, height: 44, borderRadius: 5, background: "#EFF6FF", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>📄</div>
+                      }
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.file.name}</div>
+                        <div style={{ fontSize: 11, color: C.muted }}>
+                          {entry.docType === "IDENTITY" ? "Pièce d'identité"
+                            : entry.docType === "PROOF_OF_ADDRESS" ? "Justificatif domicile"
+                            : entry.docType === "INCOME" ? "Justificatif revenus"
+                            : entry.docType === "BUSINESS" ? "Document professionnel"
+                            : entry.docType === "SELFIE" ? "Photo / biométrie"
+                            : "Autre"}
+                          {" · "}{(entry.file.size / 1024).toFixed(0)} ko
+                        </div>
+                      </div>
+                      <button onClick={() => removeDoc(entry.id)} style={{
+                        border: "none", background: "transparent", cursor: "pointer",
+                        color: C.muted, fontSize: 18, padding: "0 4px", lineHeight: 1,
+                      }}>×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {docs.length > 0 && (
+                <div style={{ marginTop: 12, fontSize: 12, color: C.sub, textAlign: "right" }}>
+                  {docs.length} document{docs.length > 1 ? "s" : ""} · {docs.filter(d => d.docType === "IDENTITY").length} pièce{docs.filter(d => d.docType === "IDENTITY").length > 1 ? "s" : ""} d'identité
+                </div>
+              )}
+            </StepContainer>
+          )}
+
+          {/* ── ÉTAPE 5 : REVUE & TRANSMISSION ── */}
+          {step === 5 && (
+            <StepContainer title="Revue du dossier & Transmission" subtitle="Vérifiez les informations et documents avant envoi au service conformité">
               {/* Récap identité */}
               <RecapSection title="Identité">
                 <RecapRow label="Nom complet"     value={`${form.firstName} ${form.lastName}`} />
@@ -602,19 +760,30 @@ export function CbsSimulatorPage() {
                 <RecapRow label="Revenu mensuel" value={`${parseFloat(form.monthlyIncome || "0").toLocaleString("fr-MA")} MAD`} />
               </RecapSection>
 
-              {/* Checklist doc */}
+              {/* Documents uploadés */}
               <div style={{ background: "#F0F7FF", border: "1px solid #BFDBFE", borderRadius: 8, padding: "14px 18px", marginBottom: 20 }}>
-                <div style={{ fontWeight: 700, fontSize: 13, color: C.blue, marginBottom: 10 }}>📋 Documents collectés</div>
-                {[
-                  `${form.docType === "CIN" ? "Carte Nationale d'Identité" : form.docType === "PASSPORT" ? "Passeport" : "Carte de séjour"} — ${form.docNumber}`,
-                  "Formulaire de connaissance client (KYC)",
-                  "Déclaration origine des fonds",
-                  ...(form.productType.startsWith("MOBILE_") ? [] : ["Justificatif de domicile (à compléter)"]),
-                ].map((doc, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: C.text, padding: "3px 0" }}>
-                    <span style={{ color: C.green, fontWeight: 700 }}>✓</span> {doc}
-                  </div>
-                ))}
+                <div style={{ fontWeight: 700, fontSize: 13, color: C.blue, marginBottom: 10 }}>
+                  📋 Documents collectés ({docs.length} fichier{docs.length > 1 ? "s" : ""})
+                </div>
+                {docs.length === 0 ? (
+                  <div style={{ fontSize: 13, color: C.muted }}>Aucun fichier joint</div>
+                ) : (
+                  docs.map(entry => (
+                    <div key={entry.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: C.text, padding: "4px 0", borderBottom: `1px solid ${C.border}` }}>
+                      <span style={{ color: C.green, fontWeight: 700 }}>✓</span>
+                      <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.file.name}</span>
+                      <span style={{ color: C.muted, flexShrink: 0, fontSize: 11 }}>
+                        {entry.docType === "IDENTITY" ? "Identité"
+                          : entry.docType === "PROOF_OF_ADDRESS" ? "Domicile"
+                          : entry.docType === "INCOME" ? "Revenus"
+                          : entry.docType === "BUSINESS" ? "Professionnel"
+                          : entry.docType === "SELFIE" ? "Selfie"
+                          : "Autre"}
+                      </span>
+                    </div>
+                  ))
+                )}
+                <div style={{ marginTop: 8, fontSize: 12, color: C.sub }}>+ Formulaire KYC · Déclaration origine des fonds (générés automatiquement)</div>
               </div>
 
               {/* Attestation */}
@@ -641,7 +810,7 @@ export function CbsSimulatorPage() {
               : <div />
             }
 
-            {step < 4
+            {step < 5
               ? (
                 <button
                   onClick={() => canProceed() && setStep(s => s + 1)}

@@ -3,70 +3,71 @@ interface BadgeProps {
   label:    string;
   variant?: "risk" | "status" | "priority" | "default";
   className?: string;
+  dot?:     boolean;
 }
 
 type BS = { bg: string; color: string; border: string };
 
 const RISK: Record<string, BS> = {
-  LOW:      { bg:"rgba(52,211,153,0.12)",  color:"#34D399", border:"rgba(52,211,153,0.25)"  },
-  MEDIUM:   { bg:"rgba(251,191,36,0.12)",  color:"#FBBF24", border:"rgba(251,191,36,0.25)"  },
-  HIGH:     { bg:"rgba(248,113,113,0.12)", color:"#F87171", border:"rgba(248,113,113,0.25)" },
-  CRITICAL: { bg:"rgba(248,113,113,0.18)", color:"#FCA5A5", border:"rgba(248,113,113,0.4)"  },
+  LOW:      { bg:"rgba(45,212,160,0.09)",   color:"#2DD4A0", border:"rgba(45,212,160,0.22)"  },
+  MEDIUM:   { bg:"rgba(245,158,11,0.10)",   color:"#F59E0B", border:"rgba(245,158,11,0.22)"  },
+  HIGH:     { bg:"rgba(255,101,112,0.10)",  color:"#FF6570", border:"rgba(255,101,112,0.22)" },
+  CRITICAL: { bg:"rgba(255,101,112,0.16)",  color:"#FCA5A5", border:"rgba(255,101,112,0.38)" },
 };
 
 const STATUS: Record<string, BS> = {
-  OPEN:                { bg:"rgba(56,189,248,0.12)",  color:"#38BDF8", border:"rgba(56,189,248,0.25)"  },
-  IN_REVIEW:           { bg:"rgba(251,191,36,0.12)",  color:"#FBBF24", border:"rgba(251,191,36,0.25)"  },
-  UNDER_INVESTIGATION: { bg:"rgba(251,146,60,0.12)",  color:"#FB923C", border:"rgba(251,146,60,0.25)"  },
-  PENDING_APPROVAL:    { bg:"rgba(167,139,250,0.12)", color:"#A78BFA", border:"rgba(167,139,250,0.25)" },
-  CLOSED:              { bg:"rgba(100,116,139,0.1)",  color:"#94A3B8", border:"rgba(100,116,139,0.2)"  },
-  FALSE_POSITIVE:      { bg:"rgba(100,116,139,0.1)",  color:"#78909C", border:"rgba(100,116,139,0.2)"  },
-  ESCALATED:           { bg:"rgba(248,113,113,0.12)", color:"#F87171", border:"rgba(248,113,113,0.25)" },
-  SAR_SUBMITTED:       { bg:"rgba(192,132,252,0.12)", color:"#C084FC", border:"rgba(192,132,252,0.25)" },
-  APPROVED:            { bg:"rgba(52,211,153,0.12)",  color:"#34D399", border:"rgba(52,211,153,0.25)"  },
-  PENDING:             { bg:"rgba(251,191,36,0.12)",  color:"#FBBF24", border:"rgba(251,191,36,0.25)"  },
-  REJECTED:            { bg:"rgba(248,113,113,0.12)", color:"#F87171", border:"rgba(248,113,113,0.25)" },
-  DRAFT:               { bg:"rgba(100,116,139,0.1)",  color:"#94A3B8", border:"rgba(100,116,139,0.2)"  },
-  SUBMITTED:           { bg:"rgba(56,189,248,0.12)",  color:"#38BDF8", border:"rgba(56,189,248,0.25)"  },
-  REVIEW:              { bg:"rgba(251,191,36,0.12)",  color:"#FBBF24", border:"rgba(251,191,36,0.25)"  },
-  FLAGGED:             { bg:"rgba(248,113,113,0.12)", color:"#F87171", border:"rgba(248,113,113,0.25)" },
-  BLOCKED:             { bg:"rgba(239,68,68,0.18)",   color:"#FCA5A5", border:"rgba(239,68,68,0.35)"   },
-  COMPLETED:           { bg:"rgba(52,211,153,0.12)",  color:"#34D399", border:"rgba(52,211,153,0.25)"  },
-  CLEAR:               { bg:"rgba(52,211,153,0.12)",  color:"#34D399", border:"rgba(52,211,153,0.25)"  },
-  MATCH:               { bg:"rgba(248,113,113,0.12)", color:"#F87171", border:"rgba(248,113,113,0.25)" },
-  TESTING:             { bg:"rgba(251,191,36,0.12)",  color:"#FBBF24", border:"rgba(251,191,36,0.25)"  },
-  ACTIVE:              { bg:"rgba(52,211,153,0.12)",  color:"#34D399", border:"rgba(52,211,153,0.25)"  },
-  INACTIVE:            { bg:"rgba(100,116,139,0.1)",  color:"#94A3B8", border:"rgba(100,116,139,0.2)"  },
-  TRANSFER:            { bg:"rgba(96,165,250,0.12)",  color:"#60A5FA", border:"rgba(96,165,250,0.25)"  },
-  DEPOSIT:             { bg:"rgba(52,211,153,0.12)",  color:"#34D399", border:"rgba(52,211,153,0.25)"  },
-  WITHDRAWAL:          { bg:"rgba(251,146,60,0.12)",  color:"#FB923C", border:"rgba(251,146,60,0.25)"  },
-  PAYMENT:             { bg:"rgba(167,139,250,0.12)", color:"#A78BFA", border:"rgba(167,139,250,0.25)" },
-  EXCHANGE:            { bg:"rgba(34,211,238,0.12)",  color:"#22D3EE", border:"rgba(34,211,238,0.25)"  },
-  THRESHOLD:           { bg:"rgba(248,113,113,0.12)", color:"#F87171", border:"rgba(248,113,113,0.25)" },
-  PATTERN:             { bg:"rgba(251,146,60,0.12)",  color:"#FB923C", border:"rgba(251,146,60,0.25)"  },
-  VELOCITY:            { bg:"rgba(251,191,36,0.12)",  color:"#FBBF24", border:"rgba(251,191,36,0.25)"  },
-  SANCTIONS:           { bg:"rgba(192,132,252,0.12)", color:"#C084FC", border:"rgba(192,132,252,0.25)" },
-  FRAUD:               { bg:"rgba(248,113,113,0.18)", color:"#FCA5A5", border:"rgba(248,113,113,0.4)"  },
-  NETWORK:             { bg:"rgba(34,211,238,0.12)",  color:"#22D3EE", border:"rgba(34,211,238,0.25)"  },
-  PEP:                 { bg:"rgba(251,191,36,0.12)",  color:"#FBBF24", border:"rgba(251,191,36,0.25)"  },
-  INDIVIDUAL:          { bg:"rgba(96,165,250,0.12)",  color:"#60A5FA", border:"rgba(96,165,250,0.25)"  },
-  CORPORATE:           { bg:"rgba(167,139,250,0.12)", color:"#A78BFA", border:"rgba(167,139,250,0.25)" },
-  ONLINE:              { bg:"rgba(96,165,250,0.12)",  color:"#60A5FA", border:"rgba(96,165,250,0.25)"  },
-  MOBILE:              { bg:"rgba(34,211,238,0.12)",  color:"#22D3EE", border:"rgba(34,211,238,0.25)"  },
-  BRANCH:              { bg:"rgba(212,175,55,0.12)",  color:"#D4AF37", border:"rgba(212,175,55,0.25)"  },
-  ATM:                 { bg:"rgba(251,146,60,0.12)",  color:"#FB923C", border:"rgba(251,146,60,0.25)"  },
-  API:                 { bg:"rgba(100,116,139,0.12)", color:"#94A3B8", border:"rgba(100,116,139,0.2)"  },
-  CUSTOM:              { bg:"rgba(212,175,55,0.12)",  color:"#D4AF37", border:"rgba(212,175,55,0.25)"  },
+  OPEN:                { bg:"rgba(74,158,255,0.10)",   color:"#4A9EFF", border:"rgba(74,158,255,0.22)"   },
+  IN_REVIEW:           { bg:"rgba(245,158,11,0.10)",   color:"#F59E0B", border:"rgba(245,158,11,0.22)"   },
+  UNDER_INVESTIGATION: { bg:"rgba(251,146,60,0.10)",   color:"#FB923C", border:"rgba(251,146,60,0.22)"   },
+  PENDING_APPROVAL:    { bg:"rgba(167,139,250,0.10)",  color:"#A78BFA", border:"rgba(167,139,250,0.22)"  },
+  CLOSED:              { bg:"rgba(100,116,139,0.09)",  color:"#94A3B8", border:"rgba(100,116,139,0.18)"  },
+  FALSE_POSITIVE:      { bg:"rgba(100,116,139,0.09)",  color:"#78909C", border:"rgba(100,116,139,0.18)"  },
+  ESCALATED:           { bg:"rgba(255,101,112,0.10)",  color:"#FF6570", border:"rgba(255,101,112,0.22)"  },
+  SAR_SUBMITTED:       { bg:"rgba(192,132,252,0.10)",  color:"#C084FC", border:"rgba(192,132,252,0.22)"  },
+  APPROVED:            { bg:"rgba(45,212,160,0.09)",   color:"#2DD4A0", border:"rgba(45,212,160,0.22)"   },
+  PENDING:             { bg:"rgba(245,158,11,0.10)",   color:"#F59E0B", border:"rgba(245,158,11,0.22)"   },
+  REJECTED:            { bg:"rgba(255,101,112,0.10)",  color:"#FF6570", border:"rgba(255,101,112,0.22)"  },
+  DRAFT:               { bg:"rgba(100,116,139,0.09)",  color:"#94A3B8", border:"rgba(100,116,139,0.18)"  },
+  SUBMITTED:           { bg:"rgba(74,158,255,0.10)",   color:"#4A9EFF", border:"rgba(74,158,255,0.22)"   },
+  REVIEW:              { bg:"rgba(245,158,11,0.10)",   color:"#F59E0B", border:"rgba(245,158,11,0.22)"   },
+  FLAGGED:             { bg:"rgba(255,101,112,0.10)",  color:"#FF6570", border:"rgba(255,101,112,0.22)"  },
+  BLOCKED:             { bg:"rgba(255,101,112,0.16)",  color:"#FCA5A5", border:"rgba(255,101,112,0.34)"  },
+  COMPLETED:           { bg:"rgba(45,212,160,0.09)",   color:"#2DD4A0", border:"rgba(45,212,160,0.22)"   },
+  CLEAR:               { bg:"rgba(45,212,160,0.09)",   color:"#2DD4A0", border:"rgba(45,212,160,0.22)"   },
+  MATCH:               { bg:"rgba(255,101,112,0.10)",  color:"#FF6570", border:"rgba(255,101,112,0.22)"  },
+  TESTING:             { bg:"rgba(245,158,11,0.10)",   color:"#F59E0B", border:"rgba(245,158,11,0.22)"   },
+  ACTIVE:              { bg:"rgba(45,212,160,0.09)",   color:"#2DD4A0", border:"rgba(45,212,160,0.22)"   },
+  INACTIVE:            { bg:"rgba(100,116,139,0.09)",  color:"#94A3B8", border:"rgba(100,116,139,0.18)"  },
+  TRANSFER:            { bg:"rgba(74,158,255,0.10)",   color:"#4A9EFF", border:"rgba(74,158,255,0.22)"   },
+  DEPOSIT:             { bg:"rgba(45,212,160,0.09)",   color:"#2DD4A0", border:"rgba(45,212,160,0.22)"   },
+  WITHDRAWAL:          { bg:"rgba(251,146,60,0.10)",   color:"#FB923C", border:"rgba(251,146,60,0.22)"   },
+  PAYMENT:             { bg:"rgba(167,139,250,0.10)",  color:"#A78BFA", border:"rgba(167,139,250,0.22)"  },
+  EXCHANGE:            { bg:"rgba(34,211,238,0.10)",   color:"#22D3EE", border:"rgba(34,211,238,0.22)"   },
+  THRESHOLD:           { bg:"rgba(255,101,112,0.10)",  color:"#FF6570", border:"rgba(255,101,112,0.22)"  },
+  PATTERN:             { bg:"rgba(251,146,60,0.10)",   color:"#FB923C", border:"rgba(251,146,60,0.22)"   },
+  VELOCITY:            { bg:"rgba(245,158,11,0.10)",   color:"#F59E0B", border:"rgba(245,158,11,0.22)"   },
+  SANCTIONS:           { bg:"rgba(192,132,252,0.10)",  color:"#C084FC", border:"rgba(192,132,252,0.22)"  },
+  FRAUD:               { bg:"rgba(255,101,112,0.16)",  color:"#FCA5A5", border:"rgba(255,101,112,0.38)"  },
+  NETWORK:             { bg:"rgba(34,211,238,0.10)",   color:"#22D3EE", border:"rgba(34,211,238,0.22)"   },
+  PEP:                 { bg:"rgba(245,158,11,0.10)",   color:"#F59E0B", border:"rgba(245,158,11,0.22)"   },
+  INDIVIDUAL:          { bg:"rgba(74,158,255,0.10)",   color:"#4A9EFF", border:"rgba(74,158,255,0.22)"   },
+  CORPORATE:           { bg:"rgba(167,139,250,0.10)",  color:"#A78BFA", border:"rgba(167,139,250,0.22)"  },
+  ONLINE:              { bg:"rgba(74,158,255,0.10)",   color:"#4A9EFF", border:"rgba(74,158,255,0.22)"   },
+  MOBILE:              { bg:"rgba(34,211,238,0.10)",   color:"#22D3EE", border:"rgba(34,211,238,0.22)"   },
+  BRANCH:              { bg:"rgba(201,162,39,0.10)",   color:"#C9A227", border:"rgba(201,162,39,0.22)"   },
+  ATM:                 { bg:"rgba(251,146,60,0.10)",   color:"#FB923C", border:"rgba(251,146,60,0.22)"   },
+  API:                 { bg:"rgba(100,116,139,0.09)",  color:"#94A3B8", border:"rgba(100,116,139,0.18)"  },
+  CUSTOM:              { bg:"rgba(201,162,39,0.10)",   color:"#C9A227", border:"rgba(201,162,39,0.22)"   },
 };
 
 const PRIORITY: Record<string, BS> = {
-  LOW:      { bg:"rgba(100,116,139,0.1)",  color:"#94A3B8", border:"rgba(100,116,139,0.2)"  },
-  MEDIUM:   { bg:"rgba(251,191,36,0.12)",  color:"#FBBF24", border:"rgba(251,191,36,0.25)"  },
-  HIGH:     { bg:"rgba(251,146,60,0.12)",  color:"#FB923C", border:"rgba(251,146,60,0.25)"  },
-  CRITICAL: { bg:"rgba(248,113,113,0.18)", color:"#FCA5A5", border:"rgba(248,113,113,0.4)"  },
+  LOW:      { bg:"rgba(100,116,139,0.09)",  color:"#94A3B8", border:"rgba(100,116,139,0.18)"  },
+  MEDIUM:   { bg:"rgba(245,158,11,0.10)",   color:"#F59E0B", border:"rgba(245,158,11,0.22)"   },
+  HIGH:     { bg:"rgba(251,146,60,0.10)",   color:"#FB923C", border:"rgba(251,146,60,0.22)"   },
+  CRITICAL: { bg:"rgba(255,101,112,0.16)",  color:"#FCA5A5", border:"rgba(255,101,112,0.38)"  },
 };
 
-const D: BS = { bg:"rgba(100,116,139,0.1)", color:"#94A3B8", border:"rgba(100,116,139,0.2)" };
+const D: BS = { bg:"rgba(100,116,139,0.09)", color:"#94A3B8", border:"rgba(100,116,139,0.18)" };
 
 const LABELS: Record<string, string> = {
   LOW:"BAS", MEDIUM:"MOYEN", HIGH:"ÉLEVÉ", CRITICAL:"CRITIQUE",
@@ -86,7 +87,10 @@ const LABELS: Record<string, string> = {
   ONLINE:"ONLINE", MOBILE:"MOBILE", BRANCH:"AGENCE", ATM:"ATM", API:"API",
 };
 
-export function Badge({ label, variant = "default", className }: BadgeProps) {
+// Statuses that show a live dot
+const DOT_STATUSES = new Set(["OPEN", "ACTIVE", "MATCH", "ESCALATED", "BLOCKED", "CRITICAL", "FRAUD"]);
+
+export function Badge({ label, variant = "default", className, dot }: BadgeProps) {
   const upper   = label.toUpperCase().replace(/ /g, "_");
   const display = LABELS[upper] ?? label;
   const s: BS   =
@@ -95,19 +99,28 @@ export function Badge({ label, variant = "default", className }: BadgeProps) {
     variant === "priority" ? (PRIORITY[upper] ?? D) :
     (STATUS[upper] ?? RISK[upper] ?? PRIORITY[upper] ?? D);
 
+  const showDot = dot ?? DOT_STATUSES.has(upper);
+
   return (
     <span
       className={className}
       style={{
-        display: "inline-flex", alignItems: "center",
-        padding: "2px 8px", borderRadius: 5,
-        fontSize: 10, fontFamily: "'JetBrains Mono','Courier New',monospace",
-        fontWeight: 600, letterSpacing: "0.1em",
+        display: "inline-flex", alignItems: "center", gap: 5,
+        padding: "2px 8px 2px 7px", borderRadius: 5,
+        fontSize: 9.5, fontFamily: "'JetBrains Mono','Courier New',monospace",
+        fontWeight: 600, letterSpacing: "0.10em",
         textTransform: "uppercase", whiteSpace: "nowrap",
         backgroundColor: s.bg, color: s.color,
         border: `1px solid ${s.border}`,
       }}
     >
+      {showDot && (
+        <span style={{
+          width: 4.5, height: 4.5, borderRadius: "50%",
+          background: s.color, flexShrink: 0,
+          opacity: 0.85,
+        }} />
+      )}
       {display}
     </span>
   );

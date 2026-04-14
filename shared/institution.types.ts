@@ -47,6 +47,14 @@ export interface InstitutionFeatureFlags {
   // ── Interface agent ─────────────────────────────────────────────────────────
   /** Page et règles de gestion du réseau d'agents */
   agentNetwork: boolean;
+
+  // ── Portail self-service ─────────────────────────────────────────────────────
+  /** Portail client : soumission documents, suivi dossier, droits RGPD en self-service */
+  selfServicePortal: boolean;
+
+  // ── Correspondent Banking ────────────────────────────────────────────────────
+  /** Module banque correspondante (FATF R.13) : évaluation, revue annuelle, senior mgmt approval */
+  correspondentBanking: boolean;
 }
 
 // ─── Tier KYC ────────────────────────────────────────────────────────────────
@@ -122,4 +130,6 @@ export const CLASSIC_BANK_FLAGS: InstitutionFeatureFlags = {
   bamReports:             false,
   mobileConnectors:       false,
   agentNetwork:           false,
+  selfServicePortal:      false,
+  correspondentBanking:   false,
 };

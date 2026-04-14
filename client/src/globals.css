@@ -1,92 +1,218 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   WATCHREG DESIGN SYSTEM — Clean Enterprise
-   Light mode (default) / Dark mode (.dark on <html>)
+   WATCHREG DESIGN SYSTEM — RegTech Professional  v2.5
+   Dark mode primary / Light mode secondary
+
+   Hiérarchie des accents :
+     --wr-accent*       → bleu interactif   (focus, hover, inputs, liens)
+     --wr-cta-accent*   → gold CTA          (boutons primaires, éléments critiques)
+     --wr-neutral-accent→ gris-bleu neutre  (états neutres, affordances secondaires)
+     --wr-gold / --wr-gold-* → identité sidebar / brand (ne pas utiliser pour interactions)
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ─── Light mode (default) ────────────────────────────────────────────────── */
-:root {
-  /* Surfaces */
-  --wr-bg:       #F7FAFC;
-  --wr-page:     #F7FAFC;
-  --wr-surface:  #FFFFFF;
-  --wr-card:     #FFFFFF;
-  --wr-hover:    #EDF2F7;
-  --wr-hover2:   #E2E8F0;
-  /* Borders */
-  --wr-border:   #E2E8F0;
-  --wr-border2:  #CBD5E0;
-  /* Text */
-  --wr-text-1:   #1A2B4B;
-  --wr-text-2:   #4A5568;
-  --wr-text-3:   #718096;
-  --wr-text-4:   #A0AEC0;
-  /* Brand */
-  --wr-navy:     #1A2B4B;
-  --wr-gold:     #B7791F;
-  /* Semantic */
-  --wr-blue:     #2B6CB0;
-  --wr-green:    #276749;
-  --wr-amber:    #C05621;
-  --wr-red:      #C53030;
-  /* Accent interactive */
-  --wr-accent:         #1A2B4B;
-  --wr-accent-muted:   rgba(26,43,75,0.08);
-  --wr-accent-border:  rgba(26,43,75,0.20);
-  /* Fonts */
+/* ─── Dark mode (primary — default for RegTech) ───────────────────────────── */
+:root,
+html.dark {
+  /* ── Surfaces (layered depth) */
+  --wr-bg:         #04091A;
+  --wr-page:       #060D1E;
+  --wr-surface:    #0A1628;
+  --wr-card:       #0D1E35;
+  --wr-panel:      #111F34;
+  --wr-hover:      #162438;
+  --wr-hover2:     #1C2D44;
+  --wr-inset:      #071020;
+
+  /* ── Borders (scale 100 → 300) */
+  --wr-border:     rgba(255,255,255,0.055);   /* alias: --wr-border-100 */
+  --wr-border2:    rgba(255,255,255,0.095);   /* alias: --wr-border-200 */
+  --wr-border3:    rgba(255,255,255,0.14);    /* alias: --wr-border-300 */
+  /* Scale aliases — nouveaux composants doivent utiliser ces noms */
+  --wr-border-100: rgba(255,255,255,0.055);
+  --wr-border-200: rgba(255,255,255,0.095);
+  --wr-border-300: rgba(255,255,255,0.14);
+  /* Hover aliases */
+  --wr-hover-100:  #162438;
+  --wr-hover-200:  #1C2D44;
+
+  /* ── Text hierarchy — contrastes WCAG AA garantis sur --wr-card (#0D1E35)
+       text-1 : #E4EEF8  → ratio ~12:1 ✓ AAA
+       text-2 : #7E9AB8  → ratio ~4.8:1 ✓ AA
+       text-3 : #6B88A6  → ratio ~3.5:1 ✓ AA (large text / bold)  ← amélioré
+       text-4 : #3D5878  → ratio ~1.8:1   (placeholder only, non-interactif) ← amélioré */
+  --wr-text-1:   #E4EEF8;
+  --wr-text-2:   #7E9AB8;
+  --wr-text-3:   #6B88A6;   /* ↑ était #425E7A — contraste insuffisant */
+  --wr-text-4:   #3D5878;   /* ↑ était #243548 — placeholders trop sombres */
+
+  /* ── Brand gold (identité visuelle, sidebar, logo — PAS les interactions) */
+  --wr-navy:       #5BA4FF;
+  --wr-gold:       #C9A227;
+  --wr-gold-bright:#E8C84A;
+  --wr-gold-dim:   rgba(201,162,39,0.45);
+
+  /* ── Accent interactif — BLEU (focus, hover, inputs, liens, sélection) */
+  --wr-accent:        #4A9EFF;
+  --wr-accent-bright: #6BB8FF;
+  --wr-accent-muted:  rgba(74,158,255,0.09);
+  --wr-accent-border: rgba(74,158,255,0.28);
+  --wr-accent-glow:   rgba(74,158,255,0.15);
+
+  /* ── Accent CTA — GOLD (boutons primaires, éléments critiques, alertes brand) */
+  --wr-cta-accent:        #C9A227;
+  --wr-cta-accent-bright: #E8C84A;
+  --wr-cta-accent-muted:  rgba(201,162,39,0.09);
+  --wr-cta-accent-border: rgba(201,162,39,0.28);
+  --wr-cta-accent-glow:   rgba(201,162,39,0.15);
+
+  /* ── Accent neutre — états neutres, affordances secondaires discrètes */
+  --wr-neutral-accent:        #2A3A55;
+  --wr-neutral-accent-muted:  rgba(42,58,85,0.40);
+  --wr-neutral-accent-border: rgba(42,58,85,0.60);
+
+  /* ── Semantic */
+  --wr-blue:   #4A9EFF;
+  --wr-green:  #2DD4A0;
+  --wr-amber:  #F59E0B;
+  --wr-red:    #FF6570;
+
+  /* ── Fonts */
   --wr-font-serif: 'Playfair Display', Georgia, serif;
   --wr-font-sans:  'Inter', system-ui, sans-serif;
   --wr-font-mono:  'JetBrains Mono', 'Courier New', monospace;
-  /* Sidebar (always dark, brand identity) */
-  --wr-sidebar:         #1A2B4B;
-  --wr-sidebar-border:  rgba(255,255,255,0.07);
-  --wr-sidebar-text-1:  #D8E4F0;
-  --wr-sidebar-text-2:  #7A90AA;
-  --wr-sidebar-text-3:  #4A6080;
-  --wr-sidebar-surface: #152240;
-  /* Radii */
+
+  /* ── Sidebar (deepest layer — brand gold conservé ici intentionnellement) */
+  --wr-sidebar:                  #030812;
+  --wr-sidebar-border:           rgba(201,162,39,0.07);
+  --wr-sidebar-border2:          rgba(255,255,255,0.04);
+  --wr-sidebar-text-1:           #C8DCF0;
+  --wr-sidebar-text-2:           #5A7898;
+  --wr-sidebar-text-3:           #2F4560;
+  --wr-sidebar-surface:          #060F1C;
+  --wr-sidebar-active-bg:        rgba(201,162,39,0.09);
+  --wr-sidebar-active-glow:      rgba(201,162,39,0.06);
+
+  /* ── Radii */
+  --wr-r-xs: 4px;
   --wr-r-sm: 6px;
   --wr-r-md: 8px;
   --wr-r-lg: 12px;
-  /* Shadows */
-  --wr-shadow-sm: 0 1px 3px rgba(26,43,75,0.08), 0 1px 2px rgba(26,43,75,0.04);
-  --wr-shadow-md: 0 4px 12px rgba(26,43,75,0.10), 0 2px 4px rgba(26,43,75,0.06);
-  --wr-shadow-lg: 0 10px 30px rgba(26,43,75,0.12), 0 4px 8px rgba(26,43,75,0.06);
+  --wr-r-xl: 16px;
+
+  /* ── Shadows — glow neutre bleu (plus sobre que gold) */
+  --wr-shadow-xs:    0 1px 2px rgba(0,0,0,0.35);
+  --wr-shadow-sm:    0 2px 6px rgba(0,0,0,0.45), 0 1px 2px rgba(0,0,0,0.3);
+  --wr-shadow-md:    0 6px 20px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.35);
+  --wr-shadow-lg:    0 16px 48px rgba(0,0,0,0.65), 0 4px 16px rgba(0,0,0,0.40);
+  --wr-shadow-glow:  0 0 0 1px rgba(74,158,255,0.15), 0 6px 24px rgba(0,0,0,0.5);
+  --wr-shadow-glow-gold: 0 0 0 1px rgba(201,162,39,0.15), 0 6px 24px rgba(0,0,0,0.5);
+  --wr-shadow-inset: inset 0 1px 0 rgba(255,255,255,0.04);
+
+  /* ── Topbar */
+  --wr-topbar-bg:     #070F1E;
+  --wr-topbar-border: rgba(255,255,255,0.055);
+
+  /* ── Border gold (rétrocompat — utiliser --wr-cta-accent-border pour les nouveaux composants) */
+  --wr-border-gold: rgba(201,162,39,0.20);
 }
 
-/* ─── Dark mode ───────────────────────────────────────────────────────────── */
-html.dark {
-  --wr-bg:       #0B1120;
-  --wr-page:     #111827;
-  --wr-surface:  #172035;
-  --wr-card:     #1E2A40;
-  --wr-hover:    #253350;
-  --wr-hover2:   #2D3F60;
-  --wr-border:   rgba(255,255,255,0.07);
-  --wr-border2:  rgba(255,255,255,0.12);
-  --wr-text-1:   #D8E4F0;
-  --wr-text-2:   #7A90AA;
-  --wr-text-3:   #4A6080;
-  --wr-text-4:   #2A4060;
-  --wr-navy:     #60A5FA;
-  --wr-gold:     #D4AF37;
-  --wr-blue:     #60A5FA;
-  --wr-green:    #34D399;
-  --wr-amber:    #FB923C;
-  --wr-red:      #F87171;
-  --wr-accent:         #D4AF37;
-  --wr-accent-muted:   rgba(212,175,55,0.10);
-  --wr-accent-border:  rgba(212,175,55,0.30);
-  --wr-sidebar:         #172035;
-  --wr-sidebar-border:  rgba(255,255,255,0.06);
-  --wr-sidebar-text-1:  #D8E4F0;
-  --wr-sidebar-text-2:  #7A90AA;
-  --wr-sidebar-text-3:  #4A6080;
-  --wr-sidebar-surface: #1E2A40;
-  --wr-shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
-  --wr-shadow-md: 0 4px 12px rgba(0,0,0,0.4);
-  --wr-shadow-lg: 0 10px 30px rgba(0,0,0,0.5);
+/* ─── Page background dot-grid — dark mode ───────────────────────────────── */
+html.dark body,
+:root body {
+  background-image:
+    radial-gradient(circle, rgba(255,255,255,0.022) 1px, transparent 1px),
+    radial-gradient(ellipse 70% 50% at 80% 0%, rgba(20,50,100,0.18) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 60% at 10% 100%, rgba(10,30,70,0.20) 0%, transparent 70%);
+  background-size: 28px 28px, 100% 100%, 100% 100%;
+  background-attachment: fixed;
+}
+
+/* ─── Page background — light mode ──────────────────────────────────────── */
+html:not(.dark) body {
+  background-image:
+    radial-gradient(circle, rgba(26,43,75,0.04) 1px, transparent 1px),
+    radial-gradient(ellipse 60% 40% at 80% 0%, rgba(26,43,75,0.05) 0%, transparent 60%);
+  background-size: 28px 28px, 100% 100%;
+  background-attachment: fixed;
+}
+
+/* ─── Light mode override ─────────────────────────────────────────────────── */
+html:not(.dark) {
+  --wr-bg:         #F0F4FA;
+  --wr-page:       #EEF2F9;
+  --wr-surface:    #FFFFFF;
+  --wr-card:       #FFFFFF;
+  --wr-panel:      #F8FAFD;
+  --wr-hover:      #EDF1F8;
+  --wr-hover2:     #E3E9F4;
+  --wr-inset:      #F5F7FC;
+
+  --wr-border:     #DDE4EF;
+  --wr-border2:    #C8D3E6;
+  --wr-border3:    #B8C6DC;
+  --wr-border-100: #DDE4EF;
+  --wr-border-200: #C8D3E6;
+  --wr-border-300: #B8C6DC;
+  --wr-hover-100:  #EDF1F8;
+  --wr-hover-200:  #E3E9F4;
+  --wr-border-gold: rgba(183,121,31,0.20);
+
+  /* text-3 et text-4 améliorés pour accessibilité AA sur fond blanc */
+  --wr-text-1:   #1A2B4B;
+  --wr-text-2:   #3D5470;
+  --wr-text-3:   #5A728F;   /* ↑ était #6B82A0 — améliore ratio sur fond clair */
+  --wr-text-4:   #8099B6;   /* ↑ était #9BAFC8 — placeholders plus lisibles */
+
+  --wr-navy:       #1A2B4B;
+  --wr-gold:       #A56B10;
+  --wr-gold-bright:#C98C20;
+  --wr-gold-dim:   rgba(165,107,16,0.5);
+
+  /* Accent interactif — bleu en light mode aussi */
+  --wr-blue:   #1A55AA;
+  --wr-green:  #0E6B4A;
+  --wr-amber:  #B45309;
+  --wr-red:    #C0392B;
+
+  --wr-accent:        #1A55AA;
+  --wr-accent-bright: #1E68CC;
+  --wr-accent-muted:  rgba(26,85,170,0.07);
+  --wr-accent-border: rgba(26,85,170,0.22);
+  --wr-accent-glow:   rgba(26,85,170,0.10);
+
+  /* CTA gold — light mode */
+  --wr-cta-accent:        #A56B10;
+  --wr-cta-accent-bright: #C98C20;
+  --wr-cta-accent-muted:  rgba(165,107,16,0.08);
+  --wr-cta-accent-border: rgba(165,107,16,0.22);
+  --wr-cta-accent-glow:   rgba(165,107,16,0.10);
+
+  /* Neutre — light mode */
+  --wr-neutral-accent:        #3D5275;
+  --wr-neutral-accent-muted:  rgba(61,82,117,0.08);
+  --wr-neutral-accent-border: rgba(61,82,117,0.20);
+
+  --wr-sidebar:                  #1A2B4B;
+  --wr-sidebar-border:           rgba(255,255,255,0.07);
+  --wr-sidebar-border2:          rgba(255,255,255,0.05);
+  --wr-sidebar-text-1:           #D8E8F8;
+  --wr-sidebar-text-2:           #6A88A8;
+  --wr-sidebar-text-3:           #3A5570;
+  --wr-sidebar-surface:          #152240;
+  --wr-sidebar-active-bg:        rgba(212,175,55,0.10);
+  --wr-sidebar-active-glow:      rgba(212,175,55,0.06);
+
+  --wr-shadow-xs:    0 1px 2px rgba(26,43,75,0.06);
+  --wr-shadow-sm:    0 2px 6px rgba(26,43,75,0.08), 0 1px 2px rgba(26,43,75,0.04);
+  --wr-shadow-md:    0 6px 20px rgba(26,43,75,0.10), 0 2px 8px rgba(26,43,75,0.06);
+  --wr-shadow-lg:    0 16px 48px rgba(26,43,75,0.12), 0 4px 16px rgba(26,43,75,0.06);
+  --wr-shadow-glow:  0 0 0 1px rgba(26,85,170,0.10), 0 6px 24px rgba(26,43,75,0.08);
+  --wr-shadow-glow-gold: 0 0 0 1px rgba(165,107,16,0.12), 0 6px 24px rgba(26,43,75,0.08);
+  --wr-shadow-inset: inset 0 1px 0 rgba(255,255,255,0.7);
+
+  --wr-topbar-bg:     #FFFFFF;
+  --wr-topbar-border: #DDE4EF;
 }
 
 /* ─── Base ────────────────────────────────────────────────────────────────── */
@@ -95,276 +221,361 @@ html { font-size: 14px; }
 
 body {
   margin: 0;
-  background: var(--wr-page);
+  background-color: var(--wr-page);
   color: var(--wr-text-1);
   font-family: var(--wr-font-sans);
   font-size: 13px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 /* ─── Scrollbar ───────────────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar { width: 3px; height: 3px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--wr-border2); border-radius: 2px; }
+::-webkit-scrollbar-thumb {
+  background: var(--wr-border-200);
+  border-radius: 2px;
+  transition: background 0.2s;
+}
 ::-webkit-scrollbar-thumb:hover { background: var(--wr-text-3); }
-::selection { background: rgba(26,43,75,0.12); color: var(--wr-text-1); }
-html.dark ::selection { background: rgba(212,175,55,0.25); color: var(--wr-text-1); }
-*:focus-visible { outline: 2px solid var(--wr-accent); outline-offset: 2px; opacity: 0.6; }
+
+/* Sélection — bleu interactif (plus sobre que le gold) */
+::selection { background: var(--wr-accent-muted); color: var(--wr-text-1); }
+html.dark ::selection { background: rgba(74,158,255,0.22); color: var(--wr-text-1); }
+
+/* Focus — bleu interactif (gold réservé aux CTA) */
+*:focus-visible {
+  outline: 1.5px solid var(--wr-accent);
+  outline-offset: 2px;
+  border-radius: var(--wr-r-sm);
+}
 
 /* ─── Animations ─────────────────────────────────────────────────────────── */
-@keyframes wr-fade-in    { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: translateY(0) } }
+@keyframes wr-fade-in    { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
+@keyframes wr-slide-in   { from { opacity:0; transform:translateX(-8px) } to { opacity:1; transform:translateX(0) } }
+@keyframes wr-scale-in   { from { opacity:0; transform:scale(0.96) } to { opacity:1; transform:scale(1) } }
 @keyframes spin          { to { transform: rotate(360deg) } }
-@keyframes pulse         { 0%, 100% { opacity: 1 } 50% { opacity: 0.5 } }
-@keyframes wr-shimmer    { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
+@keyframes pulse         { 0%,100% { opacity:1 } 50% { opacity:0.45 } }
+@keyframes wr-shimmer    { 0% { background-position:200% 0 } 100% { background-position:-200% 0 } }
+@keyframes wr-pulse-dot  { 0%,100% { box-shadow:0 0 0 0 currentColor } 50% { box-shadow:0 0 0 4px transparent } }
+@keyframes wr-glow-pulse { 0%,100% { opacity:0.5 } 50% { opacity:1 } }
+@keyframes wr-scan-line  {
+  0%   { transform:translateY(-100%) }
+  100% { transform:translateY(100vh) }
+}
 
-.animate-slide-in  { animation: wr-fade-in 0.25s ease-out both; }
-.animate-fade-in   { animation: wr-fade-in 0.2s ease-out both; }
-.animate-spin      { animation: spin 1s linear infinite; }
-.animate-pulse     { animation: pulse 2s ease-in-out infinite; }
+.animate-slide-in  { animation: wr-fade-in   0.28s cubic-bezier(.25,.46,.45,.94) both; }
+.animate-fade-in   { animation: wr-fade-in   0.22s ease-out both; }
+.animate-scale-in  { animation: wr-scale-in  0.22s cubic-bezier(.25,.46,.45,.94) both; }
+.animate-slide-x   { animation: wr-slide-in  0.25s ease-out both; }
+.animate-spin      { animation: spin         1s linear infinite; }
+.animate-pulse     { animation: pulse        2s ease-in-out infinite; }
 
 /* ─── Font utilities ──────────────────────────────────────────────────────── */
-.font-mono  { font-family: var(--wr-font-mono) !important; }
+.font-mono  { font-family: var(--wr-font-mono)  !important; }
 .font-serif { font-family: var(--wr-font-serif) !important; }
+.font-sans  { font-family: var(--wr-font-sans)  !important; }
 
 /* ─── Skeleton shimmer ────────────────────────────────────────────────────── */
 .wr-skeleton {
   background: linear-gradient(
     90deg,
-    var(--wr-hover) 25%,
-    var(--wr-hover2) 50%,
-    var(--wr-hover) 75%
+    var(--wr-hover-100) 25%,
+    var(--wr-hover-200) 50%,
+    var(--wr-hover-100) 75%
   );
   background-size: 200% 100%;
-  animation: wr-shimmer 1.5s infinite;
+  animation: wr-shimmer 1.6s infinite;
+  border-radius: var(--wr-r-sm);
+}
+
+/* ─── Utility classes ─────────────────────────────────────────────────────── */
+
+/* Card standard */
+.wr-card {
+  background: var(--wr-card);
+  border: 1px solid var(--wr-border-100);
+  border-radius: var(--wr-r-lg);
+  box-shadow: var(--wr-shadow-sm);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.wr-card:hover {
+  border-color: var(--wr-border-200);
+  box-shadow: var(--wr-shadow-md);
+}
+
+/* Mono label */
+.wr-label {
+  font-family: var(--wr-font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--wr-text-3);
+  font-weight: 600;
+}
+
+/* Divider */
+.wr-divider {
+  height: 1px;
+  background: var(--wr-border-100);
+  margin: 0;
+}
+
+/* Status dot */
+.wr-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.wr-dot-live {
+  animation: wr-pulse-dot 1.8s ease-in-out infinite;
+}
+
+/* Glow — bleu interactif (default) et gold (CTA explicite) */
+.wr-glow {
+  box-shadow: 0 0 16px var(--wr-accent-glow);
+}
+.wr-glow-gold {
+  box-shadow: 0 0 16px var(--wr-cta-accent-glow);
+}
+/* Rétrocompat */
+.wr-glow-accent { box-shadow: 0 0 16px var(--wr-accent-glow); }
+
+/* Neutral badge — affordance discrète */
+.wr-neutral-badge {
+  background: var(--wr-neutral-accent-muted);
+  border: 1px solid var(--wr-neutral-accent-border);
   border-radius: var(--wr-r-sm);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   BRIDGE LIGHT MODE (default)
-   Remappe les couleurs hardcodées GitHub-dark → palette Clean Enterprise light.
+   BRIDGE — Tailwind hardcoded colors → design tokens
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ─── Backgrounds ──────────────────────────────────────────────────────────── */
-.bg-\[\#080c10\]   { background-color: var(--wr-page) !important; }
+/* ─── Backgrounds ────────────────────────────────────────────────────────── */
+.bg-\[\#080c10\]   { background-color: var(--wr-page)    !important; }
 .bg-\[\#0d1117\]   { background-color: var(--wr-surface) !important; }
-.bg-\[\#161b22\]   { background-color: var(--wr-bg) !important; }
-.bg-\[\#21262d\]   { background-color: var(--wr-hover) !important; }
+.bg-\[\#161b22\]   { background-color: var(--wr-card)    !important; }
+.bg-\[\#21262d\]   { background-color: var(--wr-hover)   !important; }
 .bg-\[\#1c2128\]   { background-color: var(--wr-surface) !important; }
 
-/* ─── Borders ──────────────────────────────────────────────────────────────── */
-.border-\[\#21262d\]     { border-color: var(--wr-border) !important; }
-.border-\[\#21262d\]\/50 { border-color: rgba(226,232,240,0.5) !important; }
-.border-\[\#30363d\]     { border-color: var(--wr-border2) !important; }
-.divide-\[\#21262d\]\/50 > * + * { border-color: rgba(226,232,240,0.5) !important; }
+/* ─── Borders ─────────────────────────────────────────────────────────────── */
+.border-\[\#21262d\]     { border-color: var(--wr-border-100)  !important; }
+.border-\[\#21262d\]\/50 { border-color: color-mix(in srgb, var(--wr-border-100) 50%, transparent) !important; }
+.border-\[\#30363d\]     { border-color: var(--wr-border-200)  !important; }
+.divide-\[\#21262d\]\/50 > * + * { border-color: color-mix(in srgb, var(--wr-border-100) 50%, transparent) !important; }
 
-/* ─── Text ─────────────────────────────────────────────────────────────────── */
+/* ─── Text ────────────────────────────────────────────────────────────────── */
 .text-\[\#e6edf3\] { color: var(--wr-text-1) !important; }
 .text-\[\#c9d1d9\] { color: var(--wr-text-1) !important; }
 .text-\[\#7d8590\] { color: var(--wr-text-2) !important; }
 .text-\[\#484f58\] { color: var(--wr-text-3) !important; }
 .text-\[\#30363d\] { color: var(--wr-text-4) !important; }
+/* Accent bleu — liens et textes interactifs */
 .text-\[\#58a6ff\] { color: var(--wr-accent) !important; }
 
-/* ─── Primary action (blue GitHub → accent WatchReg) ──────────────────────── */
-.bg-\[\#1f6feb\]         { background-color: var(--wr-accent) !important; }
-.bg-\[\#1f6feb\]\/20     { background-color: var(--wr-accent-muted) !important; }
-.bg-\[\#1f6feb\]\/30     { background-color: var(--wr-accent-muted) !important; }
-.border-\[\#1f6feb\]\/30 { border-color: var(--wr-accent-border) !important; }
-.border-\[\#1f6feb\]\/40 { border-color: var(--wr-accent-border) !important; }
-.border-\[\#58a6ff\]     { border-color: var(--wr-accent) !important; }
-.border-\[\#58a6ff\]\/30 { border-color: var(--wr-accent-border) !important; }
-.border-\[\#58a6ff\]\/40 { border-color: var(--wr-accent-border) !important; }
+/* ─── Primary action (bleu interactif) ──────────────────────────────────── */
+.bg-\[\#1f6feb\]         { background-color: var(--wr-accent)        !important; }
+.bg-\[\#1f6feb\]\/20     { background-color: var(--wr-accent-muted)  !important; }
+.bg-\[\#1f6feb\]\/30     { background-color: var(--wr-accent-muted)  !important; }
+.border-\[\#1f6feb\]\/30 { border-color:     var(--wr-accent-border) !important; }
+.border-\[\#1f6feb\]\/40 { border-color:     var(--wr-accent-border) !important; }
+.border-\[\#58a6ff\]     { border-color:     var(--wr-accent)        !important; }
+.border-\[\#58a6ff\]\/30 { border-color:     var(--wr-accent-border) !important; }
+.border-\[\#58a6ff\]\/40 { border-color:     var(--wr-accent-border) !important; }
 
-/* ─── Hover states ─────────────────────────────────────────────────────────── */
-.hover\:bg-\[\#1f6feb\]\/30:hover    { background-color: var(--wr-accent-muted) !important; }
-.hover\:bg-\[\#388bfd\]:hover        { background-color: var(--wr-accent) !important; opacity: 0.9; }
-.hover\:bg-\[\#161b22\]:hover        { background-color: var(--wr-hover) !important; }
-.hover\:bg-\[\#21262d\]:hover        { background-color: var(--wr-hover2) !important; }
-.hover\:text-\[\#e6edf3\]:hover      { color: var(--wr-text-1) !important; }
-.hover\:text-\[\#58a6ff\]:hover      { color: var(--wr-accent) !important; }
-.hover\:border-\[\#58a6ff\]\/40:hover  { border-color: var(--wr-accent-border) !important; }
-.hover\:border-\[\#58a6ff\]\/50:hover  { border-color: var(--wr-accent) !important; opacity: 0.5; }
+/* ─── Hover states ───────────────────────────────────────────────────────── */
+.hover\:bg-\[\#1f6feb\]\/30:hover   { background-color: var(--wr-accent-muted)  !important; }
+.hover\:bg-\[\#388bfd\]:hover       { background-color: var(--wr-accent-bright) !important; }
+.hover\:bg-\[\#161b22\]:hover       { background-color: var(--wr-hover-100)     !important; }
+.hover\:bg-\[\#21262d\]:hover       { background-color: var(--wr-hover-200)     !important; }
+.hover\:text-\[\#e6edf3\]:hover     { color: var(--wr-text-1)          !important; }
+.hover\:text-\[\#58a6ff\]:hover     { color: var(--wr-accent)          !important; }
+.hover\:border-\[\#58a6ff\]\/40:hover { border-color: var(--wr-accent-border)   !important; }
+.hover\:border-\[\#58a6ff\]\/50:hover { border-color: var(--wr-accent)          !important; opacity:0.5; }
 
-/* ─── Focus ────────────────────────────────────────────────────────────────── */
+/* ─── Focus — bleu interactif ────────────────────────────────────────────── */
 .focus\:border-\[\#58a6ff\]\/40:focus { border-color: var(--wr-accent-border) !important; }
-.focus\:ring-\[\#58a6ff\]\/20:focus   { box-shadow: 0 0 0 3px rgba(26,43,75,0.12) !important; }
+.focus\:ring-\[\#58a6ff\]\/20:focus   { box-shadow: 0 0 0 3px var(--wr-accent-glow) !important; }
 
-/* ─── Progress bar ─────────────────────────────────────────────────────────── */
-.bg-\[\#21262d\].rounded-full { background-color: var(--wr-border) !important; }
+/* ─── Progress bar / Spinner ─────────────────────────────────────────────── */
+.bg-\[\#21262d\].rounded-full { background-color: var(--wr-border-100) !important; }
+.border-t-\[\#58a6ff\]        { border-top-color: var(--wr-accent) !important; }
 
-/* ─── Spinner ──────────────────────────────────────────────────────────────── */
-.border-t-\[\#58a6ff\] { border-top-color: var(--wr-accent) !important; }
-
-/* ─── Inputs / selects / textareas ────────────────────────────────────────── */
+/* ─── Inputs / selects / textareas ──────────────────────────────────────── */
 input, textarea, select {
-  background-color: var(--wr-surface) !important;
-  border-color: var(--wr-border2) !important;
-  color: var(--wr-text-1) !important;
-  font-family: var(--wr-font-mono) !important;
+  background-color: var(--wr-surface)  !important;
+  border-color:     var(--wr-border-200)  !important;
+  color:            var(--wr-text-1)   !important;
+  font-family:      var(--wr-font-mono) !important;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
-input::placeholder, textarea::placeholder { color: var(--wr-text-4) !important; }
+/* Placeholders — text-3 pour meilleur contraste (était text-4) */
+input::placeholder, textarea::placeholder {
+  color: var(--wr-text-3) !important;
+  opacity: 0.7;
+}
 input:focus, textarea:focus, select:focus {
   border-color: var(--wr-accent-border) !important;
   outline: none !important;
-  box-shadow: 0 0 0 3px rgba(26,43,75,0.06) !important;
+  box-shadow: 0 0 0 3px var(--wr-accent-glow) !important;
 }
-html.dark input:focus,
-html.dark textarea:focus,
-html.dark select:focus {
-  box-shadow: 0 0 0 3px rgba(212,175,55,0.08) !important;
+html.dark input, html.dark textarea, html.dark select {
+  background-color: rgba(255,255,255,0.03) !important;
+  border-color: rgba(255,255,255,0.08) !important;
+}
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: var(--wr-text-3) !important;
+  opacity: 0.65;
 }
 select option { background-color: var(--wr-card) !important; color: var(--wr-text-1) !important; }
 
-/* ─── Table ────────────────────────────────────────────────────────────────── */
+/* ─── Tables ─────────────────────────────────────────────────────────────── */
 thead tr {
-  background-color: var(--wr-bg) !important;
-  border-bottom: 1px solid var(--wr-border) !important;
+  background-color: var(--wr-inset) !important;
+  border-bottom: 1px solid var(--wr-border-100) !important;
 }
 thead th {
   color: var(--wr-text-3) !important;
   font-family: var(--wr-font-mono) !important;
-  font-size: 10px !important;
-  letter-spacing: 0.12em !important;
+  font-size: 9.5px !important;
+  letter-spacing: 0.14em !important;
   text-transform: uppercase !important;
   font-weight: 600 !important;
+  padding: 10px 12px !important;
 }
 tbody td {
   color: var(--wr-text-2) !important;
   font-size: 12.5px !important;
-  border-bottom: 1px solid var(--wr-border) !important;
+  border-bottom: 1px solid var(--wr-border-100) !important;
+  padding: 10px 12px !important;
 }
-tbody tr:hover td { background-color: var(--wr-hover) !important; }
+tbody tr:hover td { background-color: var(--wr-hover-100) !important; }
 
-/* ─── Page titles ──────────────────────────────────────────────────────────── */
+/* ─── Page titles ─────────────────────────────────────────────────────────── */
 h1.font-mono, h1.font-semibold {
   font-family: var(--wr-font-serif) !important;
   font-weight: 500 !important;
   font-size: 20px !important;
   color: var(--wr-text-1) !important;
-  letter-spacing: -0.3px !important;
+  letter-spacing: -0.4px !important;
 }
 
-/* ─── Section labels ───────────────────────────────────────────────────────── */
+/* ─── Section labels ─────────────────────────────────────────────────────── */
 .tracking-widest.uppercase {
   font-family: var(--wr-font-mono) !important;
-  letter-spacing: 0.13em !important;
+  letter-spacing: 0.14em !important;
   color: var(--wr-text-3) !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   DARK MODE OVERRIDES
-   Remappe les valeurs light → dark quand html.dark est actif.
+   SEMANTIC COLORS — AML / Compliance
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* Les variables CSS gèrent automatiquement le remapping via var(--wr-*).
-   Les overrides ci-dessous sont pour les classes Tailwind qui ne peuvent pas
-   utiliser de variables CSS directement. */
-
-html.dark input, html.dark textarea, html.dark select {
-  background-color: rgba(255,255,255,0.04) !important;
-  border-color: rgba(255,255,255,0.10) !important;
-}
-html.dark input::placeholder,
-html.dark textarea::placeholder { color: #4A6080 !important; }
-
-html.dark thead tr { background-color: #172035 !important; }
-html.dark tbody td { border-bottom-color: rgba(255,255,255,0.04) !important; }
-html.dark tbody tr:hover td { background-color: rgba(255,255,255,0.02) !important; }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   SEMANTIC COLORS — AML (conservées dans les deux modes)
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-.bg-emerald-400\/5      { background-color: rgba(52,211,153,0.05) !important; }
-.bg-emerald-400\/10     { background-color: rgba(52,211,153,0.10) !important; }
-.bg-emerald-400\/15     { background-color: rgba(52,211,153,0.15) !important; }
+.bg-emerald-400\/5      { background-color: rgba(45,212,160,0.05)  !important; }
+.bg-emerald-400\/10     { background-color: rgba(45,212,160,0.09)  !important; }
+.bg-emerald-400\/15     { background-color: rgba(45,212,160,0.13)  !important; }
 .text-emerald-400       { color: #059669 !important; }
-html.dark .text-emerald-400 { color: #34D399 !important; }
-.border-emerald-400\/20 { border-color: rgba(52,211,153,0.25) !important; }
-.border-emerald-400\/30 { border-color: rgba(52,211,153,0.35) !important; }
-.border-emerald-400\/40 { border-color: rgba(52,211,153,0.45) !important; }
-.hover\:bg-emerald-400\/25:hover { background-color: rgba(52,211,153,0.20) !important; }
+html.dark .text-emerald-400 { color: #2DD4A0 !important; }
+.border-emerald-400\/20 { border-color: rgba(45,212,160,0.22) !important; }
+.border-emerald-400\/30 { border-color: rgba(45,212,160,0.32) !important; }
+.border-emerald-400\/40 { border-color: rgba(45,212,160,0.42) !important; }
+.hover\:bg-emerald-400\/25:hover { background-color: rgba(45,212,160,0.18) !important; }
+.border-emerald-500\/20 { border-color: rgba(16,185,129,0.22) !important; }
+.bg-emerald-500\/10     { background-color: rgba(16,185,129,0.09) !important; }
+.bg-emerald-500\/15     { background-color: rgba(16,185,129,0.13) !important; }
 
-.bg-red-400\/5          { background-color: rgba(239,68,68,0.05) !important; }
-.bg-red-400\/10         { background-color: rgba(239,68,68,0.08) !important; }
-.bg-red-400\/15         { background-color: rgba(239,68,68,0.12) !important; }
-.bg-red-500\/10         { background-color: rgba(239,68,68,0.10) !important; }
-.bg-red-300\/10         { background-color: rgba(252,165,165,0.10) !important; }
+.bg-red-400\/5          { background-color: rgba(255,101,112,0.05)  !important; }
+.bg-red-400\/10         { background-color: rgba(255,101,112,0.09)  !important; }
+.bg-red-400\/15         { background-color: rgba(255,101,112,0.12)  !important; }
+.bg-red-500\/10         { background-color: rgba(239,68,68,0.09)    !important; }
+.bg-red-300\/10         { background-color: rgba(252,165,165,0.09)  !important; }
 .text-red-400           { color: #DC2626 !important; }
 .text-red-300           { color: #F87171 !important; }
 .text-red-500           { color: #B91C1C !important; }
-html.dark .text-red-400 { color: #F87171 !important; }
+html.dark .text-red-400 { color: #FF6570 !important; }
 html.dark .text-red-300 { color: #FCA5A5 !important; }
-.border-red-400\/20     { border-color: rgba(239,68,68,0.25) !important; }
-.border-red-400\/30     { border-color: rgba(239,68,68,0.35) !important; }
-.border-red-400\/40     { border-color: rgba(239,68,68,0.45) !important; }
-.hover\:bg-red-400\/10:hover  { background-color: rgba(239,68,68,0.10) !important; }
-.hover\:bg-red-400\/20:hover  { background-color: rgba(239,68,68,0.16) !important; }
-.hover\:bg-red-400\/25:hover  { background-color: rgba(239,68,68,0.18) !important; }
+.border-red-400\/20     { border-color: rgba(255,101,112,0.22) !important; }
+.border-red-400\/30     { border-color: rgba(255,101,112,0.32) !important; }
+.border-red-400\/40     { border-color: rgba(255,101,112,0.42) !important; }
+.hover\:bg-red-400\/10:hover  { background-color: rgba(255,101,112,0.09) !important; }
+.hover\:bg-red-400\/20:hover  { background-color: rgba(255,101,112,0.15) !important; }
+.hover\:bg-red-400\/25:hover  { background-color: rgba(255,101,112,0.18) !important; }
 
-.bg-amber-400\/5        { background-color: rgba(251,191,36,0.05) !important; }
-.bg-amber-400\/10       { background-color: rgba(251,191,36,0.10) !important; }
-.bg-amber-400\/15       { background-color: rgba(251,191,36,0.14) !important; }
-.bg-amber-400\/20       { background-color: rgba(251,191,36,0.18) !important; }
+.bg-amber-400\/5        { background-color: rgba(245,158,11,0.05)  !important; }
+.bg-amber-400\/10       { background-color: rgba(245,158,11,0.09)  !important; }
+.bg-amber-400\/15       { background-color: rgba(245,158,11,0.13)  !important; }
+.bg-amber-400\/20       { background-color: rgba(245,158,11,0.16)  !important; }
 .text-amber-400         { color: #D97706 !important; }
-html.dark .text-amber-400 { color: #FBBF24 !important; }
-.border-amber-400\/20   { border-color: rgba(251,191,36,0.25) !important; }
-.border-amber-400\/30   { border-color: rgba(251,191,36,0.35) !important; }
-.hover\:bg-amber-400\/10:hover { background-color: rgba(251,191,36,0.10) !important; }
+html.dark .text-amber-400 { color: #F59E0B !important; }
+.border-amber-400\/20   { border-color: rgba(245,158,11,0.22) !important; }
+.border-amber-400\/30   { border-color: rgba(245,158,11,0.32) !important; }
+.hover\:bg-amber-400\/10:hover { background-color: rgba(245,158,11,0.09) !important; }
 
-.bg-sky-400\/10         { background-color: rgba(56,189,248,0.10) !important; }
+.bg-sky-400\/10         { background-color: rgba(56,189,248,0.09)  !important; }
 .text-sky-400           { color: #0284C7 !important; }
 html.dark .text-sky-400 { color: #38BDF8 !important; }
-.border-sky-400\/20     { border-color: rgba(56,189,248,0.25) !important; }
+.border-sky-400\/20     { border-color: rgba(56,189,248,0.22) !important; }
 
-.bg-blue-400\/10        { background-color: rgba(59,130,246,0.10) !important; }
-.text-blue-400          { color: #2563EB !important; }
-html.dark .text-blue-400 { color: #60A5FA !important; }
-.border-blue-400\/20    { border-color: rgba(59,130,246,0.25) !important; }
+.bg-blue-400\/10        { background-color: rgba(74,158,255,0.09)  !important; }
+.text-blue-400          { color: #1A55AA !important; }
+html.dark .text-blue-400 { color: #4A9EFF !important; }
+.border-blue-400\/20    { border-color: rgba(74,158,255,0.22) !important; }
 
-.bg-purple-400\/10      { background-color: rgba(168,85,247,0.10) !important; }
-.bg-purple-400\/15      { background-color: rgba(168,85,247,0.14) !important; }
-.bg-purple-400\/20      { background-color: rgba(168,85,247,0.18) !important; }
+.bg-purple-400\/10      { background-color: rgba(168,85,247,0.09)  !important; }
+.bg-purple-400\/15      { background-color: rgba(168,85,247,0.13)  !important; }
+.bg-purple-400\/20      { background-color: rgba(168,85,247,0.16)  !important; }
 .text-purple-400        { color: #7C3AED !important; }
 html.dark .text-purple-400 { color: #C084FC !important; }
-.border-purple-400\/20  { border-color: rgba(168,85,247,0.25) !important; }
-.border-purple-400\/30  { border-color: rgba(168,85,247,0.35) !important; }
+.border-purple-400\/20  { border-color: rgba(168,85,247,0.22) !important; }
+.border-purple-400\/30  { border-color: rgba(168,85,247,0.32) !important; }
 
-.bg-violet-400\/10      { background-color: rgba(139,92,246,0.10) !important; }
+.bg-violet-400\/10      { background-color: rgba(139,92,246,0.09)  !important; }
 .text-violet-400        { color: #6D28D9 !important; }
 html.dark .text-violet-400 { color: #A78BFA !important; }
-.border-violet-400\/20  { border-color: rgba(139,92,246,0.25) !important; }
+.border-violet-400\/20  { border-color: rgba(139,92,246,0.22) !important; }
 
-.bg-slate-500\/10       { background-color: rgba(100,116,139,0.10) !important; }
+.bg-slate-500\/10       { background-color: rgba(100,116,139,0.09) !important; }
 .text-slate-400         { color: #475569 !important; }
 html.dark .text-slate-400 { color: #94A3B8 !important; }
 .text-slate-500         { color: #334155 !important; }
 html.dark .text-slate-500 { color: #64748B !important; }
-.border-slate-500\/20   { border-color: rgba(100,116,139,0.25) !important; }
+.border-slate-500\/20   { border-color: rgba(100,116,139,0.22) !important; }
 
-.bg-orange-400\/10      { background-color: rgba(251,146,60,0.10) !important; }
+.bg-orange-400\/10      { background-color: rgba(251,146,60,0.09)  !important; }
 .text-orange-400        { color: #C2410C !important; }
 html.dark .text-orange-400 { color: #FB923C !important; }
-.border-orange-400\/20  { border-color: rgba(251,146,60,0.25) !important; }
+.border-orange-400\/20  { border-color: rgba(251,146,60,0.22) !important; }
 
-.bg-cyan-400\/10        { background-color: rgba(34,211,238,0.10) !important; }
+.bg-cyan-400\/10        { background-color: rgba(34,211,238,0.09)  !important; }
 .text-cyan-400          { color: #0891B2 !important; }
 html.dark .text-cyan-400 { color: #22D3EE !important; }
-.border-cyan-400\/20    { border-color: rgba(34,211,238,0.25) !important; }
+.border-cyan-400\/20    { border-color: rgba(34,211,238,0.22) !important; }
 
-.bg-pink-400\/10        { background-color: rgba(244,114,182,0.10) !important; }
+.bg-pink-400\/10        { background-color: rgba(244,114,182,0.09) !important; }
 .text-pink-400          { color: #DB2777 !important; }
 html.dark .text-pink-400 { color: #F472B6 !important; }
 
-/* ─── AmlRulesPage ──────────────────────────────────────────────────────────── */
-.border-emerald-500\/20 { border-color: rgba(16,185,129,0.25) !important; }
-.bg-emerald-500\/10     { background-color: rgba(16,185,129,0.10) !important; }
-
-/* ─── Card elevation (light mode only) ─────────────────────────────────────── */
+/* ─── Card elevation (light mode) ────────────────────────────────────────── */
 html:not(.dark) .bg-\[\#0d1117\].border.border-\[\#21262d\].rounded-lg,
 html:not(.dark) .bg-\[\#0d1117\].border.border-\[\#21262d\].rounded-xl {
   box-shadow: var(--wr-shadow-sm) !important;
+}
+
+/* ─── Modal backdrop ─────────────────────────────────────────────────────── */
+.wr-modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(2,5,12,0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* w-1.5 h-1.5 rounded-full animate-pulse-dot  (status indicator) */
+.animate-pulse-dot {
+  animation: wr-pulse-dot 1.8s ease-in-out infinite;
 }

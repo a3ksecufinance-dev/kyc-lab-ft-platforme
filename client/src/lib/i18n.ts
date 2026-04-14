@@ -31,9 +31,19 @@ const translations = {
       logout:       "Déconnexion",
       // ── Multi-institution (wallets flag) ──────────────────────────────────
       mobileInstitution: "Mobile / Agents",
-      wallets:      "Wallets",
-      agents:       "Réseau agents",
-      bam:          "Rapports BAM",
+      wallets:           "Wallets",
+      walletCompliance:  "Conformité wallets",
+      agents:            "Réseau agents",
+      bam:               "Rapports BAM",
+      // ── Groupes nav supplémentaires ───────────────────────────────────────
+      kycIdentity:       "KYC / Identité",
+      regulatory:        "Réglementation",
+      // ── 2026 features ─────────────────────────────────────────────────────
+      sla:               "SLA Monitoring",
+      travelRule:        "Travel Rule FATF",
+      portal:            "Portail Client",
+      audit:             "Audit Trail",
+      correspondent:     "Banques Correspondantes",
     },
     // ── Common ──────────────────────────────────────────────────────────────
     common: {
@@ -712,9 +722,19 @@ const translations = {
       logout:       "Sign out",
       // ── Multi-institution (wallets flag) ──────────────────────────────────
       mobileInstitution: "Mobile / Agents",
-      wallets:      "Wallets",
-      agents:       "Agent Network",
-      bam:          "BAM Reports",
+      wallets:          "Wallets",
+      walletCompliance: "Wallet Compliance",
+      agents:           "Agent Network",
+      bam:              "BAM Reports",
+      // ── Additional nav groups ─────────────────────────────────────────────
+      kycIdentity:      "KYC / Identity",
+      regulatory:       "Regulatory",
+      // ── 2026 features ─────────────────────────────────────────────────────
+      sla:              "SLA Monitoring",
+      travelRule:       "Travel Rule FATF",
+      portal:           "Customer Portal",
+      audit:            "Audit Trail",
+      correspondent:    "Correspondent Banks",
     },
     common: {
       loading:      "Loading…",

@@ -14,9 +14,13 @@
  * Surveillance : alerte si une liste est stale > SCREENING_STALE_THRESHOLD_HOURS
  */
 
-import { ENV } from "../../_core/env";
+import { ENV }            from "../../_core/env";
 import { redis, RedisKeys } from "../../_core/redis";
-import { createLogger } from "../../_core/logger";
+import { createLogger }    from "../../_core/logger";
+import { db }              from "../../_core/db";
+import { alerts }          from "../../../drizzle/schema";
+import { nanoid }          from "nanoid";
+import { saveVersionedList, getVersionedList } from "./screening.version";
 import type { SanctionEntity } from "./screening.matcher";
 
 const log = createLogger("screening-lists");
@@ -74,6 +78,28 @@ function getMockEntities(source: string): SanctionEntity[] {
   return base;
 }
 
+// Données mock PEP (dev uniquement) — personnalités politiques notoires
+// Utilisées quand l'URL OpenSanctions est inaccessible (timeout réseau en dev)
+function getMockPepEntities(): SanctionEntity[] {
+  return [
+    { id: "PEP-MOCK-001", name: "Vladimir Putin",          aliases: ["Vladimir Vladimirovich Putin", "Poutine"],             listSource: "PEP", entityType: "individual", programs: ["PEP"] },
+    { id: "PEP-MOCK-002", name: "Xi Jinping",              aliases: ["Xi Jin Ping", "Jinping Xi"],                           listSource: "PEP", entityType: "individual", programs: ["PEP"] },
+    { id: "PEP-MOCK-003", name: "Kim Jong Un",             aliases: ["Kim Jong-un", "Kim Jongun"],                           listSource: "PEP", entityType: "individual", programs: ["PEP"] },
+    { id: "PEP-MOCK-004", name: "Bashar Al Assad",         aliases: ["Bashar Assad", "Bachar Al-Assad"],                     listSource: "PEP", entityType: "individual", programs: ["PEP"] },
+    { id: "PEP-MOCK-005", name: "Alexander Lukashenko",    aliases: ["Lukashenko", "A. Lukashenko"],                         listSource: "PEP", entityType: "individual", programs: ["PEP"] },
+    { id: "PEP-MOCK-006", name: "Nicolas Maduro",          aliases: ["Maduro Moros", "Nicolas Maduro Moros"],                listSource: "PEP", entityType: "individual", programs: ["PEP"] },
+    { id: "PEP-MOCK-007", name: "Robert Mugabe",           aliases: ["R. Mugabe"],                                           listSource: "PEP", entityType: "individual", programs: ["PEP"] },
+    { id: "PEP-MOCK-008", name: "Muammar Gaddafi",         aliases: ["Muammar Qadhafi", "Kadhafi"],                          listSource: "PEP", entityType: "individual", programs: ["PEP"] },
+    { id: "PEP-MOCK-009", name: "Omar Al Bashir",          aliases: ["Omar Bashir", "Al-Bashir"],                            listSource: "PEP", entityType: "individual", programs: ["PEP"] },
+    { id: "PEP-MOCK-010", name: "Slobodan Milosevic",      aliases: ["S. Milosevic"],                                        listSource: "PEP", entityType: "individual", programs: ["PEP"] },
+    { id: "PEP-MOCK-011", name: "Pervez Musharraf",        aliases: ["P. Musharraf", "Musharaf"],                            listSource: "PEP", entityType: "individual", programs: ["PEP"] },
+    { id: "PEP-MOCK-012", name: "Idi Amin Dada",           aliases: ["Idi Amin", "I.A. Dada"],                               listSource: "PEP", entityType: "individual", programs: ["PEP"] },
+    { id: "PEP-MOCK-013", name: "Teodoro Obiang Nguema",   aliases: ["Obiang", "T. Obiang"],                                 listSource: "PEP", entityType: "individual", programs: ["PEP"] },
+    { id: "PEP-MOCK-014", name: "Nursultan Nazarbayev",    aliases: ["Nazarbayev", "N. Nazarbaev"],                          listSource: "PEP", entityType: "individual", programs: ["PEP"] },
+    { id: "PEP-MOCK-015", name: "Gurbanguly Berdimuhamedow", aliases: ["Berdimuhamedov", "Berdymukhammedov"],                listSource: "PEP", entityType: "individual", programs: ["PEP"] },
+  ];
+}
+
 
 
 // ─── Parser OpenSanctions CSV (fallback universel) ────────────────────────────
@@ -99,10 +125,16 @@ function parseOpenSanctionsCsv(csv: string, source: string): SanctionEntity[] {
   return entities;
 }
 
-// ─── Cache Redis ──────────────────────────────────────────────────────────────
+// ─── Cache Redis (atomic swap) ────────────────────────────────────────────────
+// L'atomic swap évite qu'une requête screening lise une liste partiellement écrite.
+// Flux : écriture dans une clé temporaire ":next", puis RENAME atomique.
 
 async function getCached(provider: string): Promise<SanctionEntity[] | null> {
   try {
+    // Essayer d'abord le cache versionné (plus fiable)
+    const versioned = await getVersionedList(provider);
+    if (versioned && versioned.length > 0) return versioned;
+    // Fallback sur le cache legacy
     const data = await redis.get(RedisKeys.screeningList(provider));
     return data ? (JSON.parse(data) as SanctionEntity[]) : null;
   } catch { return null; }
@@ -110,11 +142,51 @@ async function getCached(provider: string): Promise<SanctionEntity[] | null> {
 
 async function setCache(provider: string, entities: SanctionEntity[]): Promise<void> {
   try {
-    await redis.setex(RedisKeys.screeningList(provider), LIST_TTL, JSON.stringify(entities));
-    await redis.set(RedisKeys.screeningLastUpdate(provider), new Date().toISOString());
-    await redis.set(RedisKeys.screeningListCount(provider), String(entities.length));
+    const payload = JSON.stringify(entities);
+    const nextKey = `${RedisKeys.screeningList(provider)}:next`;
+
+    // 1. Écrire dans la clé temporaire
+    await redis.setex(nextKey, LIST_TTL + 3600, payload);
+
+    // 2. Pipeline atomique : rename + mise à jour des métadonnées
+    const pipeline = redis.pipeline();
+    pipeline.rename(nextKey, RedisKeys.screeningList(provider));
+    pipeline.set(RedisKeys.screeningLastUpdate(provider), new Date().toISOString());
+    pipeline.set(RedisKeys.screeningListCount(provider), String(entities.length));
+    await pipeline.exec();
+
+    // 3. Sauvegarder une version archivée (pour rollback)
+    await saveVersionedList(provider, entities);
   } catch (err) {
     log.warn({ err, provider }, "Erreur mise en cache liste sanctions");
+  }
+}
+
+// ─── Alerte compliance quand une liste est stale ──────────────────────────────
+
+async function createStaleAlert(provider: string, ageHours: number): Promise<void> {
+  if (process.env["NODE_ENV"] !== "production") return;  // alertes DB seulement en prod
+  try {
+    // Éviter les doublons : vérifier si une alerte OPEN existe déjà pour ce provider
+    const existingKey = `screening:stale:alert:${provider}`;
+    const alreadyAlerting = await redis.get(existingKey).catch(() => null);
+    if (alreadyAlerting) return;
+
+    await db.insert(alerts).values({
+      alertId:   `ALT-${nanoid(8).toUpperCase()}`,
+      alertType: "SYSTEM",
+      priority:  ageHours > 72 ? "HIGH" : "MEDIUM",
+      status:    "OPEN",
+      reason:    `Liste sanctions ${provider.toUpperCase()} non mise à jour depuis ${ageHours}h (seuil: ${ENV.SCREENING_STALE_THRESHOLD_HOURS}h). Risque de faux CLEAR sur screening.`,
+      riskScore: ageHours > 72 ? 80 : 50,
+      createdAt: new Date(),
+    } as never);
+
+    // Bloquer les doublons pendant 6h
+    await redis.setex(existingKey, 6 * 3600, "1");
+    log.warn({ provider, ageHours }, "Alerte compliance créée — liste sanctions stale");
+  } catch (err) {
+    log.error({ err, provider }, "Impossible de créer l'alerte stale en DB");
   }
 }
 
@@ -478,6 +550,12 @@ export async function fetchPepList(): Promise<SanctionEntity[]> {
     return entities;
   } catch (err) {
     log.error({ err, url }, "Échec chargement liste PEP");
+    // En développement : utiliser les données mock PEP pour permettre les tests
+    if (process.env["NODE_ENV"] !== "production") {
+      const mock = getMockPepEntities();
+      log.warn({ count: mock.length }, "Liste PEP inaccessible — données mock PEP chargées (dev)");
+      return mock;
+    }
     return [];
   }
 }
@@ -595,10 +673,16 @@ export async function checkListsHealth(): Promise<{
   const staleCount = reports.filter(r => r.isStale).length;
 
   if (staleCount > 0) {
+    const staleProviders = reports.filter(r => r.isStale).map(r => r.provider);
     log.warn(
-      { staleProviders: reports.filter(r => r.isStale).map(r => r.provider) },
+      { staleProviders },
       `⚠️  ${staleCount} liste(s) de sanctions non mises à jour depuis plus de ${staleThresholdHours}h`
     );
+    // Créer des alertes DB pour chaque liste stale (prod uniquement)
+    for (const report of reports.filter(r => r.isStale)) {
+      const ageH = report.ageHours ?? (staleThresholdHours + 1);
+      await createStaleAlert(report.provider.toLowerCase(), ageH).catch(() => undefined);
+    }
   }
 
   return { reports, anyStale: staleCount > 0, staleCount, totalEntities };
@@ -677,7 +761,22 @@ export async function loadAllSanctionLists(forceRefresh = false): Promise<{
       } else {
         // Aucun cache ET fetch échoué
         if (optional) {
-          // Liste optionnelle (PEP, BAM) : pas de mock, pas d'erreur bloquante
+          // PEP : mock en dev même si optional (pour tests de conformité)
+          const isDev = process.env["NODE_ENV"] !== "production";
+          if (key === "pep" && isDev) {
+            const mock = getMockPepEntities();
+            await setCache(key, mock);
+            allEntities.push(...mock);
+            statuses.push({
+              provider:   key.toUpperCase(),
+              count:      mock.length,
+              lastUpdate: new Date().toISOString(),
+              fromCache:  false,
+              error:      "Source indisponible — données PEP de démonstration chargées",
+            });
+            log.warn({ provider: key }, "Source PEP inaccessible — données mock PEP chargées (dev)");
+          } else {
+          // Autre liste optionnelle (BAM, CUSTOM) : pas de mock, pas d'erreur bloquante
           statuses.push({
             provider:   key.toUpperCase(),
             count:      0,
@@ -685,6 +784,7 @@ export async function loadAllSanctionLists(forceRefresh = false): Promise<{
             fromCache:  false,
             error:      "Source non configurée ou inaccessible",
           });
+          }
         } else {
           // Liste obligatoire (OFAC, EU, UN, UK) → mock en dev
           const isDev = process.env["NODE_ENV"] !== "production";

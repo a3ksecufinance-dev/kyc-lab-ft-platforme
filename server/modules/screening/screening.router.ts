@@ -81,9 +81,9 @@ export const screeningRouter = router({
 
   listsStatus: supervisorProc
     .query(async () => {
-      // Providers dynamiques : noyau + optionnels (PEP, BAM, CUSTOM)
-      const coreProv    = ["ofac", "eu", "un", "uk"];
-      const optionalProv = ["pep", "bam", "custom"];
+      // Providers dynamiques : noyau (toujours affichés) + optionnels (BAM, CUSTOM)
+      const coreProv    = ["ofac", "eu", "un", "uk", "pep"];
+      const optionalProv = ["bam", "custom"];
       const allProviders: string[] = [];
 
       for (const key of [...coreProv, ...optionalProv]) {

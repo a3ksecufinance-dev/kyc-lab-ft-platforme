@@ -7,7 +7,7 @@ import { StatCard } from "../components/ui/StatCard";
 import { trpc } from "../lib/trpc";
 import { formatDateTime, formatRelative, formatNumber } from "../lib/utils";
 import {
-  Shield, Activity, Plus, Key, ToggleLeft, ToggleRight, Brain, Eye,
+  Shield, Activity, Plus, Key, ToggleLeft, ToggleRight, Brain, Eye, ShieldOff,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useI18n } from "../hooks/useI18n";
@@ -35,6 +35,7 @@ type User = {
   role: "user" | "analyst" | "supervisor" | "compliance_officer" | "admin";
   department: string | null; isActive: boolean;
   lastSignedIn: Date | null; createdAt: Date;
+  mfaEnabled?: boolean;
 };
 
 type AuditLog = {
@@ -139,6 +140,7 @@ function UsersTab({ meId }: { meId?: number | undefined }) {
   const [resetTarget, setResetTarget] = useState<User | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [detailTarget, setDetailTarget] = useState<User | null>(null);
+  const [mfaTarget, setMfaTarget] = useState<User | null>(null);
 
   const { data: userDetail } = trpc.admin.getUser.useQuery(
     { id: detailTarget?.id ?? 0 }, { enabled: !!detailTarget }
@@ -157,6 +159,9 @@ function UsersTab({ meId }: { meId?: number | undefined }) {
   });
   const resetMutation   = trpc.admin.resetPassword.useMutation({
     onSuccess: () => { setResetTarget(null); setNewPassword(""); },
+  });
+  const mfaResetMutation = trpc.admin.adminMfaReset.useMutation({
+    onSuccess: () => { utils.admin.listUsers.invalidate(); setMfaTarget(null); },
   });
 
   const COLUMNS: Column<User>[] = [
@@ -190,6 +195,12 @@ function UsersTab({ meId }: { meId?: number | undefined }) {
         : <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, fontFamily: C.mono, color: C.text4 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: C.text4, display: "inline-block" }} />{t.admin.inactive}</span>,
     },
     {
+      key: "mfa", header: "MFA", width: "w-16",
+      render: (r) => r.mfaEnabled
+        ? <span title="MFA activé" style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, fontFamily: C.mono, color: C.green }}><Shield size={10} />ON</span>
+        : <span title="MFA désactivé" style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, fontFamily: C.mono, color: C.text4 }}><ShieldOff size={10} />OFF</span>,
+    },
+    {
       key: "lastSeen", header: t.admin.lastLogin, width: "w-36",
       render: (r) => <span style={{ fontFamily: C.mono, fontSize: 10, color: C.text3 }}>{r.lastSignedIn ? formatRelative(r.lastSignedIn) : "Jamais"}</span>,
     },
@@ -209,6 +220,9 @@ function UsersTab({ meId }: { meId?: number | undefined }) {
             style={{ fontSize: 10, fontFamily: C.mono, color: C.blue, background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>{t.admin.editUser}</button>
           <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setResetTarget(r); }}
             style={{ fontSize: 10, fontFamily: C.mono, color: C.amber, background: "none", border: "none", cursor: "pointer", padding: 0 }}>MDP</button>
+          <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setMfaTarget(r); }}
+            title="Gérer le MFA"
+            style={{ fontSize: 10, fontFamily: C.mono, color: r.mfaEnabled ? C.green : C.text4, background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center" }}><Shield size={10} /></button>
         </div>
       ),
     },
@@ -303,6 +317,47 @@ function UsersTab({ meId }: { meId?: number | undefined }) {
         </div>
       )}
 
+      {/* Modal MFA admin */}
+      {mfaTarget && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
+          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 24, width: "100%", maxWidth: 384 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+              <Shield size={15} style={{ color: mfaTarget.mfaEnabled ? C.green : C.text4 }} />
+              <h3 style={{ fontSize: 13, fontWeight: 600, fontFamily: C.mono, color: C.text1, margin: 0 }}>Gestion MFA</h3>
+            </div>
+            <p style={{ fontSize: 12, fontFamily: C.mono, color: C.text3, marginBottom: 16, marginTop: 0 }}>{mfaTarget.name} — {mfaTarget.email}</p>
+            <div style={{ background: C.hover, borderRadius: 8, padding: "10px 14px", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+              {mfaTarget.mfaEnabled
+                ? <><Shield size={13} style={{ color: C.green }} /><span style={{ fontSize: 12, fontFamily: C.mono, color: C.green }}>MFA activé</span></>
+                : <><ShieldOff size={13} style={{ color: C.text4 }} /><span style={{ fontSize: 12, fontFamily: C.mono, color: C.text4 }}>MFA non activé</span></>}
+            </div>
+            {mfaTarget.mfaEnabled && (
+              <div style={{ background: `${C.red}0d`, border: `1px solid ${C.red}30`, borderRadius: 8, padding: "10px 14px", marginBottom: 16 }}>
+                <p style={{ fontSize: 11, fontFamily: C.mono, color: C.red, margin: 0 }}>
+                  Réinitialiser le MFA supprimera le secret TOTP et tous les codes de secours de cet utilisateur. L'utilisateur devra reconfigurer son application d'authentification.
+                </p>
+              </div>
+            )}
+            {mfaResetMutation.error && (
+              <p style={{ fontSize: 11, fontFamily: C.mono, color: C.red, marginBottom: 12 }}>{mfaResetMutation.error.message}</p>
+            )}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => { setMfaTarget(null); mfaResetMutation.reset(); }}
+                style={{ flex: 1, padding: "8px 0", fontSize: 11, fontFamily: C.mono, background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 7, color: C.text2, cursor: "pointer" }}>Fermer</button>
+              {mfaTarget.mfaEnabled && (
+                <button
+                  disabled={mfaResetMutation.isPending}
+                  onClick={() => mfaResetMutation.mutate({ id: mfaTarget.id })}
+                  style={{ flex: 1, padding: "8px 0", fontSize: 11, fontFamily: C.mono, background: `${C.red}14`, border: `1px solid ${C.red}40`, borderRadius: 7, color: C.red, cursor: "pointer", opacity: mfaResetMutation.isPending ? 0.4 : 1 }}
+                >
+                  {mfaResetMutation.isPending ? "Réinitialisation..." : "Réinitialiser le MFA"}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal détail utilisateur */}
       {detailTarget && userDetail && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
@@ -323,10 +378,15 @@ function UsersTab({ meId }: { meId?: number | undefined }) {
                 { label: "Statut",         value: userDetail.isActive ? "Actif" : "Inactif" },
                 { label: "Dernière conn.", value: userDetail.lastSignedIn ? formatRelative(userDetail.lastSignedIn) : "Jamais" },
                 { label: "Créé le",        value: formatDateTime(userDetail.createdAt) },
+                { label: "MFA",            value: userDetail.mfaEnabled ? "Activé" : "Désactivé" },
+                ...(userDetail.mfaEnabled ? [
+                  { label: "MFA activé le", value: userDetail.mfaEnabledAt ? formatDateTime(userDetail.mfaEnabledAt) : "—" },
+                  { label: "Codes secours", value: `${userDetail.backupCodesLeft} restant(s)` },
+                ] : []),
               ].map(({ label, value }) => (
                 <div key={label} style={{ background: C.hover, borderRadius: 6, padding: "8px 10px" }}>
                   <p style={{ fontSize: 9, fontFamily: C.mono, textTransform: "uppercase", letterSpacing: "0.1em", color: C.text3, margin: "0 0 2px" }}>{label}</p>
-                  <p style={{ fontSize: 11, fontFamily: C.mono, color: C.text1, margin: 0 }}>{value}</p>
+                  <p style={{ fontSize: 11, fontFamily: C.mono, color: label === "MFA" ? (userDetail.mfaEnabled ? C.green : C.text4) : C.text1, margin: 0 }}>{value}</p>
                 </div>
               ))}
             </div>

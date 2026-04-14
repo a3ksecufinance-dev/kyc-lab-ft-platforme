@@ -5,6 +5,7 @@ import {
   insertTimelineEntry, findTimelineByCase, getCaseStats,
   type ListCasesInput,
 } from "./cases.repository";
+import { requireCustomer } from "../customers/customers.repository";
 import type { Case } from "../../../drizzle/schema";
 
 export interface CreateCaseInput {
@@ -27,6 +28,8 @@ export async function getCaseOrThrow(id: number): Promise<Case> {
 }
 
 export async function createCase(input: CreateCaseInput, createdBy: number): Promise<Case> {
+  await requireCustomer(input.customerId);
+
   const caseId = `CASE-${nanoid(8).toUpperCase()}`;
 
   const c = await insertCase({

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { router, adminProc, supervisorProc } from "../../_core/trpc";
 import { db } from "../../_core/db";
 import { users, auditLogs } from "../../../drizzle/schema";
-import { eq, desc, ilike, and, gte, count, or } from "drizzle-orm";
+import { eq, desc, ilike, and, gte, lte, count, or } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { createAuditFromContext } from "../../_core/audit";
 import { forceMlRetrain, getMlRetrainStatus } from "../aml/ml-retrain.scheduler";
@@ -46,6 +46,7 @@ export const adminRouter = router({
           isActive:     users.isActive,
           lastSignedIn: users.lastSignedIn,
           createdAt:    users.createdAt,
+          mfaEnabled:   users.mfaEnabled,
         })
           .from(users)
           .where(where)
@@ -62,12 +63,47 @@ export const adminRouter = router({
     .input(z.object({ id: z.number().int().positive() }))
     .query(async ({ input }) => {
       const [user] = await db
-        .select({ id: users.id, email: users.email, name: users.name, role: users.role, department: users.department, isActive: users.isActive, lastSignedIn: users.lastSignedIn, createdAt: users.createdAt })
+        .select({
+          id: users.id, email: users.email, name: users.name, role: users.role,
+          department: users.department, isActive: users.isActive,
+          lastSignedIn: users.lastSignedIn, createdAt: users.createdAt,
+          mfaEnabled: users.mfaEnabled, mfaEnabledAt: users.mfaEnabledAt,
+          backupCodesLeft: users.mfaBackupCodes,
+        })
         .from(users)
         .where(eq(users.id, input.id))
         .limit(1);
       if (!user) throw new Error("Utilisateur introuvable");
-      return user;
+      // Count remaining backup codes without exposing hashes
+      const codesLeft = Array.isArray(user.backupCodesLeft) ? (user.backupCodesLeft as unknown[]).length : 0;
+      return { ...user, backupCodesLeft: codesLeft };
+    }),
+
+  adminMfaReset: adminProc
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const log = createAuditFromContext(ctx);
+
+      const [target] = await db.select({ id: users.id, email: users.email, mfaEnabled: users.mfaEnabled })
+        .from(users).where(eq(users.id, input.id)).limit(1);
+      if (!target) throw new Error("Utilisateur introuvable");
+
+      await db.update(users).set({
+        mfaEnabled:     false,
+        mfaSecret:      null,
+        mfaBackupCodes: null,
+        mfaEnabledAt:   null,
+        updatedAt:      new Date(),
+      }).where(eq(users.id, input.id));
+
+      await log({
+        action:     "MFA_ADMIN_RESET",
+        entityType: "user",
+        entityId:   String(input.id),
+        details:    { targetEmail: target.email, wasMfaEnabled: target.mfaEnabled },
+      });
+
+      return { success: true };
     }),
 
   createUser: adminProc
@@ -159,6 +195,7 @@ export const adminRouter = router({
       entityType: z.string().optional(),
       action:     z.string().optional(),
       since:      z.string().datetime().optional(),
+      until:      z.string().datetime().optional(),
     }))
     .query(async ({ input }) => {
       const offset = (input.page - 1) * input.limit;
@@ -168,21 +205,27 @@ export const adminRouter = router({
       if (input.entityType) conditions.push(eq(auditLogs.entityType, input.entityType));
       if (input.action)     conditions.push(ilike(auditLogs.action, `%${input.action}%`));
       if (input.since)      conditions.push(gte(auditLogs.createdAt, new Date(input.since)));
+      if (input.until)      conditions.push(lte(auditLogs.createdAt, new Date(input.until)));
 
       const where = conditions.length > 0 ? and(...conditions) : undefined;
 
+      const cols = {
+        id:         auditLogs.id,
+        userId:     auditLogs.userId,
+        userName:   users.name,
+        userEmail:  users.email,
+        action:     auditLogs.action,
+        entityType: auditLogs.entityType,
+        entityId:   auditLogs.entityId,
+        details:    auditLogs.details,
+        ipAddress:  auditLogs.ipAddress,
+        createdAt:  auditLogs.createdAt,
+      };
+
       const [rows, totalRows] = await Promise.all([
-        db.select({
-          id:         auditLogs.id,
-          userId:     auditLogs.userId,
-          action:     auditLogs.action,
-          entityType: auditLogs.entityType,
-          entityId:   auditLogs.entityId,
-          details:    auditLogs.details,
-          ipAddress:  auditLogs.ipAddress,
-          createdAt:  auditLogs.createdAt,
-        })
+        db.select(cols)
           .from(auditLogs)
+          .leftJoin(users, eq(auditLogs.userId, users.id))
           .where(where)
           .orderBy(desc(auditLogs.createdAt))
           .limit(input.limit)
@@ -191,6 +234,42 @@ export const adminRouter = router({
       ]);
 
       return { data: rows, total: Number(totalRows[0]?.total ?? 0), page: input.page, limit: input.limit };
+    }),
+
+  exportAuditLogs: supervisorProc
+    .input(z.object({
+      userId:     z.number().int().positive().optional(),
+      entityType: z.string().optional(),
+      action:     z.string().optional(),
+      since:      z.string().datetime().optional(),
+      until:      z.string().datetime().optional(),
+    }))
+    .query(async ({ input }) => {
+      const conditions = [];
+      if (input.userId)     conditions.push(eq(auditLogs.userId, input.userId));
+      if (input.entityType) conditions.push(eq(auditLogs.entityType, input.entityType));
+      if (input.action)     conditions.push(ilike(auditLogs.action, `%${input.action}%`));
+      if (input.since)      conditions.push(gte(auditLogs.createdAt, new Date(input.since)));
+      if (input.until)      conditions.push(lte(auditLogs.createdAt, new Date(input.until)));
+      const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+      return db.select({
+        id:         auditLogs.id,
+        userId:     auditLogs.userId,
+        userName:   users.name,
+        userEmail:  users.email,
+        action:     auditLogs.action,
+        entityType: auditLogs.entityType,
+        entityId:   auditLogs.entityId,
+        details:    auditLogs.details,
+        ipAddress:  auditLogs.ipAddress,
+        createdAt:  auditLogs.createdAt,
+      })
+        .from(auditLogs)
+        .leftJoin(users, eq(auditLogs.userId, users.id))
+        .where(where)
+        .orderBy(desc(auditLogs.createdAt))
+        .limit(5000);
     }),
 
   auditStats: supervisorProc

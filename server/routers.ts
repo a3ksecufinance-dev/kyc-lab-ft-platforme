@@ -19,6 +19,12 @@ import { walletsRouter }              from "./modules/wallets/wallets.router";
 import { agentsRouter }               from "./modules/agents/agents.router";
 import { bamRouter }                  from "./modules/reports/bam.router";
 import { enhancedOnboardingRouter }   from "./modules/customers/enhanced-onboarding.router";
+import { travelRuleRouter }           from "./modules/travel-rule/travel-rule.router";
+import { iso20022Router }             from "./modules/iso20022/iso20022.router";
+import { slaRouter }                  from "./modules/sla/sla.router";
+import { portalRouter }               from "./modules/portal/portal.router";
+import { approvalsRouter }            from "./modules/approvals/approvals.router";
+import { correspondentRouter }        from "./modules/correspondent/correspondent.router";
 
 export const appRouter = router({
   auth:          authRouter,
@@ -40,6 +46,12 @@ export const appRouter = router({
   agents:              agentsRouter,
   bam:                 bamRouter,
   enhancedOnboarding:  enhancedOnboardingRouter,
+  travelRule:          travelRuleRouter,
+  iso20022:            iso20022Router,
+  sla:                 slaRouter,
+  portal:              portalRouter,
+  approvals:           approvalsRouter,
+  correspondent:       correspondentRouter,
 });
 
 export type AppRouter = typeof appRouter;

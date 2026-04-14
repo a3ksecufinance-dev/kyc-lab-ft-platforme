@@ -1,4 +1,5 @@
 import "./env"; // Validation vars d'env en premier
+import { assertPiiEncryptionReady } from "./pii";
 import express from "express";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { createContext } from "./context";
@@ -10,6 +11,7 @@ import { ENV } from "./env";
 import { startSanctionsScheduler, stopSanctionsScheduler } from "../modules/screening/screening.scheduler";
 import { startMlRetrainScheduler, stopMlRetrainScheduler } from "../modules/aml/ml-retrain.scheduler";
 import { startPkycScheduler, stopPkycScheduler }           from "../modules/customers/pkyc.scheduler";
+import { startSlaScheduler, stopSlaScheduler }             from "../modules/sla/sla.scheduler";
 import { handleTransactionWebhook } from "../modules/transactions/transactions.webhook";
 import {
   handleOrangeMoney,
@@ -20,6 +22,7 @@ import { uploadAndProcessDocument } from "../modules/documents/documents.service
 import { verifyAccessToken }         from "../modules/auth/auth.service";
 import { checkS3Health, validateStorageConfig } from "./upload";
 import multerPkg from "multer";
+import rateLimit from "express-rate-limit";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -50,8 +53,13 @@ try {
 // ─── CORS ────────────────────────────────────────────────────────────────────
 
 const rawCorsOrigins = ENV.CORS_ORIGINS.split(",").map((o) => o.trim());
-// CORS_ORIGINS=* → autoriser toutes les origines (utile pour Railway demo)
+// CORS_ORIGINS=* est interdit en production — uniquement dev/staging
 const corsWildcard = rawCorsOrigins.includes("*");
+if (corsWildcard && ENV.NODE_ENV === "production") {
+  log.error("⛔  ERREUR FATALE : CORS_ORIGINS=* est interdit en production. " +
+    "Définissez les origines autorisées explicitement (ex: https://app.votre-domaine.fr).");
+  process.exit(1);
+}
 app.use((req, res, next): void => {
   const origin = req.headers.origin;
   if (origin && (corsWildcard || rawCorsOrigins.includes(origin))) {
@@ -70,8 +78,51 @@ app.use((_, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("X-XSS-Protection", "1; mode=block");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  if (ENV.NODE_ENV === "production") {
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  }
   next();
 });
+
+// ─── Rate limiting global ─────────────────────────────────────────────────────
+//
+//  3 niveaux de protection :
+//  1. Global  : 200 req/min par IP (contre le scraping/bruteforce général)
+//  2. API     : 100 req/min par IP sur /trpc (configurable via ENV)
+//  3. Upload  : 20 req/min par IP sur /api/documents/upload (coûteux côté serveur)
+//
+// ─────────────────────────────────────────────────────────────────────────────
+
+const globalLimiter = rateLimit({
+  windowMs: 60_000,
+  max:      200,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  message: { error: "Trop de requêtes — réessayez dans une minute" },
+  skip: (req) => req.path === "/health" || req.path === "/metrics",
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 60_000,
+  max:      ENV.RATE_LIMIT_MAX,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  message: { error: "Limite API dépassée — réessayez dans une minute" },
+});
+
+const uploadLimiter = rateLimit({
+  windowMs: 60_000,
+  max:      20,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  message: { error: "Trop d'uploads — réessayez dans une minute" },
+});
+
+app.use(globalLimiter);
+app.use("/trpc", apiLimiter);
+app.use("/api/documents/upload", uploadLimiter);
 
 // ─── WEBHOOK CBS ─────────────────────────────────────────────────────────────
 //
@@ -246,6 +297,9 @@ if (ENV.NODE_ENV === "production") {
 // ─── Démarrage ────────────────────────────────────────────────────────────────
 
 async function start() {
+  // Vérifier le chiffrement PII (fatal en prod si clé absente)
+  assertPiiEncryptionReady();
+
   // Valider la config de stockage avant de démarrer (échoue si S3 inaccessible)
   await validateStorageConfig();
 
@@ -253,6 +307,7 @@ async function start() {
   startSanctionsScheduler();
   startMlRetrainScheduler();
   startPkycScheduler();
+  startSlaScheduler();
 
   const server = app.listen(ENV.PORT, () => {
     log.info(`🚀 KYC-AML v2 démarré sur http://localhost:${ENV.PORT}`);
@@ -266,6 +321,7 @@ async function start() {
     stopSanctionsScheduler();
     stopMlRetrainScheduler();
     stopPkycScheduler();
+    stopSlaScheduler();
     server.close(async () => {
       await Promise.all([closeDb(), closeRedis()]);
       log.info("Serveur arrêté proprement");
