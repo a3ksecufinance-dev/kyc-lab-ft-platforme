@@ -124,6 +124,26 @@ function fmtAmount(n: number): string {
   return n.toFixed(0);
 }
 
+// ─── Design tokens ────────────────────────────────────────────────────────────
+
+const C = {
+  surface: "var(--wr-card)",
+  border:  "var(--wr-border)",
+  border2: "var(--wr-border2)",
+  text1:   "var(--wr-text-1)",
+  text2:   "var(--wr-text-2)",
+  text3:   "var(--wr-text-3)",
+  text4:   "var(--wr-text-4)",
+  gold:    "var(--wr-gold)",
+  red:     "var(--wr-red)",
+  amber:   "var(--wr-amber)",
+  green:   "var(--wr-green)",
+  blue:    "var(--wr-blue)",
+  mono:    "var(--wr-font-mono)",
+  serif:   "var(--wr-font-serif)",
+  hover:   "var(--wr-hover)",
+};
+
 // ─── Canvas du graphe ─────────────────────────────────────────────────────────
 
 type Tooltip = {
@@ -362,16 +382,15 @@ function GraphCanvas({ graph, selected, onSelect }: {
               <p className="font-semibold text-[var(--wr-blue)] truncate">{tooltip.node.label}</p>
               <p className="text-[var(--wr-text-3)] capitalize">{tooltip.node.type}</p>
               {tooltip.node.riskLevel && (
-                <p className={tooltip.node.riskLevel === "CRITICAL" || tooltip.node.riskLevel === "HIGH"
-                  ? "text-red-400" : "text-amber-400"}>
+                <p style={{ color: tooltip.node.riskLevel === "CRITICAL" || tooltip.node.riskLevel === "HIGH" ? C.red : C.amber }}>
                   Risque : {tooltip.node.riskLevel}
                 </p>
               )}
               {tooltip.node.riskScore !== undefined && (
                 <p className="text-[var(--wr-text-3)]">Score : {tooltip.node.riskScore}</p>
               )}
-              {tooltip.node.pepStatus && <p className="text-purple-400">⚠ PEP</p>}
-              {tooltip.node.isSuspicious && <p className="text-red-400">⚠ Suspect</p>}
+              {tooltip.node.pepStatus && <p style={{ color: C.gold }}>⚠ PEP</p>}
+              {tooltip.node.isSuspicious && <p style={{ color: C.red }}>⚠ Suspect</p>}
             </div>
           )}
           {tooltip.edge && (
@@ -384,7 +403,7 @@ function GraphCanvas({ graph, selected, onSelect }: {
                 </p>
               )}
               <p className="text-[var(--wr-text-3)]">{tooltip.edge.count} occurrence(s)</p>
-              {tooltip.edge.suspicious && <p className="text-red-400">⚠ Transaction(s) suspecte(s)</p>}
+              {tooltip.edge.suspicious && <p style={{ color: C.red }}>⚠ Transaction(s) suspecte(s)</p>}
             </div>
           )}
         </div>
@@ -474,25 +493,25 @@ export function NetworkPage() {
 
   return (
     <AppLayout>
-      <div className="mb-6">
-        <h1 className="text-lg font-semibold text-[var(--wr-text-1)] font-mono">{t.network.title}</h1>
-        <p className="text-xs font-mono text-[var(--wr-text-3)] mt-0.5">
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 400, fontFamily: C.serif, color: C.text1, letterSpacing: "-0.4px", margin: "0 0 4px" }}>{t.network.title}</h1>
+        <p style={{ fontSize: 11, fontFamily: C.mono, color: C.text3, margin: 0 }}>
           {t.network.subtitle}
         </p>
       </div>
 
       {/* Stats globales */}
       {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 20 }}>
           {[
-            { label: "Clients connectés", value: stats.connected_customers },
+            { label: "Clients connectés",    value: stats.connected_customers   },
             { label: "Contreparties uniques", value: stats.unique_counterparties },
-            { label: "Transactions suspectes", value: stats.suspicious_tx },
-            { label: "UBOs enregistrés", value: stats.total_ubos },
+            { label: "Transactions suspectes", value: stats.suspicious_tx       },
+            { label: "UBOs enregistrés",      value: stats.total_ubos           },
           ].map(({ label, value }) => (
-            <div key={label} className="bg-[var(--wr-bg)] border border-[var(--wr-border)] rounded-lg p-3">
-              <p className="text-[10px] font-mono text-[var(--wr-text-3)] tracking-widest uppercase">{label}</p>
-              <p className="text-xl font-semibold font-mono text-[var(--wr-text-1)] mt-1">{value}</p>
+            <div key={label} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px" }}>
+              <div style={{ fontSize: 10, fontFamily: C.mono, color: C.text4, letterSpacing: "0.1em", textTransform: "uppercase" }}>{label}</div>
+              <div style={{ fontSize: 20, fontWeight: 500, fontFamily: C.mono, color: C.text1, marginTop: 4 }}>{value}</div>
             </div>
           ))}
         </div>
@@ -561,11 +580,13 @@ export function NetworkPage() {
             <>
               {/* Score de risque réseau */}
               {g.riskScore > 0 && (
-                <div className={`flex items-center gap-3 p-3 rounded-lg border text-xs font-mono ${
-                  g.riskScore >= 70 ? "bg-red-400/10 border-red-400/20 text-red-400"
-                  : g.riskScore >= 40 ? "bg-amber-400/10 border-amber-400/20 text-amber-400"
-                  : "bg-emerald-400/10 border-emerald-400/20 text-emerald-400"
-                }`}>
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 12, padding: 12, borderRadius: 8,
+                  fontSize: 12, fontFamily: C.mono,
+                  color:      g.riskScore >= 70 ? C.red : g.riskScore >= 40 ? C.amber : C.green,
+                  background: g.riskScore >= 70 ? "rgba(255,101,112,0.08)" : g.riskScore >= 40 ? "rgba(245,158,11,0.08)" : "rgba(45,212,160,0.08)",
+                  border:     `1px solid ${g.riskScore >= 70 ? "rgba(255,101,112,0.22)" : g.riskScore >= 40 ? "rgba(245,158,11,0.22)" : "rgba(45,212,160,0.22)"}`,
+                }}>
                   <AlertTriangle size={14} />
                   Score de risque réseau : {g.riskScore}/100
                   {g.cycles.length > 0 && ` · ${g.cycles.length} cycle(s) détecté(s)`}
@@ -582,19 +603,17 @@ export function NetworkPage() {
                 {/* Panel latéral */}
                 <div className="space-y-3">
                   {/* Stats du graphe */}
-                  <div className="bg-[var(--wr-bg)] border border-[var(--wr-border)] rounded-lg p-3 space-y-2">
-                    <p className="text-[10px] font-mono text-[var(--wr-text-3)] tracking-widest uppercase">Réseau</p>
+                  <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
+                    <p style={{ fontSize: 10, fontFamily: C.mono, color: C.text3, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Réseau</p>
                     {[
-                      [t.network.statsNodes, g.stats.nodeCount],
-                      [t.network.statsEdges, g.stats.edgeCount],
+                      [t.network.statsNodes,    g.stats.nodeCount],
+                      [t.network.statsEdges,    g.stats.edgeCount],
                       [t.network.statsClusters, g.stats.clusterCount],
-                      ["Cycles", g.stats.cycleCount],
+                      ["Cycles",                g.stats.cycleCount],
                     ].map(([label, val]) => (
-                      <div key={String(label)} className="flex justify-between text-xs font-mono">
-                        <span className="text-[var(--wr-text-4)]">{String(label)}</span>
-                        <span className={`font-medium ${
-                          label === "Cycles" && Number(val) > 0 ? "text-red-400" : "text-[var(--wr-text-1)]"
-                        }`}>{String(val)}</span>
+                      <div key={String(label)} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontFamily: C.mono, marginBottom: 4 }}>
+                        <span style={{ color: C.text4 }}>{String(label)}</span>
+                        <span style={{ fontWeight: 500, color: label === "Cycles" && Number(val) > 0 ? C.red : C.text1 }}>{String(val)}</span>
                       </div>
                     ))}
                   </div>
@@ -606,10 +625,10 @@ export function NetworkPage() {
                       <p className="text-xs font-mono text-[var(--wr-text-1)] font-medium">{selectedNode.label}</p>
                       <p className="text-[10px] font-mono text-[var(--wr-text-4)]">{selectedNode.type}</p>
                       {selectedNode.riskLevel && (
-                        <p className="text-[10px] font-mono text-amber-400">Risque : {selectedNode.riskLevel}</p>
+                        <p style={{ fontSize: 10, fontFamily: C.mono, color: C.amber }}>Risque : {selectedNode.riskLevel}</p>
                       )}
                       {selectedNode.pepStatus && (
-                        <p className="text-[10px] font-mono text-purple-400">⚠ PEP</p>
+                        <p style={{ fontSize: 10, fontFamily: C.mono, color: C.gold }}>⚠ PEP</p>
                       )}
                       {selectedNode.customerId && (
                         <a href={`/customers/${selectedNode.customerId}`}
@@ -622,8 +641,8 @@ export function NetworkPage() {
 
                   {/* Cycles détectés */}
                   {g.cycles.length > 0 && (
-                    <div className="bg-red-400/5 border border-red-400/20 rounded-lg p-3 space-y-2">
-                      <p className="text-[10px] font-mono text-red-400 tracking-widest uppercase">
+                    <div style={{ background: "rgba(255,101,112,0.05)", border: "1px solid rgba(255,101,112,0.2)", borderRadius: 8, padding: 12 }}>
+                      <p style={{ fontSize: 10, fontFamily: C.mono, color: C.red, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>
                         {g.cycles.length} cycle(s) détecté(s)
                       </p>
                       {g.cycles.slice(0, 3).map((cycle, i) => (
@@ -658,17 +677,15 @@ export function NetworkPage() {
             </div>
           ) : (
             clusters.clusters.map((cluster: { size: number; customerIds: number[]; hasSuspicious: boolean; totalAmount: number; links: unknown[] }, i: number) => (
-              <div key={i} className={`bg-[var(--wr-bg)] border rounded-lg p-4 ${
-                cluster.hasSuspicious ? "border-red-400/20" : "border-[var(--wr-border)]"
-              }`}>
+              <div key={i} style={{ background: C.surface, borderRadius: 8, padding: 16, border: `1px solid ${cluster.hasSuspicious ? "rgba(255,101,112,0.22)" : C.border}` }}>
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono text-[var(--wr-text-4)]">Cluster #{i + 1}</span>
-                    <span className="text-[10px] font-mono px-1.5 py-0.5 bg-[var(--wr-card)] border border-[var(--wr-border2)] rounded">
+                    <span style={{ fontSize: 10, fontFamily: C.mono, color: C.text4 }}>Cluster #{i + 1}</span>
+                    <span style={{ fontSize: 10, fontFamily: C.mono, padding: "2px 6px", background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 4 }}>
                       {cluster.size} entités
                     </span>
                     {cluster.hasSuspicious && (
-                      <span className="text-[10px] font-mono text-red-400 flex items-center gap-1">
+                      <span style={{ fontSize: 10, fontFamily: C.mono, color: C.red, display: "flex", alignItems: "center", gap: 4 }}>
                         <AlertTriangle size={10} /> Transactions suspectes
                       </span>
                     )}
@@ -725,17 +742,15 @@ export function NetworkPage() {
               {riskPathData.path && (() => {
                 const rp = riskPathData.path;
                 return (
-                  <div className={`bg-[var(--wr-bg)] border rounded-lg p-4 space-y-3 ${
-                    rp.riskScore >= 70 ? "border-red-400/30" :
-                    rp.riskScore >= 40 ? "border-amber-400/30" : "border-[var(--wr-border)]"
-                  }`}>
+                  <div style={{ background: C.surface, borderRadius: 8, padding: 16,
+                    border: `1px solid ${rp.riskScore >= 70 ? "rgba(255,101,112,0.3)" : rp.riskScore >= 40 ? "rgba(245,158,11,0.3)" : C.border}` }}>
                     {/* Métriques */}
-                    <div className="flex gap-4 text-[10px] font-mono">
-                      <span className={`px-2 py-1 rounded border ${
-                        rp.riskScore >= 70 ? "bg-red-400/10 border-red-400/20 text-red-400" :
-                        rp.riskScore >= 40 ? "bg-amber-400/10 border-amber-400/20 text-amber-400" :
-                        "bg-emerald-400/10 border-emerald-400/20 text-emerald-400"
-                      }`}>
+                    <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+                      <span style={{ fontSize: 10, fontFamily: C.mono, padding: "4px 8px", borderRadius: 4,
+                        color:      rp.riskScore >= 70 ? C.red : rp.riskScore >= 40 ? C.amber : C.green,
+                        background: rp.riskScore >= 70 ? "rgba(255,101,112,0.09)" : rp.riskScore >= 40 ? "rgba(245,158,11,0.09)" : "rgba(45,212,160,0.09)",
+                        border:     `1px solid ${rp.riskScore >= 70 ? "rgba(255,101,112,0.22)" : rp.riskScore >= 40 ? "rgba(245,158,11,0.22)" : "rgba(45,212,160,0.22)"}`,
+                      }}>
                         Risque {rp.riskScore}/100
                       </span>
                       <span className="px-2 py-1 rounded border border-[var(--wr-border2)] text-[var(--wr-text-3)]">
@@ -752,22 +767,22 @@ export function NetworkPage() {
                     <div className="flex items-center gap-1 flex-wrap">
                       {rp.nodes.map((node: { id: string; type: string; label: string; riskLevel?: string; pepStatus?: boolean; isSuspicious?: boolean }, j: number) => (
                         <span key={j} className="flex items-center gap-1">
-                          <span className={`text-[10px] font-mono px-2 py-1.5 rounded border flex flex-col items-center ${
-                            node.type === "customer"
-                              ? (node.riskLevel === "CRITICAL" || node.riskLevel === "HIGH")
-                                ? "border-red-400/40 text-red-400 bg-red-400/5"
-                                : "border-[#378ADD]/30 text-[var(--wr-blue)] bg-[var(--wr-blue)]/10"
-                              : "border-[#1D9E75]/30 text-emerald-400 bg-emerald-400/10"
-                          }`}>
+                          <span style={{
+                            fontSize: 10, fontFamily: C.mono, padding: "6px 8px", borderRadius: 4,
+                            display: "flex", flexDirection: "column", alignItems: "center",
+                            color:      node.type === "customer" ? ((node.riskLevel === "CRITICAL" || node.riskLevel === "HIGH") ? C.red : C.blue) : C.green,
+                            background: node.type === "customer" ? ((node.riskLevel === "CRITICAL" || node.riskLevel === "HIGH") ? "rgba(255,101,112,0.05)" : "rgba(74,158,255,0.09)") : "rgba(45,212,160,0.09)",
+                            border:     `1px solid ${node.type === "customer" ? ((node.riskLevel === "CRITICAL" || node.riskLevel === "HIGH") ? "rgba(255,101,112,0.3)" : "rgba(74,158,255,0.25)") : "rgba(45,212,160,0.25)"}`,
+                          }}>
                             <span>{node.label.slice(0, 15)}</span>
-                            {node.pepStatus && <span className="text-purple-400 text-[8px]">PEP</span>}
-                            {(node.isSuspicious) && <span className="text-red-400 text-[8px]">⚠</span>}
+                            {node.pepStatus && <span style={{ fontSize: 8, color: C.gold }}>PEP</span>}
+                            {node.isSuspicious && <span style={{ fontSize: 8, color: C.red }}>⚠</span>}
                           </span>
                           {j < rp.nodes.length - 1 && (
                             <span className="text-[var(--wr-text-4)] text-xs flex flex-col items-center">
                               →
                               {rp.edges[j] && (
-                                <span className={`text-[8px] ${(rp.edges[j] as {suspicious?: boolean}).suspicious ? "text-red-400" : "text-[var(--wr-text-4)]"}`}>
+                                <span style={{ fontSize: 8, color: (rp.edges[j] as {suspicious?: boolean}).suspicious ? C.red : C.text4 }}>
                                   {fmtAmount((rp.edges[j] as {weight: number}).weight || 0)}
                                 </span>
                               )}
@@ -804,16 +819,15 @@ export function NetworkPage() {
             <div className="space-y-3">
               <p className="text-xs font-mono text-[var(--wr-text-3)]">{paths.message}</p>
               {paths.paths.map((path: { nodes: { id: string; type: string; label: string }[]; length: number; suspicious: boolean }, i: number) => (
-                <div key={i} className={`bg-[var(--wr-bg)] border rounded-lg p-4 ${
-                  path.suspicious ? "border-amber-400/20" : "border-[var(--wr-border)]"
-                }`}>
+                <div key={i} style={{ background: C.surface, borderRadius: 8, padding: 16,
+                  border: `1px solid ${path.suspicious ? "rgba(245,158,11,0.22)" : C.border}` }}>
                   <div className="flex items-center gap-2 mb-2">
-                    <GitBranch size={12} className="text-[var(--wr-text-4)]" />
-                    <span className="text-[10px] font-mono text-[var(--wr-text-3)]">
+                    <GitBranch size={12} style={{ color: C.text4 }} />
+                    <span style={{ fontSize: 10, fontFamily: C.mono, color: C.text3 }}>
                       Chemin {i + 1} — {path.length} saut(s)
                     </span>
                     {path.suspicious && (
-                      <span className="text-[10px] font-mono text-amber-400 flex items-center gap-1">
+                      <span style={{ fontSize: 10, fontFamily: C.mono, color: C.amber, display: "flex", alignItems: "center", gap: 4 }}>
                         <AlertTriangle size={10} /> Nœud suspect
                       </span>
                     )}
@@ -821,11 +835,13 @@ export function NetworkPage() {
                   <div className="flex items-center gap-1 flex-wrap">
                     {path.nodes.map((node: { id: string; type: string; label: string }, j: number) => (
                       <span key={j} className="flex items-center gap-1">
-                        <span className={`text-[10px] font-mono px-2 py-1 rounded border ${
-                          node.type === "customer" ? "border-[#378ADD]/30 text-[var(--wr-blue)] bg-[var(--wr-blue)]/10" :
-                          "border-[#1D9E75]/30 text-emerald-400 bg-emerald-400/10"
-                        }`}>{node.label.slice(0, 15)}</span>
-                        {j < path.nodes.length - 1 && <span className="text-[var(--wr-text-4)] text-xs">→</span>}
+                        <span style={{
+                          fontSize: 10, fontFamily: C.mono, padding: "4px 8px", borderRadius: 4,
+                          color:      node.type === "customer" ? C.blue : C.green,
+                          background: node.type === "customer" ? "rgba(74,158,255,0.09)" : "rgba(45,212,160,0.09)",
+                          border:     `1px solid ${node.type === "customer" ? "rgba(74,158,255,0.25)" : "rgba(45,212,160,0.25)"}`,
+                        }}>{node.label.slice(0, 15)}</span>
+                        {j < path.nodes.length - 1 && <span style={{ color: C.text4, fontSize: 12 }}>→</span>}
                       </span>
                     ))}
                   </div>

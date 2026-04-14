@@ -12,6 +12,7 @@
  */
 
 import { useState } from "react";
+import type React from "react";
 import { AppLayout }    from "../components/layout/AppLayout";
 import { trpc }         from "../lib/trpc";
 import { useAuth }      from "../hooks/useAuth";
@@ -26,6 +27,26 @@ import {
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
+
+// ─── Design tokens ────────────────────────────────────────────────────────────
+
+const C = {
+  surface: "var(--wr-card)",
+  border:  "var(--wr-border)",
+  border2: "var(--wr-border2)",
+  text1:   "var(--wr-text-1)",
+  text2:   "var(--wr-text-2)",
+  text3:   "var(--wr-text-3)",
+  text4:   "var(--wr-text-4)",
+  gold:    "var(--wr-gold)",
+  red:     "var(--wr-red)",
+  amber:   "var(--wr-amber)",
+  green:   "var(--wr-green)",
+  blue:    "var(--wr-blue)",
+  mono:    "var(--wr-font-mono)",
+  serif:   "var(--wr-font-serif)",
+  hover:   "var(--wr-hover)",
+};
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -61,14 +82,14 @@ const CATEGORY_LABELS: Record<string, string> = {
   VELOCITY: "Vélocité", CUSTOMER: "Client",
 };
 
-const CATEGORY_COLORS: Record<string, string> = {
-  THRESHOLD:    "text-amber-400  bg-amber-400/10  border-amber-400/20",
-  FREQUENCY:    "text-blue-400   bg-blue-400/10   border-blue-400/20",
-  PATTERN:      "text-purple-400 bg-purple-400/10 border-purple-400/20",
-  GEOGRAPHY:    "text-red-400    bg-red-400/10    border-red-400/20",
-  COUNTERPARTY: "text-orange-400 bg-orange-400/10 border-orange-400/20",
-  VELOCITY:     "text-cyan-400   bg-cyan-400/10   border-cyan-400/20",
-  CUSTOMER:     "text-emerald-400 bg-emerald-400/10 border-emerald-400/20",
+const CATEGORY_STYLE: Record<string, React.CSSProperties> = {
+  THRESHOLD:    { color: "var(--wr-amber)",  background: "rgba(245,158,11,0.09)",  border: "1px solid rgba(245,158,11,0.22)"  },
+  FREQUENCY:    { color: "var(--wr-blue)",   background: "rgba(74,158,255,0.09)",  border: "1px solid rgba(74,158,255,0.22)"  },
+  PATTERN:      { color: "var(--wr-gold)",   background: "rgba(201,162,39,0.09)",  border: "1px solid rgba(201,162,39,0.2)"   },
+  GEOGRAPHY:    { color: "var(--wr-red)",    background: "rgba(255,101,112,0.09)", border: "1px solid rgba(255,101,112,0.22)" },
+  COUNTERPARTY: { color: "var(--wr-amber)",  background: "rgba(245,158,11,0.07)",  border: "1px solid rgba(245,158,11,0.2)"   },
+  VELOCITY:     { color: "var(--wr-blue)",   background: "rgba(74,158,255,0.07)",  border: "1px solid rgba(74,158,255,0.2)"   },
+  CUSTOMER:     { color: "var(--wr-green)",  background: "rgba(45,212,160,0.09)",  border: "1px solid rgba(45,212,160,0.22)"  },
 };
 
 const FIELDS = [
@@ -180,7 +201,7 @@ const inputCls  = "w-full bg-[var(--wr-hover)] border border-[var(--wr-border2)]
 const labelCls  = "block text-[10px] font-mono text-[var(--wr-text-3)] tracking-widest uppercase mb-1.5";
 const btnBlue   = "px-3 py-1.5 text-xs font-mono bg-[var(--wr-blue)]/20 border border-[var(--wr-blue)]/40 text-[var(--wr-blue)] rounded-md hover:bg-[var(--wr-blue)]/30 transition-colors";
 const btnGhost  = "px-3 py-1.5 text-xs font-mono border border-[var(--wr-border2)] text-[var(--wr-text-3)] rounded-md hover:border-[var(--wr-border)] transition-colors";
-const btnRed    = "px-3 py-1.5 text-xs font-mono bg-red-500/10 border border-red-500/20 text-red-400 rounded-md hover:bg-red-500/20 transition-colors";
+const btnRed    = "px-3 py-1.5 text-xs font-mono bg-[rgba(255,101,112,0.08)] border border-[rgba(255,101,112,0.2)] text-[var(--wr-red)] rounded-md hover:bg-[rgba(255,101,112,0.14)] transition-colors";
 
 function conditionToJson(c: Condition): unknown {
   if (c.type === "simple") {
@@ -254,11 +275,13 @@ function ConditionBuilder({
         <div className="flex items-center gap-2">
           <button
             onClick={toggleLogic}
-            className={`px-2.5 py-1 text-[10px] font-mono font-bold rounded border transition-colors ${
-              cond.logic === "AND"
-                ? "bg-blue-500/20 border-blue-500/40 text-blue-400"
-                : "bg-amber-500/20 border-amber-500/40 text-amber-400"
-            }`}
+            style={{
+              padding: "3px 10px", fontSize: 10, fontFamily: C.mono, fontWeight: 700,
+              borderRadius: 4, cursor: "pointer",
+              border: `1px solid ${cond.logic === "AND" ? "rgba(74,158,255,0.4)" : "rgba(245,158,11,0.4)"}`,
+              background: cond.logic === "AND" ? "rgba(74,158,255,0.12)" : "rgba(245,158,11,0.12)",
+              color: cond.logic === "AND" ? C.blue : C.amber,
+            }}
           >{cond.logic}</button>
           <span className="text-[10px] font-mono text-[var(--wr-text-4)]">
             {cond.logic === "AND" ? "toutes les conditions" : "au moins une condition"}
@@ -378,20 +401,20 @@ function RuleSimulator({ cond }: { cond: Condition }) {
           </div>
         ))}
       </div>
-      <div className={`flex items-center gap-3 p-3 rounded-lg border ${
-        triggered
-          ? "bg-red-500/10 border-red-500/30"
-          : "bg-emerald-500/10 border-emerald-500/30"
-      }`}>
+      <div style={{
+        display: "flex", alignItems: "center", gap: 12, padding: 12, borderRadius: 8,
+        background: triggered ? "rgba(255,101,112,0.08)" : "rgba(45,212,160,0.08)",
+        border: `1px solid ${triggered ? "rgba(255,101,112,0.25)" : "rgba(45,212,160,0.25)"}`,
+      }}>
         {triggered
-          ? <AlertTriangle size={16} className="text-red-400 flex-shrink-0" />
-          : <CheckCircle size={16} className="text-emerald-400 flex-shrink-0" />
+          ? <AlertTriangle size={16} style={{ color: C.red, flexShrink: 0 }} />
+          : <CheckCircle  size={16} style={{ color: C.green, flexShrink: 0 }} />
         }
         <div>
-          <p className={`text-xs font-mono font-bold ${triggered ? "text-red-400" : "text-emerald-400"}`}>
+          <p style={{ fontSize: 12, fontFamily: C.mono, fontWeight: 700, color: triggered ? C.red : C.green, margin: "0 0 2px" }}>
             {triggered ? "RÈGLE DÉCLENCHÉE" : "Aucun déclenchement"}
           </p>
-          <p className="text-[10px] font-mono text-[var(--wr-text-3)]">
+          <p style={{ fontSize: 10, fontFamily: C.mono, color: C.text3, margin: 0 }}>
             {triggered ? "Cette transaction créerait une alerte AML" : "Transaction passerait sans alerte"}
           </p>
         </div>
@@ -570,14 +593,14 @@ function RuleModal({
                       <p className="text-[10px] font-mono text-[var(--wr-text-3)] mt-0.5 truncate">{t.desc}</p>
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
-                      <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${CATEGORY_COLORS[t.category] ?? ""}`}>
+                      <span style={{ fontSize: 9, fontFamily: C.mono, padding: "2px 6px", borderRadius: 4, ...(CATEGORY_STYLE[t.category] ?? {}) }}>
                         {CATEGORY_LABELS[t.category]}
                       </span>
-                      <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${
-                        t.priority === "CRITICAL" ? "text-red-400 bg-red-400/10 border-red-400/20"
-                        : t.priority === "HIGH"   ? "text-amber-400 bg-amber-400/10 border-amber-400/20"
-                        : "text-blue-400 bg-blue-400/10 border-blue-400/20"
-                      }`}>{t.priority}</span>
+                      <span style={{ fontSize: 9, fontFamily: C.mono, padding: "2px 6px", borderRadius: 4,
+                        color:      t.priority === "CRITICAL" ? C.red : t.priority === "HIGH" ? C.amber : C.blue,
+                        background: t.priority === "CRITICAL" ? "rgba(255,101,112,0.09)" : t.priority === "HIGH" ? "rgba(245,158,11,0.09)" : "rgba(74,158,255,0.09)",
+                        border:     `1px solid ${t.priority === "CRITICAL" ? "rgba(255,101,112,0.22)" : t.priority === "HIGH" ? "rgba(245,158,11,0.22)" : "rgba(74,158,255,0.22)"}`,
+                      }}>{t.priority}</span>
                     </div>
                   </div>
                 </button>
@@ -664,7 +687,7 @@ function RuleModal({
               </button>
 
               {backtestMut.isError && (
-                <p className="text-xs font-mono text-red-400">{backtestMut.error.message}</p>
+                <p style={{ fontSize: 12, fontFamily: C.mono, color: C.red }}>{backtestMut.error.message}</p>
               )}
 
               {backtestMut.data && (() => {
@@ -802,10 +825,10 @@ function RuleCard({ rule, canEdit, canDelete }: { rule: AmlRule; canEdit: boolea
     : [];
 
   const STATUS_LABELS = { ACTIVE: "Actif", INACTIVE: "Inactif", TESTING: "Test A/B" };
-  const STATUS_STYLES = {
-    ACTIVE:   "text-emerald-400 bg-emerald-400/10 border-emerald-400/20",
-    INACTIVE: "text-[var(--wr-text-4)]  bg-[var(--wr-border)]      border-[var(--wr-border2)]",
-    TESTING:  "text-amber-400  bg-amber-400/10   border-amber-400/20",
+  const STATUS_STYLE: Record<string, React.CSSProperties> = {
+    ACTIVE:   { color: C.green,  background: "rgba(45,212,160,0.09)",  border: "1px solid rgba(45,212,160,0.22)"  },
+    INACTIVE: { color: C.text4,  background: "var(--wr-border)",       border: "1px solid var(--wr-border2)"      },
+    TESTING:  { color: C.amber,  background: "rgba(245,158,11,0.09)",  border: "1px solid rgba(245,158,11,0.22)"  },
   };
 
   return (
@@ -817,10 +840,10 @@ function RuleCard({ rule, canEdit, canDelete }: { rule: AmlRule; canEdit: boolea
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-mono font-semibold text-[var(--wr-text-1)]">{rule.name}</span>
-              <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${CATEGORY_COLORS[rule.category] ?? ""}`}>
+              <span style={{ fontSize: 9, fontFamily: C.mono, padding: "2px 6px", borderRadius: 4, ...(CATEGORY_STYLE[rule.category] ?? {}) }}>
                 {CATEGORY_LABELS[rule.category] ?? rule.category}
               </span>
-              <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${STATUS_STYLES[rule.status]}`}>
+              <span style={{ fontSize: 9, fontFamily: C.mono, padding: "2px 6px", borderRadius: 4, ...(STATUS_STYLE[rule.status] ?? {}) }}>
                 {STATUS_LABELS[rule.status]}
               </span>
               {rule.status === "ACTIVE" && (
@@ -834,9 +857,9 @@ function RuleCard({ rule, canEdit, canDelete }: { rule: AmlRule; canEdit: boolea
 
           <div className="flex items-center gap-2 flex-shrink-0">
             <div className="text-center">
-              <div className={`text-sm font-mono font-bold ${
-                rule.baseScore >= 75 ? "text-red-400" : rule.baseScore >= 50 ? "text-amber-400" : "text-emerald-400"
-              }`}>{rule.baseScore}</div>
+              <div style={{ fontSize: 13, fontFamily: C.mono, fontWeight: 700,
+                color: rule.baseScore >= 75 ? C.red : rule.baseScore >= 50 ? C.amber : C.green,
+              }}>{rule.baseScore}</div>
               <div className="text-[9px] font-mono text-[var(--wr-text-4)]">score</div>
             </div>
 
@@ -858,8 +881,8 @@ function RuleCard({ rule, canEdit, canDelete }: { rule: AmlRule; canEdit: boolea
                   title={rule.status === "ACTIVE" ? "Désactiver" : "Activer"}
                 >
                   {rule.status === "ACTIVE"
-                    ? <ToggleRight size={18} className="text-emerald-400" />
-                    : <ToggleLeft size={18} />
+                    ? <ToggleRight size={18} style={{ color: C.green }} />
+                    : <ToggleLeft  size={18} />
                   }
                 </button>
               </>
@@ -891,8 +914,8 @@ function RuleCard({ rule, canEdit, canDelete }: { rule: AmlRule; canEdit: boolea
 
       {/* Feedback modal faux positif */}
       {showFeedback && (
-        <div className="mx-4 mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-          <p className="text-[10px] font-mono text-amber-400 uppercase tracking-widest mb-2">
+        <div style={{ margin: "0 16px 16px", padding: 12, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 8 }}>
+          <p style={{ fontSize: 10, fontFamily: C.mono, color: C.amber, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
             Signaler un faux positif
           </p>
           <textarea
@@ -1036,13 +1059,13 @@ function JurisdictionsPanel({ canEdit }: { canEdit: boolean }) {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: "Juridictions actives", val: activeCount,   color: "text-emerald-400" },
-          { label: "Désactivées",          val: inactiveCount, color: "text-[var(--wr-text-4)]"   },
-          { label: "Total configuré",      val: jurisdictions?.length ?? 0, color: "text-[var(--wr-blue)]" },
+          { label: "Juridictions actives", val: activeCount,               color: C.green },
+          { label: "Désactivées",          val: inactiveCount,             color: C.text4 },
+          { label: "Total configuré",      val: jurisdictions?.length ?? 0, color: C.blue  },
         ].map(({ label, val, color }) => (
-          <div key={label} className="bg-[var(--wr-card)] border border-[var(--wr-border)] rounded-lg p-4">
-            <div className={`text-xl font-mono font-bold ${color}`}>{val}</div>
-            <div className="text-xs font-mono text-[var(--wr-text-1)] mt-0.5">{label}</div>
+          <div key={label} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px" }}>
+            <div style={{ fontSize: 20, fontWeight: 500, fontFamily: C.mono, color }}>{val}</div>
+            <div style={{ fontSize: 11, fontFamily: C.mono, color: C.text1, marginTop: 2 }}>{label}</div>
           </div>
         ))}
       </div>
@@ -1401,15 +1424,15 @@ export function AmlRulesPage() {
 
   return (
     <AppLayout>
-      <div className="p-6 space-y-6">
+      <div className="space-y-6">
 
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 4 }}>
           <div>
-            <h1 className="text-lg font-semibold text-[var(--wr-text-1)] font-mono flex items-center gap-2">
-              <Shield size={18} className="text-[var(--wr-blue)]" /> {t.amlRules.title}
+            <h1 style={{ fontSize: 22, fontWeight: 400, fontFamily: C.serif, color: C.text1, letterSpacing: "-0.4px", margin: "0 0 4px", display: "flex", alignItems: "center", gap: 8 }}>
+              <Shield size={16} style={{ color: C.blue, flexShrink: 0 }} /> {t.amlRules.title}
             </h1>
-            <p className="text-[11px] font-mono text-[var(--wr-text-3)] mt-0.5">
+            <p style={{ fontSize: 11, fontFamily: C.mono, color: C.text3, margin: 0 }}>
               {t.amlRules.subtitle}
             </p>
           </div>
@@ -1452,17 +1475,17 @@ export function AmlRulesPage() {
         {pageTab === "rules" && (
           <>
             {/* Stats */}
-            <div className="grid grid-cols-4 gap-4">
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
               {[
-                { label: "Actives",     val: active,   sub: "en production",      color: "text-emerald-400" },
-                { label: "En test A/B", val: testing,  sub: "sans alerte réelle", color: "text-amber-400"  },
-                { label: "Inactives",   val: inactive, sub: "désactivées",        color: "text-[var(--wr-text-4)]"  },
-                { label: "Score moyen", val: avgScore, sub: "sur 100",            color: "text-[var(--wr-blue)]"  },
+                { label: "Actives",     val: active,   sub: "en production",      color: C.green },
+                { label: "En test A/B", val: testing,  sub: "sans alerte réelle", color: C.amber },
+                { label: "Inactives",   val: inactive, sub: "désactivées",        color: C.text4 },
+                { label: "Score moyen", val: avgScore, sub: "sur 100",            color: C.blue  },
               ].map(({ label, val, sub, color }) => (
-                <div key={label} className="bg-[var(--wr-card)] border border-[var(--wr-border)] rounded-lg p-4">
-                  <div className={`text-xl font-mono font-bold ${color}`}>{val}</div>
-                  <div className="text-xs font-mono text-[var(--wr-text-1)] mt-0.5">{label}</div>
-                  <div className="text-[9px] font-mono text-[var(--wr-text-4)]">{sub}</div>
+                <div key={label} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px" }}>
+                  <div style={{ fontSize: 20, fontWeight: 500, fontFamily: C.mono, color }}>{val}</div>
+                  <div style={{ fontSize: 11, fontFamily: C.mono, color: C.text1, marginTop: 2 }}>{label}</div>
+                  <div style={{ fontSize: 9,  fontFamily: C.mono, color: C.text4, marginTop: 2 }}>{sub}</div>
                 </div>
               ))}
             </div>
