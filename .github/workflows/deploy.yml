@@ -81,6 +81,7 @@ jobs:
             echo "==> Mise à jour du code source"
             if [ ! -d "$APP_DIR/.git" ]; then
               echo "    Premier déploiement — clonage du repo"
+              rm -rf "$APP_DIR"
               git clone git@github.com:${{ github.repository }}.git "$APP_DIR"
             fi
             cd "$APP_DIR"
