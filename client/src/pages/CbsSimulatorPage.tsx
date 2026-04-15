@@ -233,7 +233,6 @@ export function CbsSimulatorPage() {
           .then(() => setAuthReady(true))
           .catch(() => setAuthError("Impossible de se connecter au serveur. Vérifiez que l'application est démarrée."));
       });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const set = useCallback(<K extends keyof FormData>(k: K, v: FormData[K]) => {

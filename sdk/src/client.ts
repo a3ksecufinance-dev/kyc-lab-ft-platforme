@@ -63,6 +63,7 @@ export class KycCbsClient {
     };
 
     if (this.config.debug) {
+      // eslint-disable-next-line no-console
       console.debug(`[CBS SDK] ${method} ${url.toString()}`);
     }
 

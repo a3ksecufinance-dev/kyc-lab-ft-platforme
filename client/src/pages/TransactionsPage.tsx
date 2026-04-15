@@ -37,7 +37,7 @@ type Tx = {
   transactionDate: Date; createdAt: Date;
 };
 
-const MOBILE_TX_TYPES = [
+const _MOBILE_TX_TYPES = [
   "AGENT_CASH_IN", "AGENT_CASH_OUT", "MOBILE_MONEY_IN", "MOBILE_MONEY_OUT",
   "P2P_TRANSFER", "MERCHANT_PAYMENT", "BILL_PAYMENT", "BULK_DISBURSEMENT",
 ] as const;
@@ -73,7 +73,7 @@ export function TransactionsPage() {
     ...(status    ? { status: status as "PENDING" | "COMPLETED" | "FLAGGED" | "BLOCKED" | "REVERSED" } : {}),
     ...(suspicious === "true"  ? { isSuspicious: true  } : {}),
     ...(suspicious === "false" ? { isSuspicious: false } : {}),
-    ...(txType    ? { transactionType: txType as typeof MOBILE_TX_TYPES[number] } : {}),
+    ...(txType    ? { transactionType: txType as typeof _MOBILE_TX_TYPES[number] } : {}),
     ...(search    ? { search } : {}),
     ...(dateFrom  ? { dateFrom: new Date(dateFrom).toISOString() } : {}),
     ...(dateTo    ? { dateTo:   new Date(dateTo + "T23:59:59").toISOString() } : {}),

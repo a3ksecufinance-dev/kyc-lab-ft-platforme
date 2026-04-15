@@ -329,6 +329,7 @@ export async function createWalletInvestigation(params: {
     assignedTo:  params.userId,
     createdBy:   params.userId,
     dueDate:     new Date(Date.now() + 30 * 86_400_000), // 30 jours
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any).returning();
 
   log.info({ caseId, walletId: wallet.walletId }, "Dossier investigation wallet créé");

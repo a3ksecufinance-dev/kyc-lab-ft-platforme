@@ -169,7 +169,6 @@ describe("enhanced-onboarding.service — initEdd", () => {
     await initEdd({ customerId: 10, walletId: 5, analystId: 2 });
 
     expect(capturedValues).not.toBeNull();
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     expect((capturedValues! as Record<string, unknown>)["caseId"]).toMatch(/^EDD-[A-Z0-9_-]{8}$/);
   });
 

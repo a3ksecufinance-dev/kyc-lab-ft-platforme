@@ -141,7 +141,7 @@ export function WalletCompliancePage() {
       setInvForm({ walletId: "", customerId: "", reason: "", severity: "MEDIUM" });
       setActiveTab("investigations");
       // Naviguer vers le dossier créé
-      if ((newCase as any)?.id) navigate(`/cases/${(newCase as any).id}`);
+      if ((newCase as { id?: number })?.id) navigate(`/cases/${(newCase as { id?: number }).id}`);
     },
   });
 
@@ -164,7 +164,7 @@ export function WalletCompliancePage() {
     { id: "investigations" },
   ].map(t => ({
     id:    t.id as Tab,
-    label: (t as any).label ?? (t.id === "dashboard" ? "Dashboard" : t.id === "investigations" ? "Dossiers" : t.id),
+    label: (t as { id: Tab; label?: string }).label ?? (t.id === "dashboard" ? "Dashboard" : t.id === "investigations" ? "Dossiers" : t.id),
     icon:  t.id === "dashboard" ? <Activity size={13} /> : t.id === "risks" ? <AlertTriangle size={13} /> : t.id === "alerts" ? <ShieldAlert size={13} /> : t.id === "suspicious" ? <FileWarning size={13} /> : <FolderOpen size={13} />,
     ...(t.count !== undefined ? { count: t.count } : {}),
     ...(t.warn  !== undefined ? { warn:  t.warn  } : {}),
@@ -433,7 +433,7 @@ export function WalletCompliancePage() {
                           </button>
                           {isSupervisor && (
                             <button
-                              onClick={() => { setInvForm(f => ({ ...f, customerId: String(a.customerId), severity: a.priority as any })); setShowInvModal(true); }}
+                              onClick={() => { setInvForm(f => ({ ...f, customerId: String(a.customerId), severity: a.priority as "LOW" | "MEDIUM" | "HIGH" })); setShowInvModal(true); }}
                               style={{ fontSize: 10, fontFamily: C.mono, padding: "4px 10px", borderRadius: 6, border: "1px solid rgba(248,113,113,0.25)", background: "rgba(248,113,113,0.06)", color: C.red, cursor: "pointer" }}>
                               Dossier
                             </button>
@@ -589,7 +589,7 @@ export function WalletCompliancePage() {
                 </div>
                 <div>
                   <label style={LABEL_S}>Sévérité</label>
-                  <select value={invForm.severity} onChange={e => setInvForm(f => ({ ...f, severity: e.target.value as any }))} style={INPUT_S}>
+                  <select value={invForm.severity} onChange={e => setInvForm(f => ({ ...f, severity: e.target.value as "LOW" | "MEDIUM" | "HIGH" }))} style={INPUT_S}>
                     <option value="LOW">LOW</option>
                     <option value="MEDIUM">MEDIUM</option>
                     <option value="HIGH">HIGH</option>
