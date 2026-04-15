@@ -79,7 +79,7 @@ jobs:
             set -euo pipefail
 
             APP_DIR="$HOME/regtech"
-            IMAGE="ghcr.io/${{ github.repository }}:sha-${{ github.sha }}"
+            IMAGE="ghcr.io/${{ github.repository }}:latest"
             COMPOSE="docker compose -f $APP_DIR/docker/docker-compose.prod.yml --env-file $APP_DIR/.env.production"
 
             echo "==> Mise à jour du code source"
@@ -96,9 +96,6 @@ jobs:
 
             echo "==> Téléchargement de la nouvelle image"
             docker pull "$IMAGE"
-
-            echo "==> Mise à jour du tag image dans .env"
-            sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=sha-${{ github.sha }}|" "$APP_DIR/.env.production" || true
 
             echo "==> Migrations base de données"
             docker run --rm \
