@@ -12,6 +12,11 @@ on:
         type: choice
         options: [production, staging]
 
+# Permissions obligatoires pour pousser vers ghcr.io depuis une organisation
+permissions:
+  contents: read
+  packages: write
+
 concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: false   # Ne jamais annuler un déploiement en cours

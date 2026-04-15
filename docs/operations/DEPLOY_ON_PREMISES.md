@@ -217,7 +217,7 @@ sudo systemctl enable --now nginx
 ```bash
 # Créer l'utilisateur et la base de données
 sudo -u postgres psql << 'EOF'
-CREATE USER kyc_user WITH PASSWORD 'CHANGER_CE_MOT_DE_PASSE_FORT';
+CREATE USER kyc_user WITH PASSWORD 'Adil2026!*';
 CREATE DATABASE kyc_aml OWNER kyc_user ENCODING 'UTF8' LC_COLLATE 'fr_FR.UTF-8' LC_CTYPE 'fr_FR.UTF-8' TEMPLATE template0;
 GRANT ALL PRIVILEGES ON DATABASE kyc_aml TO kyc_user;
 \q
@@ -278,7 +278,7 @@ log_disconnections         = on
 ```bash
 sudo systemctl restart postgresql
 # Vérifier la connexion
-psql "postgresql://kyc_user:VOTRE_PASS@localhost:5432/kyc_aml" -c "SELECT version();"
+psql "postgresql://kyc_user:Adil2026@*@localhost:5432/kyc_aml" -c "SELECT version();"
 ```
 
 ---
