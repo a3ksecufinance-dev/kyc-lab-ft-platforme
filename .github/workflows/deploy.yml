@@ -74,11 +74,15 @@ jobs:
           script: |
             set -euo pipefail
 
-            APP_DIR="/opt/kyc-aml-v2"
+            APP_DIR="$HOME/regtech"
             IMAGE="ghcr.io/${{ github.repository }}:sha-${{ github.sha }}"
             COMPOSE="docker compose -f $APP_DIR/docker/docker-compose.prod.yml --env-file $APP_DIR/.env.production"
 
             echo "==> Mise à jour du code source"
+            if [ ! -d "$APP_DIR/.git" ]; then
+              echo "    Premier déploiement — clonage du repo"
+              git clone git@github.com:${{ github.repository }}.git "$APP_DIR"
+            fi
             cd "$APP_DIR"
             git pull origin main
 
@@ -89,7 +93,7 @@ jobs:
             docker pull "$IMAGE"
 
             echo "==> Mise à jour du tag image dans .env"
-            sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=sha-${{ github.sha }}|" "$APP_DIR/.env.production"
+            sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=sha-${{ github.sha }}|" "$APP_DIR/.env.production" || true
 
             echo "==> Migrations base de données"
             docker run --rm \
