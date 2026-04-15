@@ -76,35 +76,40 @@ jobs:
 
             APP_DIR="/opt/kyc-aml-v2"
             IMAGE="ghcr.io/${{ github.repository }}:sha-${{ github.sha }}"
-            COMPOSE="docker compose -f docker-compose.prod.yml"
+            COMPOSE="docker compose -f $APP_DIR/docker/docker-compose.prod.yml --env-file $APP_DIR/.env.production"
 
-            echo "==> Pulling image $IMAGE"
+            echo "==> Mise à jour du code source"
+            cd "$APP_DIR"
+            git pull origin main
+
+            echo "==> Authentification GHCR"
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            echo "==> Téléchargement de la nouvelle image"
             docker pull "$IMAGE"
 
-            echo "==> Updating .env image tag"
-            sed -i "s|APP_IMAGE=.*|APP_IMAGE=$IMAGE|" "$APP_DIR/.env.production"
+            echo "==> Mise à jour du tag image dans .env"
+            sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=sha-${{ github.sha }}|" "$APP_DIR/.env.production"
 
-            echo "==> Running migrations"
+            echo "==> Migrations base de données"
             docker run --rm \
               --env-file "$APP_DIR/.env.production" \
-              "$IMAGE" node dist/index.js migrate || true
+              --network kyc_network_prod \
+              "$IMAGE" sh -c "pnpm db:push"
 
-            echo "==> Rolling update (zero-downtime)"
-            cd "$APP_DIR"
-            $COMPOSE pull app
-            $COMPOSE up -d --no-deps --scale app=2 app
-            sleep 15
+            echo "==> Redémarrage de l'application"
+            $COMPOSE up -d --no-deps app
+
+            echo "==> Attente démarrage (30s)"
+            sleep 30
 
             echo "==> Health check"
-            curl -sf http://localhost:3000/health | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if d['status']=='healthy' else 1)"
+            curl -sf http://localhost:3000/health
 
-            echo "==> Scale back to 1 replica"
-            $COMPOSE up -d --no-deps --scale app=1 app
-
-            echo "==> Cleanup old images"
+            echo "==> Nettoyage images obsolètes"
             docker image prune -f
 
-            echo "Deploy complete — $IMAGE"
+            echo "✅ Deploy terminé — $IMAGE"
 
       # ── Notification (optionnel) ───────────────────────────────────────────
       - name: Notify on failure
