@@ -80,7 +80,7 @@ jobs:
 
             APP_DIR="$HOME/regtech"
             IMAGE="ghcr.io/${{ github.repository }}:latest"
-            COMPOSE="docker compose -f $APP_DIR/docker/docker-compose.prod.yml --env-file $APP_DIR/.env.production"
+            COMPOSE="docker compose -f $APP_DIR/docker/docker-compose.prod.yml --env-file $APP_DIR/docker/.env.production"
 
             echo "==> Mise à jour du code source"
             if [ ! -d "$APP_DIR/.git" ]; then
