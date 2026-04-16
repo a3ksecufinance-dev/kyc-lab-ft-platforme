@@ -97,17 +97,11 @@ jobs:
             echo "==> Téléchargement de la nouvelle image"
             docker pull "$IMAGE"
 
-            echo "==> Migrations base de données"
-            docker run --rm \
-              --env-file "$APP_DIR/.env.production" \
-              --network kyc_network_prod \
-              "$IMAGE" sh -c "pnpm db:push"
+            echo "==> Démarrage des services essentiels (postgres, redis, migrate, app)"
+            $COMPOSE up -d postgres redis migrate app
 
-            echo "==> Redémarrage de l'application"
-            $COMPOSE up -d --no-deps app
-
-            echo "==> Attente démarrage (30s)"
-            sleep 30
+            echo "==> Attente démarrage (45s)"
+            sleep 45
 
             echo "==> Health check"
             curl -sf http://localhost:3000/health
