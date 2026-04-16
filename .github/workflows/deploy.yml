@@ -97,14 +97,31 @@ jobs:
             echo "==> Téléchargement de la nouvelle image"
             docker pull "$IMAGE"
 
-            echo "==> Démarrage des services essentiels (postgres, redis, migrate, app)"
-            $COMPOSE up -d postgres redis migrate app
+            echo "==> Démarrage postgres et redis"
+            $COMPOSE up -d postgres redis
+
+            echo "==> Attente postgres healthy (20s)"
+            sleep 20
+
+            echo "==> Migration base de données"
+            $COMPOSE run --rm migrate || {
+              echo "--- LOGS MIGRATE ---"
+              $COMPOSE logs migrate
+              exit 1
+            }
+
+            echo "==> Démarrage application"
+            $COMPOSE up -d app
 
             echo "==> Attente démarrage (45s)"
             sleep 45
 
             echo "==> Health check"
-            curl -sf http://localhost:3000/health
+            curl -sf http://localhost:3000/health || {
+              echo "--- LOGS APP ---"
+              docker logs kyc_app --tail 50
+              exit 1
+            }
 
             echo "==> Nettoyage images obsolètes"
             docker image prune -f

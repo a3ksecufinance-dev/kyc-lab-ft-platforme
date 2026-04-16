@@ -31,6 +31,8 @@ COPY --from=builder --chown=kyc:nodejs /app/drizzle ./drizzle
 COPY --from=builder --chown=kyc:nodejs /app/drizzle.config.ts ./drizzle.config.ts
 COPY --from=builder --chown=kyc:nodejs /app/pnpm-lock.yaml ./pnpm-lock.yaml
 
+RUN mkdir -p /app/uploads && chown kyc:nodejs /app/uploads
+
 USER kyc
 
 EXPOSE 3000
