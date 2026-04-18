@@ -732,8 +732,14 @@ export async function loadAllSanctionLists(forceRefresh = false): Promise<{
     }
 
     // Fetch depuis la source
-    const t0      = Date.now();
-    const fresh   = await fetcher();
+    const t0 = Date.now();
+    let fresh: SanctionEntity[];
+    try {
+      fresh = await fetcher();
+    } catch (fetchErr) {
+      log.error({ provider: key, err: fetchErr }, "Fetcher a lancé une exception non gérée");
+      fresh = [];
+    }
     const elapsed = Date.now() - t0;
 
     if (fresh.length > 0) {

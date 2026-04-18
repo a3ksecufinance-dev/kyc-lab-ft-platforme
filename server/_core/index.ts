@@ -337,6 +337,14 @@ async function start() {
   process.on("SIGINT",  () => shutdown("SIGINT"));
 }
 
+// ─── Sécurité Node.js 22 — éviter crash sur rejet non géré ──────────────────
+process.on("unhandledRejection", (reason) => {
+  log.error({ reason }, "Unhandled promise rejection — ignoré pour éviter crash");
+});
+process.on("uncaughtException", (err) => {
+  log.error({ err }, "Uncaught exception — ignoré pour éviter crash");
+});
+
 start().catch((err) => {
   log.fatal({ err }, "Échec démarrage serveur");
   process.exit(1);
