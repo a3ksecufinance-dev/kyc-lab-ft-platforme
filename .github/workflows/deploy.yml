@@ -113,18 +113,21 @@ jobs:
             echo "==> Démarrage application"
             $COMPOSE up -d app
 
-            echo "==> Attente démarrage (45s)"
-            sleep 45
+            echo "==> Attente démarrage (60s)"
+            sleep 60
 
             echo "==> Health check"
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/health)
-            if [ "$STATUS" = "000" ]; then
-              echo "--- ERREUR : app ne répond pas (status 000) ---"
-              docker logs kyc_app --tail 50
-              exit 1
-            fi
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/health || echo "000")
             echo "Health check status: $STATUS"
             curl -s http://localhost:3000/health | python3 -m json.tool || true
+            if [ "$STATUS" = "000" ] || [ "$STATUS" = "503" ]; then
+              echo "--- LOGS APP (50 dernières lignes) ---"
+              docker logs kyc_app --tail 50
+              if [ "$STATUS" = "000" ]; then
+                echo "--- ERREUR FATALE : app ne répond pas ---"
+                exit 1
+              fi
+            fi
 
             echo "==> Nettoyage images obsolètes"
             docker image prune -f
