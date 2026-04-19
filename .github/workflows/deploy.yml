@@ -110,6 +110,12 @@ jobs:
               exit 1
             }
 
+            echo "==> Build service ML (Python)"
+            $COMPOSE build ml
+
+            echo "==> Démarrage service ML"
+            $COMPOSE up -d ml
+
             echo "==> Démarrage application"
             $COMPOSE up -d app
 
@@ -127,6 +133,14 @@ jobs:
                 echo "--- ERREUR FATALE : app ne répond pas ---"
                 exit 1
               fi
+            fi
+
+            echo "==> Health check service ML"
+            ML_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health || echo "000")
+            echo "ML health: $ML_STATUS"
+            if [ "$ML_STATUS" = "000" ]; then
+              echo "WARN: Service ML ne répond pas encore (démarrage en cours)"
+              docker logs kyc_ml --tail 20 || true
             fi
 
             echo "==> Nettoyage images obsolètes"

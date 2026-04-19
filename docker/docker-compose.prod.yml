@@ -117,7 +117,7 @@ services:
   # ─── ML Scoring Service (Python FastAPI) ─────────────────────────────────────
   ml:
     build:
-      context: ./ml
+      context: ../ml
       dockerfile: Dockerfile
     image: kyc-ml:${IMAGE_TAG:-latest}
     container_name: kyc_ml
