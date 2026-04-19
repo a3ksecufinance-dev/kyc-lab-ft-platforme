@@ -32,6 +32,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 
+// Trust le premier proxy (nginx) pour lire X-Forwarded-For et X-Real-IP
+app.set("trust proxy", 1);
+
 // ─── Métriques Prometheus (optionnel) ────────────────────────────────────────
 
 // eslint-disable-next-line no-useless-assignment

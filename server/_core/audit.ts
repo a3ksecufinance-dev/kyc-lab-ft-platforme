@@ -128,16 +128,30 @@ export async function audit(entry: AuditEntry): Promise<void> {
 }
 
 /**
+ * Normalise les adresses IPv4-mapped IPv6 (::ffff:x.x.x.x → x.x.x.x)
+ * produites quand Express tourne derrière un reverse proxy Docker/nginx.
+ */
+function normalizeIp(ip?: string | null): string | null {
+  if (!ip) return null;
+  if (ip.startsWith("::ffff:")) return ip.slice(7);
+  return ip;
+}
+
+/**
  * Audit helper pour les mutations tRPC — extrait IP et userAgent du contexte
  */
 export function createAuditFromContext(
   ctx: { user?: { id?: number } | null; req?: { ip?: string | null | undefined; headers?: Record<string, string | string[] | undefined>; } }
 ) {
+  const rawIp = ctx.req?.ip
+    ?? (ctx.req?.headers?.["x-real-ip"] as string | undefined)
+    ?? (ctx.req?.headers?.["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
+    ?? null;
   return (entry: Omit<AuditEntry, "userId" | "ipAddress" | "userAgent">) =>
     audit({
       ...entry,
       userId: ctx.user?.id ?? null,
-      ipAddress: ctx.req?.ip ?? null,
+      ipAddress: normalizeIp(rawIp),
       userAgent: ((ctx.req?.headers?.["user-agent"]) as string | undefined) ?? null,
     } satisfies AuditEntry);
 }
