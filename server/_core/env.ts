@@ -3,6 +3,18 @@ import { config } from "dotenv";
 
 config();
 
+// z.coerce.boolean() convertit "false" → true (Boolean("false") === true).
+// Ce helper gère correctement les valeurs dotenv "true"/"false"/"1"/"0".
+const boolEnv = (defaultVal: boolean) =>
+  z.preprocess(
+    (v) => {
+      if (v === "false" || v === "0" || v === false) return false;
+      if (v === "true"  || v === "1" || v === true)  return true;
+      return defaultVal;
+    },
+    z.boolean().default(defaultVal)
+  );
+
 const envSchema = z.object({
   // Application
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -48,7 +60,7 @@ const envSchema = z.object({
   SCREENING_UPDATE_CRON:       z.string().default("0 2 * * *"),
   SCREENING_MATCH_THRESHOLD:   z.coerce.number().int().min(0).max(100).default(80),
   SCREENING_REVIEW_THRESHOLD:  z.coerce.number().int().min(0).max(100).default(50),
-  SCREENING_AUTO_UPDATE:       z.coerce.boolean().default(true),
+  SCREENING_AUTO_UPDATE:       boolEnv(true),
   // Durée max sans mise à jour avant alerte (heures)
   SCREENING_STALE_THRESHOLD_HOURS: z.coerce.number().int().min(1).max(168).default(36),
 
@@ -68,7 +80,7 @@ const envSchema = z.object({
   ML_INTERNAL_API_KEY: z.string().min(8).default("dev_ml_key_changeme"),
 
   // ML Retraining Scheduler
-  ML_RETRAIN_AUTO:         z.coerce.boolean().default(true),
+  ML_RETRAIN_AUTO:         boolEnv(true),
   ML_RETRAIN_CRON:         z.string().default("0 3 * * 0"),   // dimanche 03:00 UTC
   ML_RETRAIN_DAYS_HISTORY: z.coerce.number().int().min(30).max(730).default(180),
 
@@ -109,7 +121,7 @@ const envSchema = z.object({
   S3_ENDPOINT:           z.string().url().optional().or(z.literal("").transform(() => undefined)),
   S3_ACCESS_KEY_ID:      z.string().optional(),
   S3_SECRET_ACCESS_KEY:  z.string().optional(),
-  S3_FORCE_PATH_STYLE:   z.coerce.boolean().default(false), // true requis pour MinIO
+  S3_FORCE_PATH_STYLE:   boolEnv(false), // true requis pour MinIO
   S3_SIGNED_URL_EXPIRES: z.coerce.number().int().positive().default(3600), // secondes (1h)
 
   // Télédéclaration TRACFIN / GoAML
@@ -133,7 +145,7 @@ const envSchema = z.object({
   ORG_EMAIL:           z.string().default("compliance@organisation.fr"),
 
   // pKYC — Perpetual KYC nightly drift scoring
-  PKYC_ENABLED:          z.coerce.boolean().default(true),
+  PKYC_ENABLED:          boolEnv(true),
   PKYC_CRON:             z.string().default("0 1 * * *"),   // 01:00 UTC chaque nuit
   PKYC_DRIFT_THRESHOLD:  z.coerce.number().int().min(0).max(100).default(40),
   PKYC_BASELINE_DAYS:    z.coerce.number().int().min(7).max(365).default(30),
