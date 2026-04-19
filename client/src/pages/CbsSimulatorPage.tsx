@@ -202,7 +202,7 @@ function CbsHeader({ agentName }: { agentName?: string | undefined }) {
 // ─── Page principale ──────────────────────────────────────────────────────────
 
 export function CbsSimulatorPage() {
-  const { isAuthenticated, user, login } = useAuth();
+  const { isAuthenticated, user, login, logout } = useAuth();
   const [, navigate] = useLocation();
 
   const [authReady, setAuthReady]     = useState(false);
@@ -352,6 +352,9 @@ export function CbsSimulatorPage() {
         isSuspicious: tx.isSuspicious,
         uploadedDocs,
       });
+      // Déconnexion immédiate : le simulateur CBS ne doit pas laisser
+      // de session active dans la plateforme conformité.
+      logout();
       setStep(6);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erreur lors de la création du dossier";
@@ -432,14 +435,14 @@ export function CbsSimulatorPage() {
 
               <div style={{ display: "flex", gap: 12 }}>
                 <button
-                  onClick={() => navigate(`/customers/${result.customerId}`)}
+                  onClick={() => navigate("/login")}
                   style={{
                     flex: 1, padding: "13px 0", background: C.blue, color: "#fff",
                     border: "none", borderRadius: 7, fontSize: 15, fontWeight: 700,
                     cursor: "pointer", fontFamily: "inherit",
                   }}
                 >
-                  🔍 Ouvrir dans la Plateforme Conformité
+                  🔍 Accéder à la Plateforme Conformité
                 </button>
                 <button
                   onClick={() => { setStep(1); setForm(INIT); setDocs([]); setResult(null); setAttestation(false); }}
