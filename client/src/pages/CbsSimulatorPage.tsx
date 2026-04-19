@@ -302,13 +302,18 @@ export function CbsSimulatorPage() {
 
       // 2. Upload des documents KYC
       let uploadedDocs = 0;
+      const accessToken = localStorage.getItem("kyc_access_token");
       for (const entry of docs) {
         try {
           const fd = new FormData();
           fd.append("file",         entry.file);
           fd.append("customerId",   String(customer.id));
           fd.append("documentType", entry.docType);
-          const resp = await fetch("/api/documents/upload", { method: "POST", body: fd });
+          const resp = await fetch("/api/documents/upload", {
+            method: "POST",
+            body: fd,
+            headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+          });
           if (resp.ok) uploadedDocs++;
         } catch {
           // Ne pas bloquer si un upload échoue — le service conformité peut redemander

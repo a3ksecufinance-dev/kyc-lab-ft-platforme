@@ -24,6 +24,8 @@ services:
       NODE_ENV: production
     ports:
       - "3000:3000"
+    volumes:
+      - uploads_data:/app/uploads    # persistance des documents KYC uploadés
     depends_on:
       postgres:
         condition: service_healthy
@@ -124,7 +126,8 @@ services:
     restart: unless-stopped
     env_file: .env.production
     environment:
-      ML_DATABASE_URL:      postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
+      # Réutilise DATABASE_URL déjà présent dans .env.production (même DB que Node.js)
+      ML_DATABASE_URL:      ${DATABASE_URL}
       ML_INTERNAL_API_KEY:  ${ML_INTERNAL_API_KEY}
       ML_DEBUG:             "false"
     volumes:
@@ -220,6 +223,8 @@ volumes:
     name: kyc_postgres_data_prod
   redis_data:
     name: kyc_redis_data_prod
+  uploads_data:
+    name: kyc_uploads_data
   ml_models:
     name: kyc_ml_models
   backups:
