@@ -309,11 +309,9 @@ export function CbsSimulatorPage() {
           fd.append("file",         entry.file);
           fd.append("customerId",   String(customer.id));
           fd.append("documentType", entry.docType);
-          const resp = await fetch("/api/documents/upload", {
-            method: "POST",
-            body: fd,
-            headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-          });
+          const fetchInit: RequestInit = { method: "POST", body: fd };
+          if (accessToken) fetchInit.headers = { Authorization: `Bearer ${accessToken}` };
+          const resp = await fetch("/api/documents/upload", fetchInit);
           if (resp.ok) uploadedDocs++;
         } catch {
           // Ne pas bloquer si un upload échoue — le service conformité peut redemander

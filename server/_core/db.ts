@@ -12,8 +12,8 @@ const pool = new Pool({
   max: ENV.NODE_ENV === "production" ? 20 : 5,
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 5_000,
-  // En production, SSL obligatoire
-  ...(ENV.NODE_ENV === "production" && {
+  // En production, SSL selon DATABASE_URL (désactivé si sslmode=disable pour Docker interne)
+  ...(ENV.NODE_ENV === "production" && !ENV.DATABASE_URL.includes("sslmode=disable") && {
     ssl: { rejectUnauthorized: true },
   }),
 });
