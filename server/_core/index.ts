@@ -279,6 +279,47 @@ app.post(
   }
 );
 
+// ─── Contact landing page (public — pas d'auth) ──────────────────────────────
+
+app.post("/api/contact", async (req, res): Promise<void> => {
+  const { firstName, lastName, email, company, type, phone } = req.body ?? {};
+
+  if (!firstName || !lastName || !email || !company) {
+    res.status(400).json({ error: "Champs obligatoires manquants" }); return;
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    res.status(400).json({ error: "Email invalide" }); return;
+  }
+
+  const { sendEmail } = await import("./mailer");
+  await sendEmail({
+    to: "a.bensleten@cyberstrat.ma",
+    subject: `[WatchReg] Nouvelle demande de démo — ${company}`,
+    html: `
+      <div style="font-family:Inter,sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;background:#f8faf8;border-radius:12px;">
+        <div style="background:#1B5E20;padding:20px 24px;border-radius:8px;margin-bottom:24px;">
+          <h2 style="color:#fff;margin:0;font-size:20px;">Nouvelle demande de démo — WatchReg</h2>
+        </div>
+        <table style="width:100%;border-collapse:collapse;">
+          <tr><td style="padding:8px 0;color:#555;font-size:14px;width:40%">Prénom</td><td style="padding:8px 0;font-size:14px;font-weight:600;color:#0d1b0d">${firstName}</td></tr>
+          <tr><td style="padding:8px 0;color:#555;font-size:14px;">Nom</td><td style="padding:8px 0;font-size:14px;font-weight:600;color:#0d1b0d">${lastName}</td></tr>
+          <tr><td style="padding:8px 0;color:#555;font-size:14px;">Email</td><td style="padding:8px 0;font-size:14px;font-weight:600;color:#1B5E20"><a href="mailto:${email}">${email}</a></td></tr>
+          <tr><td style="padding:8px 0;color:#555;font-size:14px;">Établissement</td><td style="padding:8px 0;font-size:14px;font-weight:600;color:#0d1b0d">${company}</td></tr>
+          <tr><td style="padding:8px 0;color:#555;font-size:14px;">Type</td><td style="padding:8px 0;font-size:14px;color:#0d1b0d">${type ?? "—"}</td></tr>
+          <tr><td style="padding:8px 0;color:#555;font-size:14px;">Téléphone</td><td style="padding:8px 0;font-size:14px;color:#0d1b0d">${phone ?? "—"}</td></tr>
+        </table>
+        <div style="margin-top:24px;padding:16px;background:#E8F5E9;border-radius:8px;font-size:13px;color:#2E7D32;">
+          Répondre directement à <strong>${email}</strong> pour planifier la démo.
+        </div>
+      </div>
+    `,
+  });
+
+  res.json({ success: true });
+});
+
 // ─── Fichiers statiques — uploads locaux ─────────────────────────────────────
 
 const uploadsDir = path.resolve(ENV.UPLOAD_DIR);
