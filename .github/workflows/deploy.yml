@@ -89,7 +89,8 @@ jobs:
               git clone git@github.com:${{ github.repository }}.git "$APP_DIR"
             fi
             cd "$APP_DIR"
-            git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
 
             echo "==> Authentification GHCR"
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
