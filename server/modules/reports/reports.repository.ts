@@ -65,6 +65,7 @@ export async function updateReport(
     | "status" | "title" | "content" | "suspicionType"
     | "amountInvolved" | "currency" | "regulatoryRef"
     | "submittedBy" | "submittedAt" | "approvedBy" | "approvedAt"
+    | "anrfDepositDate" | "anrfReference" | "anrfStatus"
     | "updatedAt"
   >>
 ): Promise<Report> {

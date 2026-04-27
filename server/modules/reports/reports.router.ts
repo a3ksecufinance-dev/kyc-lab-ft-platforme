@@ -404,6 +404,38 @@ export const reportsRouter = router({
       };
     }),
 
+  /**
+   * Suivi dépôt ANRF — compliance+ uniquement
+   * Permet d'enregistrer la date de dépôt physique/électronique à l'ANRF,
+   * le numéro d'accusé de réception, et le statut du dossier.
+   */
+  updateAnrfStatus: complianceProc
+    .input(z.object({
+      id:              z.number().int().positive(),
+      anrfDepositDate: z.string().datetime().optional(),
+      anrfReference:   z.string().max(100).optional(),
+      anrfStatus:      z.enum(["DEPOSEE", "ACCUSEE", "CLASSEE", "SUIVI"]).optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const report = await getReportOrThrow(input.id);
+      if (!["SUBMITTED", "APPROVED"].includes(report.status)) {
+        throw new Error("Rapport non soumis — suivi ANRF applicable uniquement après transmission");
+      }
+      const log = createAuditFromContext(ctx);
+      const patch: Parameters<typeof updateReport>[1] = {};
+      if (input.anrfDepositDate) patch.anrfDepositDate = new Date(input.anrfDepositDate);
+      if (input.anrfReference !== undefined) patch.anrfReference = input.anrfReference;
+      if (input.anrfStatus !== undefined)    patch.anrfStatus    = input.anrfStatus;
+      const updated = await updateReport(report.id, patch);
+      await log({
+        action:     "REPORT_ANRF_UPDATED",
+        entityType: "report",
+        entityId:   report.reportId,
+        details:    { anrfStatus: input.anrfStatus, anrfReference: input.anrfReference },
+      });
+      return updated;
+    }),
+
   // ── AMLD6 KPIs ────────────────────────────────────────────────────────────
 
   amld6Stats: permissionProc("reports:amld6_stats")

@@ -1,3 +1,4 @@
+import { useState }   from "react";
 import { AppLayout }  from "../components/layout/AppLayout";
 import { StatCard }   from "../components/ui/StatCard";
 import { Badge }      from "../components/ui/Badge";
@@ -6,7 +7,8 @@ import { useI18n }    from "../hooks/useI18n";
 import { formatAmount, formatRelative, formatNumber } from "../lib/utils";
 import {
   Users, AlertTriangle, FolderOpen, ArrowLeftRight,
-  RefreshCw, FileText, Shield,
+  RefreshCw, FileText, Shield, TrendingUp, CheckCircle,
+  Clock, Activity, Target, BarChart2,
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -179,8 +181,205 @@ function Card({
   );
 }
 
+// ─── Panneau Direction — 8 KPIs cartographie conformité ──────────────────────
+function DirectionPanel() {
+  const now      = new Date();
+  const yearStart = new Date(now.getFullYear(), 0, 1).toISOString();
+
+  const { data: kpis, isLoading, error } = trpc.reports.amld6Stats.useQuery(
+    { from: yearStart, to: now.toISOString() },
+    { retry: false, staleTime: 60_000 }
+  );
+
+  const { data: overview } = trpc.dashboard.overview.useQuery(undefined, { staleTime: 30_000 });
+
+  if (isLoading) return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 0" }}>
+      <p style={{ fontSize: 12, fontFamily: C.mono, color: C.text3 }}>Calcul des KPIs direction…</p>
+    </div>
+  );
+
+  if (error) return (
+    <div style={{ background: `${C.amber}08`, border: `1px solid ${C.amber}25`, borderRadius: 10, padding: 24, textAlign: "center" }}>
+      <Shield size={24} style={{ color: C.amber, marginBottom: 8 }} />
+      <p style={{ fontSize: 13, fontFamily: C.mono, color: C.amber, margin: "0 0 4px" }}>Accès restreint</p>
+      <p style={{ fontSize: 11, fontFamily: C.mono, color: C.text3, margin: 0 }}>
+        Ce tableau de bord est réservé aux Compliance Officers et administrateurs.
+      </p>
+    </div>
+  );
+
+  if (!kpis) return null;
+
+  const kycCoverage  = kpis.customers.kycCoverage;
+  const alertsPer1k  = kpis.transactions.total > 0
+    ? (kpis.alerts.total / kpis.transactions.total) * 1000 : 0;
+  const truePosRate  = 100 - kpis.alerts.falsePositiveRate;
+  const avgDays      = kpis.declarations.avgDaysToSubmit;
+  const strCount     = kpis.declarations.strCount;
+  const sarCount     = kpis.declarations.sarCount;
+  const slaBreaches  = kpis.compliance?.alertSlaBreaches ?? 0;
+  const highRisk     = (kpis.customers.byRiskLevel?.high ?? 0) + (kpis.customers.byRiskLevel?.critical ?? 0);
+
+  const kpiCards = [
+    {
+      icon: CheckCircle,
+      label: "Couverture KYC",
+      value: `${kycCoverage.toFixed(1)} %`,
+      sub: `${kpis.customers.kycApproved} / ${kpis.customers.total} clients`,
+      color: kycCoverage >= 90 ? C.green : kycCoverage >= 70 ? C.amber : C.red,
+      target: "Cible BAM : ≥ 95%",
+    },
+    {
+      icon: Activity,
+      label: "Alertes / 1 000 tx",
+      value: alertsPer1k.toFixed(1),
+      sub: `${kpis.alerts.total} alertes — ${kpis.transactions.total} tx`,
+      color: alertsPer1k > 20 ? C.red : alertsPer1k > 10 ? C.amber : C.green,
+      target: "Cible : < 10 / 1 000",
+    },
+    {
+      icon: Target,
+      label: "Efficacité alertes",
+      value: `${truePosRate.toFixed(1)} %`,
+      sub: `${kpis.alerts.falsePositiveRate.toFixed(1)}% faux positifs`,
+      color: truePosRate >= 70 ? C.green : truePosRate >= 50 ? C.amber : C.red,
+      target: "Cible : ≥ 70% vrais positifs",
+    },
+    {
+      icon: FileText,
+      label: "STR déposées (YTD)",
+      value: strCount,
+      sub: `+ ${sarCount} SAR — ${kpis.declarations.submitted} soumis`,
+      color: C.blue,
+      target: "Obligatoire ANRF / GoAML",
+    },
+    {
+      icon: Clock,
+      label: "Délai moyen STR",
+      value: `${avgDays.toFixed(1)} j`,
+      sub: "Création → soumission ANRF",
+      color: avgDays <= 5 ? C.green : avgDays <= 10 ? C.amber : C.red,
+      target: "Cible BAM : ≤ 5 jours",
+    },
+    {
+      icon: AlertTriangle,
+      label: "Alertes CRITICAL",
+      value: overview?.alerts.byPriority?.["CRITICAL"] ?? 0,
+      sub: `${overview?.alerts.open ?? 0} alertes ouvertes total`,
+      color: (overview?.alerts.byPriority?.["CRITICAL"] ?? 0) > 0 ? C.red : C.green,
+      target: "Traitement prioritaire requis",
+    },
+    {
+      icon: BarChart2,
+      label: "SLA breaches",
+      value: slaBreaches,
+      sub: "Alertes > 5 jours ouvrés",
+      color: slaBreaches > 0 ? C.red : C.green,
+      target: "Cible réglementaire : 0",
+    },
+    {
+      icon: TrendingUp,
+      label: "Clients HIGH/CRITICAL",
+      value: highRisk,
+      sub: `sur ${kpis.customers.total} clients — ${kpis.customers.pepActive} PEP`,
+      color: highRisk > 20 ? C.red : highRisk > 10 ? C.amber : C.text1,
+      target: "Surveillance renforcée EDD",
+    },
+  ];
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+      {/* Header */}
+      <div style={{ background: `${C.gold}08`, border: `1px solid ${C.gold}25`, borderRadius: 10, padding: "14px 18px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div>
+          <p style={{ fontSize: 11, fontFamily: C.mono, color: C.gold, margin: "0 0 2px", letterSpacing: "0.16em", textTransform: "uppercase" }}>
+            Tableau de bord Direction — Comité de Conformité
+          </p>
+          <p style={{ fontSize: 11, fontFamily: C.mono, color: C.text3, margin: 0 }}>
+            Période : 1 janv. {now.getFullYear()} → aujourd'hui · 8 KPIs cartographie conformité BAM/FATF
+          </p>
+        </div>
+        <Shield size={20} style={{ color: C.gold, opacity: 0.6 }} />
+      </div>
+
+      {/* 8 KPI cards — 4×2 */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+        {kpiCards.map(({ icon: Icon, label, value, sub, color, target }) => (
+          <div key={label} style={{
+            background: C.surface,
+            border: `1px solid ${C.border}`,
+            borderRadius: 10,
+            padding: 16,
+            display: "flex",
+            flexDirection: "column",
+            gap: 10,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <Icon size={12} style={{ color }} />
+              <p style={{ fontSize: 9, fontFamily: C.mono, textTransform: "uppercase", letterSpacing: "0.14em", color: C.text3, margin: 0, fontWeight: 600 }}>
+                {label}
+              </p>
+            </div>
+            <p style={{ fontSize: 26, fontWeight: 700, fontFamily: C.mono, color, margin: 0, lineHeight: 1 }}>
+              {typeof value === "number" ? value.toLocaleString("fr-FR") : value}
+            </p>
+            <div>
+              <p style={{ fontSize: 10, fontFamily: C.mono, color: C.text3, margin: "0 0 3px" }}>{sub}</p>
+              <p style={{ fontSize: 9, fontFamily: C.mono, color: C.text3, margin: 0, fontStyle: "italic" }}>{target}</p>
+            </div>
+            {/* Indicateur visuel */}
+            <div style={{ height: 2, borderRadius: 1, background: `${color}30` }}>
+              <div style={{ height: "100%", width: "100%", borderRadius: 1, background: color, opacity: 0.6 }} />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Tableau sanctions + PEP */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <Card title="Screening sanctions (YTD)">
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {[
+              { label: "Total screenings", value: kpis.screening.total, color: C.text1 },
+              { label: "MATCH détectés",   value: kpis.screening.matchCount,  color: C.red },
+              { label: "En révision",       value: kpis.screening.reviewCount, color: C.amber },
+              { label: "CLEAR",             value: kpis.screening.clearCount,  color: C.green },
+            ].map(({ label, value: v, color }) => (
+              <div key={label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 11, fontFamily: C.mono, color: C.text3 }}>{label}</span>
+                <span style={{ fontSize: 13, fontFamily: C.mono, fontWeight: 700, color }}>{v}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card title="Dossiers investigation (YTD)">
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {[
+              { label: "Ouverts",    value: kpis.cases.opened,    color: C.amber },
+              { label: "Clôturés",   value: kpis.cases.closed,    color: C.green },
+              { label: "Escaladés",  value: kpis.cases.escalated, color: C.red },
+              { label: "SAR/STR liés", value: sarCount + strCount, color: C.blue },
+            ].map(({ label, value: v, color }) => (
+              <div key={label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 11, fontFamily: C.mono, color: C.text3 }}>{label}</span>
+                <span style={{ fontSize: 13, fontFamily: C.mono, fontWeight: 700, color }}>{v}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+
+    </div>
+  );
+}
+
 // ─── Page principale ──────────────────────────────────────────────────────────
 export function DashboardPage() {
+  const [dashTab, setDashTab] = useState<"ops" | "direction">("ops");
+
   const { data: overview, isLoading, refetch, isRefetching } =
     trpc.dashboard.overview.useQuery(undefined, {
       refetchInterval: 30_000,
@@ -238,6 +437,34 @@ export function DashboardPage() {
             {t.common.refresh}
           </button>
         </div>
+
+        {/* ── Tabs Opérationnel / Direction ────────────────────────────── */}
+        <div style={{ display: "flex", borderBottom: `1px solid ${C.border}` }}>
+          {([
+            { id: "ops"       as const, label: "Opérationnel",  icon: Activity },
+            { id: "direction" as const, label: "Direction — ComCo", icon: Shield },
+          ]).map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => setDashTab(id)}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "9px 14px", fontSize: 11, fontFamily: C.mono,
+                color: dashTab === id ? C.gold : C.text3,
+                background: "none", border: "none",
+                borderBottom: `2px solid ${dashTab === id ? C.gold : "transparent"}`,
+                cursor: "pointer", marginBottom: -1,
+              }}
+            >
+              <Icon size={12} /> {label}
+            </button>
+          ))}
+        </div>
+
+        {/* ── Tab Direction ─────────────────────────────────────────────── */}
+        {dashTab === "direction" && <DirectionPanel />}
+
+        {dashTab === "ops" && <>
 
         {/* ── KPIs ────────────────────────────────────────────────────────── */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
@@ -466,6 +693,8 @@ export function DashboardPage() {
             </table>
           </div>
         )}
+
+        </>}
 
       </div>
     </AppLayout>

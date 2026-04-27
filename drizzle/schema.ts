@@ -560,6 +560,10 @@ export const reports = pgTable("reports", {
   approvedBy: integer("approved_by").references(() => users.id, { onDelete: "set null" }),
   approvedAt: timestamp("approved_at"),
   regulatoryRef: varchar("regulatory_ref", { length: 100 }),
+  // ── Suivi dépôt ANRF ─────────────────────────────────────────────────────────
+  anrfDepositDate: timestamp("anrf_deposit_date"),
+  anrfReference:   varchar("anrf_reference", { length: 100 }),
+  anrfStatus:      varchar("anrf_status", { length: 20 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => ({

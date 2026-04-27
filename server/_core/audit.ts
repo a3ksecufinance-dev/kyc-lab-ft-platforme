@@ -61,6 +61,7 @@ export type AuditAction =
   | "REPORT_SUBMITTED"
   | "REPORT_APPROVED"
   | "REPORT_REJECTED"
+  | "REPORT_ANRF_UPDATED"
   // Admin
   | "USER_ROLE_CHANGED"
   | "USER_DEACTIVATED"

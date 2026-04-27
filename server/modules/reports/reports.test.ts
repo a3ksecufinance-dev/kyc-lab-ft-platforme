@@ -82,7 +82,9 @@ const mockDraftSar = {
   amountInvolved: null, currency: "EUR",
   content: sarContent as unknown as null,
   submittedBy: 2, submittedAt: null, approvedBy: null, approvedAt: null,
-  regulatoryRef: null, createdAt: new Date(), updatedAt: new Date(),
+  regulatoryRef: null,
+  anrfDepositDate: null, anrfReference: null, anrfStatus: null,
+  createdAt: new Date(), updatedAt: new Date(),
 };
 
 const mockDraftStr = {

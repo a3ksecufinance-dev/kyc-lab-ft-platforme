@@ -5,7 +5,7 @@ import { DataTable, type Column } from "../components/ui/DataTable";
 import { Badge } from "../components/ui/Badge";
 import { trpc } from "../lib/trpc";
 import { formatDate, formatRelative, formatNumber } from "../lib/utils";
-import { FileText, FilePlus, Send, CheckCircle, XCircle, Radio, Download, BarChart3 } from "lucide-react";
+import { FileText, FilePlus, Send, CheckCircle, XCircle, Radio, Download, BarChart3, ClipboardCheck } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { hasRole } from "../lib/auth";
 import { useI18n } from "../hooks/useI18n";
@@ -108,6 +108,8 @@ export function ReportsPage() {
   const [editMode, setEditMode] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editSuspicionType, setEditSuspicionType] = useState("");
+  const [anrfEdit, setAnrfEdit] = useState(false);
+  const [anrfForm, setAnrfForm] = useState({ depositDate: "", reference: "", status: "" });
 
   const utils = trpc.useUtils();
 
@@ -139,6 +141,9 @@ export function ReportsPage() {
   const exportReportPdfMutation = trpc.reports.exportReportPdf.useMutation();
   const updateContentMutation  = trpc.reports.updateContent.useMutation({
     onSuccess: () => { utils.reports.list.invalidate(); setEditMode(false); },
+  });
+  const updateAnrfMutation = trpc.reports.updateAnrfStatus.useMutation({
+    onSuccess: () => { utils.reports.getById.invalidate({ id: selectedReport?.id ?? 0 }); setAnrfEdit(false); },
   });
 
   const { data: reportDetail } = trpc.reports.getById.useQuery(
@@ -632,8 +637,129 @@ export function ReportsPage() {
               </div>
             )}
 
+            {/* ── Suivi ANRF ─────────────────────────────────────────────────── */}
+            {(selectedReport.status === "SUBMITTED" || selectedReport.status === "APPROVED") && (
+              <div style={{ background: `${C.blue}08`, border: `1px solid ${C.blue}25`, borderRadius: 8, padding: 14, marginBottom: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <ClipboardCheck size={12} style={{ color: C.blue }} />
+                    <p style={{ fontSize: 9, fontFamily: C.mono, textTransform: "uppercase", letterSpacing: "0.16em", color: C.blue, margin: 0 }}>
+                      Suivi dépôt ANRF
+                    </p>
+                  </div>
+                  {canApprove && (
+                    <button
+                      onClick={() => {
+                        setAnrfEdit(!anrfEdit);
+                        setAnrfForm({
+                          depositDate: reportDetail?.anrfDepositDate
+                            ? new Date(reportDetail.anrfDepositDate as unknown as string).toISOString().slice(0, 10)
+                            : "",
+                          reference: (reportDetail as Record<string, unknown>)?.anrfReference as string ?? "",
+                          status: (reportDetail as Record<string, unknown>)?.anrfStatus as string ?? "",
+                        });
+                      }}
+                      style={{ fontSize: 10, fontFamily: C.mono, color: C.blue, background: "none", border: `1px solid ${C.blue}40`, borderRadius: 5, padding: "2px 8px", cursor: "pointer" }}
+                    >
+                      {anrfEdit ? "Annuler" : "Mettre à jour"}
+                    </button>
+                  )}
+                </div>
+
+                {!anrfEdit ? (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                    {[
+                      {
+                        label: "Statut ANRF",
+                        value: (reportDetail as Record<string, unknown>)?.anrfStatus as string ?? "—",
+                        accent: {
+                          DEPOSEE: C.amber, ACCUSEE: C.blue,
+                          CLASSEE: C.green, SUIVI: "var(--wr-purple, #c084fc)",
+                        }[((reportDetail as Record<string, unknown>)?.anrfStatus as string) ?? ""] ?? C.text3,
+                      },
+                      {
+                        label: "Réf. accusé",
+                        value: (reportDetail as Record<string, unknown>)?.anrfReference as string ?? "—",
+                        accent: C.text1,
+                      },
+                      {
+                        label: "Date dépôt",
+                        value: reportDetail?.anrfDepositDate
+                          ? new Date(reportDetail.anrfDepositDate as unknown as string).toLocaleDateString("fr-FR")
+                          : "—",
+                        accent: C.text3,
+                      },
+                    ].map(({ label, value, accent }) => (
+                      <div key={label}>
+                        <p style={{ fontSize: 9, fontFamily: C.mono, textTransform: "uppercase", letterSpacing: "0.1em", color: C.text3, margin: "0 0 3px" }}>{label}</p>
+                        <p style={{ fontSize: 12, fontFamily: C.mono, color: accent, margin: 0, fontWeight: 600 }}>{value}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                      <div>
+                        <label style={{ display: "block", fontSize: 9, fontFamily: C.mono, textTransform: "uppercase", letterSpacing: "0.12em", color: C.text3, marginBottom: 4 }}>
+                          Statut ANRF
+                        </label>
+                        <select
+                          value={anrfForm.status}
+                          onChange={e => setAnrfForm(f => ({ ...f, status: e.target.value }))}
+                          style={{ width: "100%", background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "7px 10px", fontSize: 12, fontFamily: C.mono, color: C.text1, outline: "none" }}
+                        >
+                          <option value="">— Sélectionner —</option>
+                          <option value="DEPOSEE">DÉPOSÉE</option>
+                          <option value="ACCUSEE">ACCUSÉ RÉCEPTION</option>
+                          <option value="CLASSEE">CLASSÉE</option>
+                          <option value="SUIVI">EN SUIVI</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ display: "block", fontSize: 9, fontFamily: C.mono, textTransform: "uppercase", letterSpacing: "0.12em", color: C.text3, marginBottom: 4 }}>
+                          Réf. accusé ANRF
+                        </label>
+                        <input
+                          value={anrfForm.reference}
+                          onChange={e => setAnrfForm(f => ({ ...f, reference: e.target.value }))}
+                          placeholder="ANRF-2026-XXXXX"
+                          style={{ width: "100%", background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "7px 10px", fontSize: 12, fontFamily: C.mono, color: C.text1, outline: "none", boxSizing: "border-box" as const }}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: 9, fontFamily: C.mono, textTransform: "uppercase", letterSpacing: "0.12em", color: C.text3, marginBottom: 4 }}>
+                        Date de dépôt
+                      </label>
+                      <input
+                        type="date"
+                        value={anrfForm.depositDate}
+                        onChange={e => setAnrfForm(f => ({ ...f, depositDate: e.target.value }))}
+                        style={{ width: "100%", background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "7px 10px", fontSize: 12, fontFamily: C.mono, color: C.text1, outline: "none", boxSizing: "border-box" as const }}
+                      />
+                    </div>
+                    <button
+                      disabled={updateAnrfMutation.isPending}
+                      onClick={() => updateAnrfMutation.mutate({
+                        id: selectedReport.id,
+                        ...(anrfForm.depositDate ? { anrfDepositDate: new Date(anrfForm.depositDate).toISOString() } : {}),
+                        ...(anrfForm.reference   ? { anrfReference:   anrfForm.reference   } : {}),
+                        ...(anrfForm.status      ? { anrfStatus:      anrfForm.status as "DEPOSEE" | "ACCUSEE" | "CLASSEE" | "SUIVI" } : {}),
+                      })}
+                      style={{ padding: "7px 0", fontSize: 11, fontFamily: C.mono, background: `${C.blue}14`, border: `1px solid ${C.blue}40`, borderRadius: 6, color: C.blue, cursor: "pointer", opacity: updateAnrfMutation.isPending ? 0.4 : 1 }}
+                    >
+                      {updateAnrfMutation.isPending ? "Enregistrement…" : "Enregistrer le suivi ANRF"}
+                    </button>
+                    {updateAnrfMutation.error && (
+                      <p style={{ fontSize: 11, fontFamily: C.mono, color: C.red, margin: 0 }}>{updateAnrfMutation.error.message}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             <button
-              onClick={() => { setSelectedReport(null); setEditMode(false); }}
+              onClick={() => { setSelectedReport(null); setEditMode(false); setAnrfEdit(false); }}
               style={{ width: "100%", padding: "7px 0", fontSize: 12, fontFamily: C.mono, color: C.text3, background: "none", border: `1px solid ${C.border2}`, borderRadius: 7, cursor: "pointer" }}
             >
               Fermer
