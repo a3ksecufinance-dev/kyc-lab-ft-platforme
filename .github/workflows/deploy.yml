@@ -109,6 +109,7 @@ jobs:
               --network kyc_network_prod \
               --env-file "$APP_DIR/docker/.env.production" \
               -e NODE_ENV=production \
+              -e PGSSLMODE=disable \
               "$IMAGE" \
               sh -c "node_modules/.bin/drizzle-kit migrate" || {
               echo "--- ERREUR MIGRATION ---"
