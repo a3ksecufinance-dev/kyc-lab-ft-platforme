@@ -105,9 +105,13 @@ jobs:
             sleep 30
 
             echo "==> Migration base de données"
-            $COMPOSE run --rm migrate || {
-              echo "--- LOGS MIGRATE ---"
-              $COMPOSE logs migrate
+            docker run --rm \
+              --network kyc_network_prod \
+              --env-file "$APP_DIR/docker/.env.production" \
+              -e NODE_ENV=production \
+              "$IMAGE" \
+              sh -c "node_modules/.bin/drizzle-kit migrate" || {
+              echo "--- ERREUR MIGRATION ---"
               exit 1
             }
 
