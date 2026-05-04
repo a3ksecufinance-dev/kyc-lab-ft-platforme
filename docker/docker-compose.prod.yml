@@ -9,6 +9,7 @@ services:
     env_file: .env.production
     environment:
       NODE_ENV: production
+      PGSSLMODE: disable
     command: ["sh", "-c", "node_modules/.bin/drizzle-kit migrate"]
     depends_on:
       postgres:

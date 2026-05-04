@@ -105,14 +105,10 @@ jobs:
             sleep 30
 
             echo "==> Migration base de données"
-            docker run --rm \
-              --network kyc_network_prod \
-              --env-file "$APP_DIR/docker/.env.production" \
-              -e NODE_ENV=production \
-              -e PGSSLMODE=disable \
-              "$IMAGE" \
-              sh -c "node_modules/.bin/drizzle-kit migrate" || {
-              echo "WARN: Migration échouée — schéma probablement déjà à jour, poursuite du déploiement"
+            $COMPOSE run --rm migrate || {
+              echo "--- LOGS MIGRATE ---"
+              $COMPOSE logs migrate
+              exit 1
             }
 
             echo "==> Build service ML (Python)"
