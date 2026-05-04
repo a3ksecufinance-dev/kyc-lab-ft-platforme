@@ -99,11 +99,20 @@ jobs:
             echo "==> Téléchargement de la nouvelle image"
             docker pull "$IMAGE"
 
-            echo "==> Démarrage postgres et redis (sans recréer si déjà sains)"
-            $COMPOSE up -d --no-recreate postgres redis
+            echo "==> Démarrage postgres et redis"
+            $COMPOSE up -d postgres redis
 
-            echo "==> Attente postgres healthy (30s)"
-            sleep 30
+            echo "==> Attente postgres prêt (max 90s)"
+            PG_USER=$(grep -E '^DB_USER=' "$APP_DIR/docker/.env.production" | cut -d= -f2 | tr -d ' ')
+            PG_DB=$(grep -E '^DB_NAME=' "$APP_DIR/docker/.env.production" | cut -d= -f2 | tr -d ' ')
+            for i in $(seq 1 45); do
+              if $COMPOSE exec -T postgres pg_isready -U "$PG_USER" -d "$PG_DB" > /dev/null 2>&1; then
+                echo "    PostgreSQL prêt après $((i*2))s"
+                break
+              fi
+              [ "$i" -eq 45 ] && { echo "ERREUR: postgres pas prêt après 90s"; exit 1; }
+              sleep 2
+            done
 
             echo "==> Migration base de données"
             $COMPOSE run --rm migrate || {
