@@ -118,6 +118,7 @@ jobs:
             $COMPOSE up -d ml
 
             echo "==> Démarrage application"
+            docker rm -f kyc_app 2>/dev/null || true
             $COMPOSE up -d app
 
             echo "==> Attente démarrage (60s)"
