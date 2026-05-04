@@ -86,9 +86,10 @@ jobs:
             if [ ! -d "$APP_DIR/.git" ]; then
               echo "    Premier déploiement — clonage du repo"
               rm -rf "$APP_DIR"
-              git clone git@github.com:${{ github.repository }}.git "$APP_DIR"
+              git clone "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" "$APP_DIR"
             fi
             cd "$APP_DIR"
+            git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
             git fetch origin main
             git reset --hard origin/main
 
