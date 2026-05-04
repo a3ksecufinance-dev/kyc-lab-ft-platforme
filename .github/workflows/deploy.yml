@@ -117,8 +117,12 @@ jobs:
             echo "==> Démarrage service ML"
             $COMPOSE up -d ml
 
-            echo "==> Démarrage application"
+            echo "==> Libération port 3000"
             docker rm -f kyc_app 2>/dev/null || true
+            fuser -k 3000/tcp 2>/dev/null || true
+            sleep 3
+
+            echo "==> Démarrage application"
             $COMPOSE up -d app
 
             echo "==> Attente démarrage (60s)"
