@@ -77,7 +77,9 @@ export type AuditAction =
   | "CORRESPONDENT_CREATED"
   | "CORRESPONDENT_ASSESSED"
   | "CORRESPONDENT_APPROVED"
-  | "CORRESPONDENT_SUSPENDED";
+  | "CORRESPONDENT_SUSPENDED"
+  // Licensing
+  | "LICENSE_ACTIVATED";
 
 export type EntityType =
   | "user"

@@ -980,3 +980,40 @@ export const correspondentAssessmentsRelations = relations(correspondentAssessme
   assessedByUser: one(users,               { fields: [correspondentAssessments.assessedBy],      references: [users.id] }),
   approvalRequest:one(approvalRequests,    { fields: [correspondentAssessments.approvalRequestId], references: [approvalRequests.id] }),
 }));
+
+// ─── Licensing — gestion des licences par module ─────────────────────────────
+// Chaque déploiement a UNE licence active qui détermine les modules disponibles,
+// le nombre de sièges, et la date d'expiration.
+
+export const licenseStatusEnum = pgEnum("license_status", [
+  "ACTIVE",
+  "EXPIRED",
+  "REVOKED",
+]);
+
+export const licenses = pgTable("licenses", {
+  id:              serial("id").primaryKey(),
+  licenseKey:      text("license_key").notNull(),
+  licenseId:       varchar("license_id", { length: 36 }).notNull(),
+  clientName:      varchar("client_name", { length: 200 }).notNull(),
+  institutionType: varchar("institution_type", { length: 30 }).notNull(),
+  modules:         jsonb("modules").notNull().$type<string[]>(),
+  maxUsers:        integer("max_users").notNull().default(25),
+  issuedAt:        timestamp("issued_at").notNull(),
+  expiresAt:       timestamp("expires_at").notNull(),
+  activatedAt:     timestamp("activated_at").defaultNow().notNull(),
+  activatedBy:     integer("activated_by").references(() => users.id, { onDelete: "set null" }),
+  status:          licenseStatusEnum("status").notNull().default("ACTIVE"),
+  createdAt:       timestamp("created_at").defaultNow().notNull(),
+  updatedAt:       timestamp("updated_at").defaultNow().notNull(),
+}, (t) => ({
+  licenseIdIdx: uniqueIndex("licenses_license_id_idx").on(t.licenseId),
+  statusIdx:    index("licenses_status_idx").on(t.status),
+}));
+
+export type License       = typeof licenses.$inferSelect;
+export type InsertLicense = typeof licenses.$inferInsert;
+
+export const licensesRelations = relations(licenses, ({ one }) => ({
+  activatedByUser: one(users, { fields: [licenses.activatedBy], references: [users.id] }),
+}));

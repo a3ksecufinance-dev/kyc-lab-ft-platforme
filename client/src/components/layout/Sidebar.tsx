@@ -7,7 +7,7 @@ import {
   Settings, BarChart2, Key, Network,
   Sun, Moon, Repeat2, Wallet, Users2, Globe,
   ShieldCheck, FileBarChart, Scale, Gauge, ScrollText, Building2,
-  ChevronLeft, ChevronRight, GitMerge,
+  ChevronLeft, ChevronRight, GitMerge, KeyRound,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { useI18n } from "../../hooks/useI18n";
@@ -81,7 +81,8 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { path: "/audit",  icon: ScrollText, labelKey: "audit",  minRole: "supervisor" },
       { path: "/mfa",    icon: Key,        labelKey: "mfa",    minRole: "analyst" },
-      { path: "/admin",  icon: Settings,   labelKey: "admin",  minRole: "admin" },
+      { path: "/admin",    icon: Settings,   labelKey: "admin",    minRole: "admin" },
+      { path: "/license",  icon: KeyRound,   labelKey: "license",  minRole: "admin" },
     ],
   },
   {

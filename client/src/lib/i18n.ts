@@ -44,6 +44,7 @@ const translations = {
       audit:             "Audit Trail",
       correspondent:     "Banques Correspondantes",
       approvals:         "Dual Control",
+      license:           "Licence",
     },
     // ── Common ──────────────────────────────────────────────────────────────
     common: {
@@ -735,6 +736,7 @@ const translations = {
       audit:            "Audit Trail",
       correspondent:    "Correspondent Banks",
       approvals:        "Dual Control",
+      license:          "License",
     },
     common: {
       loading:      "Loading…",

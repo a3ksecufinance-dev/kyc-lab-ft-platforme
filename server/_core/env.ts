@@ -158,6 +158,12 @@ const envSchema = z.object({
   INSTITUTION_TYPE: z.enum(["CLASSIC_BANK", "MICROFINANCE", "PAYMENT_INSTITUTION"]).default("CLASSIC_BANK"),
   INSTITUTION_NAME: z.string().default("Établissement Financier"),
 
+  // Licensing — clé de licence signée HMAC-SHA256
+  // Si absent : mode développement (tous les modules activés via INSTITUTION_TYPE)
+  // Format : LIC.{base64url(payload)}.{base64url(signature)}
+  LICENSE_KEY:            z.string().optional(),
+  LICENSE_SIGNING_SECRET: z.string().min(32).optional(),
+
   // Rate Limiting
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
   RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().positive().default(60),

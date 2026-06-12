@@ -24,6 +24,7 @@ import { iso20022Router }             from "./modules/iso20022/iso20022.router";
 import { slaRouter }                  from "./modules/sla/sla.router";
 import { approvalsRouter }            from "./modules/approvals/approvals.router";
 import { correspondentRouter }        from "./modules/correspondent/correspondent.router";
+import { licenseRouter }              from "./modules/license/license.router";
 
 export const appRouter = router({
   auth:          authRouter,
@@ -50,6 +51,7 @@ export const appRouter = router({
   sla:                 slaRouter,
   approvals:           approvalsRouter,
   correspondent:       correspondentRouter,
+  license:             licenseRouter,
 });
 
 export type AppRouter = typeof appRouter;
