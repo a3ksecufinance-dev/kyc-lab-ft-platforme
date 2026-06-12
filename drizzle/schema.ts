@@ -735,6 +735,13 @@ export const wallets = pgTable("wallets", {
   monthlyLimit:   numeric("monthly_limit", { precision: 15, scale: 2 }),
   isActive:       boolean("is_active").notNull().default(true),
   isDormant:      boolean("is_dormant").notNull().default(false),
+  // ── Risk scoring (Phase B) ─────────────────────────────────────────────────
+  walletRiskScore: integer("wallet_risk_score").notNull().default(0),
+  walletRiskLevel: varchar("wallet_risk_level", { length: 20 }).notNull().default("LOW"),
+  // ── Regulatory freeze (Phase B) ────────────────────────────────────────────
+  frozenAt:        timestamp("frozen_at"),
+  frozenReason:    text("frozen_reason"),
+  frozenBy:        integer("frozen_by").references(() => users.id, { onDelete: "set null" }),
   lastActivityAt: timestamp("last_activity_at"),
   dormantSince:   timestamp("dormant_since"),
   reactivatedAt:  timestamp("reactivated_at"),
@@ -746,6 +753,8 @@ export const wallets = pgTable("wallets", {
   providerIdx:   index("wallets_provider_idx").on(t.provider),
   tierIdx:       index("wallets_tier_idx").on(t.kycTier),
   dormantIdx:    index("wallets_dormant_idx").on(t.isDormant),
+  riskScoreIdx:  index("wallets_risk_score_idx").on(t.walletRiskScore),
+  frozenIdx:     index("wallets_frozen_idx").on(t.frozenAt),
 }));
 
 export type Wallet       = typeof wallets.$inferSelect;

@@ -7,7 +7,7 @@
 
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { router, analystProc, supervisorProc } from "../../_core/trpc";
+import { router, analystProc, supervisorProc, complianceProc } from "../../_core/trpc";
 import { getInstitutionFlags } from "../../_core/institution";
 import { createAuditFromContext } from "../../_core/audit";
 import {
@@ -24,6 +24,12 @@ import {
   suspendWallet,
   unsuspendWallet,
   exportWalletTransactionsCsv,
+  calculateWalletRisk,
+  recalculateAllWalletRisks,
+  freezeWallet,
+  unfreezeWallet,
+  checkWalletLimits,
+  reconcileCbsBalances,
 } from "./wallets.service";
 import { importWalletTransactions } from "./wallets.import";
 import { bulkImportWalletTransactions } from "./wallets.bulk-import";
@@ -311,5 +317,106 @@ export const walletsRouter = router({
         input.from ? new Date(input.from) : undefined,
         input.to   ? new Date(input.to)   : undefined,
       );
+    }),
+
+  // ── Scoring risque wallet (Phase B) ─────────────────────────────────────
+
+  calculateRisk: supervisorProc
+    .input(z.object({ walletId: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      requireWallets();
+      const result = await calculateWalletRisk(input.walletId);
+      const log = createAuditFromContext(ctx);
+      await log({
+        action: "WALLET_RISK_CALCULATED",
+        entityType: "customer",
+        entityId: String(input.walletId),
+        details: { score: result.score, level: result.level, factors: result.factors },
+      });
+      return result;
+    }),
+
+  recalculateAllRisks: complianceProc
+    .mutation(async ({ ctx }) => {
+      requireWallets();
+      const result = await recalculateAllWalletRisks();
+      const log = createAuditFromContext(ctx);
+      await log({
+        action: "WALLET_RISK_CALCULATED",
+        entityType: "system",
+        entityId: "bulk",
+        details: result,
+      });
+      return result;
+    }),
+
+  // ── Gel réglementaire (Phase B) ─────────────────────────────────────────
+
+  freeze: complianceProc
+    .input(z.object({
+      walletId: z.number().int().positive(),
+      reason:   z.string().min(10, "Le motif de gel doit faire au moins 10 caractères"),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      requireWallets();
+      const result = await freezeWallet(input.walletId, input.reason, ctx.user.id);
+      const log = createAuditFromContext(ctx);
+      await log({
+        action: "WALLET_FROZEN",
+        entityType: "customer",
+        entityId: String(input.walletId),
+        details: { walletId: input.walletId, reason: input.reason },
+      });
+      return result;
+    }),
+
+  unfreeze: complianceProc
+    .input(z.object({ walletId: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      requireWallets();
+      const result = await unfreezeWallet(input.walletId);
+      const log = createAuditFromContext(ctx);
+      await log({
+        action: "WALLET_UNFROZEN",
+        entityType: "customer",
+        entityId: String(input.walletId),
+        details: { walletId: input.walletId },
+      });
+      return result;
+    }),
+
+  // ── Enforcement limites (Phase B) ───────────────────────────────────────
+
+  checkLimits: analystProc
+    .input(z.object({
+      walletId: z.number().int().positive(),
+      amount:   z.number().positive(),
+    }))
+    .query(({ input }) => {
+      requireWallets();
+      return checkWalletLimits(input.walletId, input.amount);
+    }),
+
+  // ── Réconciliation CBS (Phase B) ────────────────────────────────────────
+
+  reconcileCbs: complianceProc
+    .input(z.object({
+      entries: z.array(z.object({
+        walletId:    z.string().min(1),
+        cbsBalance:  z.number(),
+        cbsCurrency: z.string().max(10),
+      })).min(1).max(10_000),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      requireWallets();
+      const result = await reconcileCbsBalances(input.entries);
+      const log = createAuditFromContext(ctx);
+      await log({
+        action: "CBS_RECONCILIATION",
+        entityType: "system",
+        entityId: "reconciliation",
+        details: { total: result.total, matched: result.matched, discrepancies: result.discrepancies },
+      });
+      return result;
     }),
 });
