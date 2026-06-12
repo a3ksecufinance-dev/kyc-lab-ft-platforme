@@ -41,7 +41,6 @@ const translations = {
       // ── 2026 features ─────────────────────────────────────────────────────
       sla:               "SLA Monitoring",
       travelRule:        "Travel Rule FATF",
-      portal:            "Portail Client",
       audit:             "Audit Trail",
       correspondent:     "Banques Correspondantes",
       approvals:         "Dual Control",
@@ -733,7 +732,6 @@ const translations = {
       // ── 2026 features ─────────────────────────────────────────────────────
       sla:              "SLA Monitoring",
       travelRule:       "Travel Rule FATF",
-      portal:           "Customer Portal",
       audit:            "Audit Trail",
       correspondent:    "Correspondent Banks",
       approvals:        "Dual Control",

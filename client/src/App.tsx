@@ -27,7 +27,6 @@ import { BamReportsPage }     from "./pages/BamReportsPage";
 import { CbsSimulatorPage }   from "./pages/CbsSimulatorPage";
 import { SlaMonitoringPage }  from "./pages/SlaMonitoringPage";
 import { TravelRulePage }     from "./pages/TravelRulePage";
-import { CustomerPortalPage } from "./pages/CustomerPortalPage";
 import { AuditPage }          from "./pages/AuditPage";
 import { CorrespondentPage }  from "./pages/CorrespondentPage";
 import { ApprovalsPage }     from "./pages/ApprovalsPage";
@@ -76,7 +75,6 @@ export function App() {
       <Route path="/bam"          component={() => <PrivateRoute component={BamReportsPage} minRole="compliance_officer" />} />
       <Route path="/sla"          component={() => <PrivateRoute component={SlaMonitoringPage} minRole="analyst" />} />
       <Route path="/travel-rule"  component={() => <PrivateRoute component={TravelRulePage} minRole="compliance_officer" />} />
-      <Route path="/portal"       component={() => <PrivateRoute component={CustomerPortalPage} />} />
       <Route path="/audit"         component={() => <PrivateRoute component={AuditPage} minRole="supervisor" />} />
       <Route path="/correspondent" component={() => <PrivateRoute component={CorrespondentPage} minRole="analyst" />} />
       <Route path="/approvals"    component={() => <PrivateRoute component={ApprovalsPage} minRole="compliance_officer" />} />

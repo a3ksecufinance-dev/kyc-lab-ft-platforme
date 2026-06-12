@@ -25,7 +25,6 @@ export function InstitutionProvider({ children }: { children: ReactNode }) {
         bamReports:             data.features.bamReports,
         mobileConnectors:       data.features.mobileConnectors,
         agentNetwork:           data.features.agentNetwork,
-        selfServicePortal:      data.features.selfServicePortal,
         correspondentBanking:   data.features.correspondentBanking,
       }
     : CLASSIC_BANK_FLAGS;

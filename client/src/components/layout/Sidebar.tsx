@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Users, ArrowLeftRight, Bell,
   FolderOpen, FileText, LogOut, Shield,
   Settings, BarChart2, Key, Network,
-  Sun, Moon, Repeat2, Wallet, Users2, Globe, User,
+  Sun, Moon, Repeat2, Wallet, Users2, Globe,
   ShieldCheck, FileBarChart, Scale, Gauge, ScrollText, Building2,
   ChevronLeft, ChevronRight, GitMerge,
 } from "lucide-react";
@@ -20,7 +20,7 @@ const LOGO_B64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFAAAAAsCAYAAADy
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type InstitutionFlagKey = "wallets" | "agentAccounts" | "bamReports" | "agentNetwork" | "selfServicePortal" | "correspondentBanking";
+type InstitutionFlagKey = "wallets" | "agentAccounts" | "bamReports" | "agentNetwork" | "correspondentBanking";
 
 type NavItem = {
   path:    string;
@@ -56,7 +56,6 @@ const NAV_GROUPS: NavGroup[] = [
       { path: "/screening",   icon: ShieldCheck,  labelKey: "screening",   minRole: "analyst" },
       { path: "/documents",   icon: FileText,     labelKey: "documents",   minRole: "analyst" },
       { path: "/network",     icon: Network,      labelKey: "network",     minRole: "analyst" },
-      { path: "/portal",      icon: User,         labelKey: "portal",      minRole: "analyst", institutionFlag: "selfServicePortal" },
     ],
   },
   {

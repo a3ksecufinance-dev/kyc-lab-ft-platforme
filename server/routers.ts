@@ -22,7 +22,6 @@ import { enhancedOnboardingRouter }   from "./modules/customers/enhanced-onboard
 import { travelRuleRouter }           from "./modules/travel-rule/travel-rule.router";
 import { iso20022Router }             from "./modules/iso20022/iso20022.router";
 import { slaRouter }                  from "./modules/sla/sla.router";
-import { portalRouter }               from "./modules/portal/portal.router";
 import { approvalsRouter }            from "./modules/approvals/approvals.router";
 import { correspondentRouter }        from "./modules/correspondent/correspondent.router";
 
@@ -49,7 +48,6 @@ export const appRouter = router({
   travelRule:          travelRuleRouter,
   iso20022:            iso20022Router,
   sla:                 slaRouter,
-  portal:              portalRouter,
   approvals:           approvalsRouter,
   correspondent:       correspondentRouter,
 });
