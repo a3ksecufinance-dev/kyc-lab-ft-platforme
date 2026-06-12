@@ -56,15 +56,26 @@ async function callRetrain(force = false): Promise<{
   const payload = { days_history: ENV.ML_RETRAIN_DAYS_HISTORY, force };
 
   const start = Date.now();
-  const res = await fetch(url, {
-    method:  "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Api-Key":    ENV.ML_INTERNAL_API_KEY,
-    },
-    body:    JSON.stringify(payload),
-    signal:  AbortSignal.timeout(10 * 60 * 1000),   // 10 min — entraînement peut être long
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method:  "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Api-Key":    ENV.ML_INTERNAL_API_KEY,
+      },
+      body:    JSON.stringify(payload),
+      signal:  AbortSignal.timeout(10 * 60 * 1000),   // 10 min — entraînement peut être long
+    });
+  } catch (err) {
+    // Service ML inaccessible (hors Docker, dev local, etc.)
+    const msg = err instanceof Error ? err.message : String(err);
+    return {
+      status:    "skipped",
+      message:   `Service ML inaccessible (${ENV.ML_SERVICE_URL}) — ${msg}`,
+      durationMs: Date.now() - start,
+    };
+  }
 
   const durationMs = Date.now() - start;
 

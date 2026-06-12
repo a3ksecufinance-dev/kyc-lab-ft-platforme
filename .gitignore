@@ -17,6 +17,18 @@ dist/
 .next/
 build/
 
+# Python venvs & cache
+.venv/
+ml/.venv/
+ml/.venv312/
+ml/venv/
+__pycache__/
+*.pyc
+
+# Schemas orphelins (anciennes versions)
+drizzle/schema1.ts
+drizzle/schema2.ts
+
 # Logs et divers
 *.log
 .DS_Store

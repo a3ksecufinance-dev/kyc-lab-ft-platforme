@@ -5,7 +5,7 @@ import { DataTable, type Column } from "../components/ui/DataTable";
 import { Badge } from "../components/ui/Badge";
 import { trpc } from "../lib/trpc";
 import { formatDate, formatRelative, formatNumber } from "../lib/utils";
-import { FileText, FilePlus, Send, CheckCircle, XCircle, Radio, Download, BarChart3, ClipboardCheck } from "lucide-react";
+import { FileText, FilePlus, Send, CheckCircle, XCircle, Radio, Download, BarChart3, ClipboardCheck, GitMerge } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { hasRole } from "../lib/auth";
 import { useI18n } from "../hooks/useI18n";
@@ -145,6 +145,9 @@ export function ReportsPage() {
   const updateAnrfMutation = trpc.reports.updateAnrfStatus.useMutation({
     onSuccess: () => { utils.reports.getById.invalidate({ id: selectedReport?.id ?? 0 }); setAnrfEdit(false); },
   });
+  const requestApprovalMutation = trpc.approvals.request.useMutation({
+    onSuccess: () => utils.reports.list.invalidate(),
+  });
 
   const { data: reportDetail } = trpc.reports.getById.useQuery(
     { id: selectedReport?.id ?? 0 }, { enabled: !!selectedReport }
@@ -258,12 +261,28 @@ export function ReportsPage() {
             Détail
           </button>
           {r.status === "DRAFT" && (
-            <button
-              onClick={(e: React.MouseEvent) => { e.stopPropagation(); setActionTarget({ report: r, action: "submit" }); }}
-              style={{ fontSize: 10, fontFamily: C.mono, color: C.blue, background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, padding: 0 }}
-            >
-              <Send size={10} /> {t.common.submit}
-            </button>
+            <>
+              <button
+                onClick={(e: React.MouseEvent) => { e.stopPropagation(); setActionTarget({ report: r, action: "submit" }); }}
+                style={{ fontSize: 10, fontFamily: C.mono, color: C.blue, background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, padding: 0 }}
+              >
+                <Send size={10} /> {t.common.submit}
+              </button>
+              {canApprove && (
+                <button
+                  disabled={requestApprovalMutation.isPending}
+                  onClick={(e: React.MouseEvent) => {
+                    e.stopPropagation();
+                    if (confirm(`Soumettre "${r.title}" pour approbation Dual Control (4 yeux) ?`)) {
+                      requestApprovalMutation.mutate({ action: "SAR_TRANSMIT", entityType: "report", entityId: r.id, requesterNote: `${r.reportType} — ${r.title}` });
+                    }
+                  }}
+                  style={{ fontSize: 10, fontFamily: C.mono, color: C.amber, background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, padding: 0 }}
+                >
+                  <GitMerge size={10} /> 4-yeux
+                </button>
+              )}
+            </>
           )}
           {r.status === "REVIEW" && canApprove && (
             <>

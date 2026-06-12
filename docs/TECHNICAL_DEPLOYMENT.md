@@ -1704,3 +1704,42 @@ gzip /tmp/kyc_aml_logs_*.txt
 ---
 
 *Documentation générée pour KYC-AML Platform v2.0.0 — Confidentiel*
+
+
+
+
+
+export JWT=$(python3 -c "                                                  
+  import hmac, hashlib, base64, json, time def b64url(s): return base64.urlsafe_b64encode(s).rstrip(b'=').decode() header = b64url(json.dumps({'alg':'HS256','typ':'JWT'}).encode()) payload = b64url(json.dumps({'tid':'00000000-0000-0000-0000-000000000001','uid':'00000000-0000-0000-0000-000000000002','roles':['tenant_admin'],'exp':int(time.time())+86400}).encode())                                               
+  sig_input = f'{header}.{payload}'.encode() sig = b64url(hmac.new(b'dev-jwt-secret-change-in-production-min-32-chars',sig_input, hashlib.sha256).digest()) print(f'{header}.{payload}.{sig}')                                        ")
+
+
+
+
+
+  http://localhost:3000 fonctionne maintenant avec tous les onglets de la
+  sidebar visibles. Si tu redémares manuellement le serveur plus tard, il faut
+  toujours faire pnpm build puis pnpm start dans apps/web.
+
+
+
+
+cat > /tmp/gen_jwt.py << 'EOF' import hmac, hashlib, base64, json, time
+                                                                               
+  def b64url(s):                                            
+      return base64.urlsafe_b64encode(s).rstrip(b'=').decode()
+                                                                               
+  header = b64url(json.dumps({'alg':'HS256','typ':'JWT'}).encode())
+  payload = b64url(json.dumps({                                                
+      'tid': '00000000-0000-0000-0000-000000000001',        
+      'uid': '00000000-0000-0000-0000-000000000002',                           
+      'roles': ['tenant_admin'],                 
+      'exp': int(time.time()) + 86400                                          
+  }).encode())                                                                 
+  sig_input = f'{header}.{payload}'.encode()
+  secret = b'dev-jwt-secret-change-in-production-min-32-chars'                 
+  sig = b64url(hmac.new(secret, sig_input, hashlib.sha256).digest())
+  print(f'{header}.{payload}.{sig}')                                           
+  EOF                                            
+  export JWT=$(python3 /tmp/gen_jwt.py)                                        
+  echo "JWT OK: ${JWT:0:40}..."

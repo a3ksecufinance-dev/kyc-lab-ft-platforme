@@ -30,6 +30,7 @@ import { TravelRulePage }     from "./pages/TravelRulePage";
 import { CustomerPortalPage } from "./pages/CustomerPortalPage";
 import { AuditPage }          from "./pages/AuditPage";
 import { CorrespondentPage }  from "./pages/CorrespondentPage";
+import { ApprovalsPage }     from "./pages/ApprovalsPage";
 
 function PrivateRoute({ component: Component, minRole }: {
   component: () => ReactElement;
@@ -78,6 +79,7 @@ export function App() {
       <Route path="/portal"       component={() => <PrivateRoute component={CustomerPortalPage} />} />
       <Route path="/audit"         component={() => <PrivateRoute component={AuditPage} minRole="supervisor" />} />
       <Route path="/correspondent" component={() => <PrivateRoute component={CorrespondentPage} minRole="analyst" />} />
+      <Route path="/approvals"    component={() => <PrivateRoute component={ApprovalsPage} minRole="compliance_officer" />} />
 
       {/* Route publique — simulateur CBS (pas d'auth requise) */}
       <Route path="/cbs" component={CbsSimulatorPage} />

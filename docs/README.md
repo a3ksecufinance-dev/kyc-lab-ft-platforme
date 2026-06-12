@@ -1,4 +1,4 @@
-# Documentation KYC-AML Platform v2.5
+# Documentation WatchReg — KYC-AML Platform v2.6
 
 > Documentation exhaustive à destination des clients, partenaires et régulateurs.
 > Toute la documentation est en français sauf la spécification OpenAPI (YAML).
@@ -11,6 +11,7 @@
 docs/
 ├── README.md                          ← Ce fichier (index)
 ├── TECHNICAL_DEPLOYMENT.md            ← Runbook déploiement production complet
+├── TEST_REPORT.md                     ← Rapport de tests complet (modules + ML + biométrie)
 │
 ├── api/                               ── Pour les Développeurs & Chefs de Projet
 │   ├── OPENAPI_SPEC.yaml              ← Spécification API complète (OpenAPI 3.0.3)
@@ -20,8 +21,9 @@ docs/
 ├── user/                              ── Pour les Analystes LAB/FT & Compliance
 │   ├── USER_GUIDE.md                  ← Guide utilisateur complet par fonctionnalité
 │   ├── RISK_ENGINE_METHODOLOGY.md     ← Méthodologie des 12 règles AML + pKYC + ML
+│   ├── ML_BIOMETRIC_LOCAL.md          ← Module biométrique InsightFace/ArcFace (local, sans cloud)
 │   ├── SLA.md                         ← Engagements de service (disponibilité, performance, support)
-│   └── RELEASE_NOTES.md              ← Historique des versions v1.0 (2024) → v2.5 (2026)
+│   └── RELEASE_NOTES.md              ← Historique des versions v1.0 (2024) → v2.6 (2026)
 │
 ├── security/                          ── Pour le DSI & RSSI
 │   ├── DAT.md                         ← Dossier d'Architecture Technique (ADR, flux, matrice sécu)
@@ -43,8 +45,19 @@ docs/
 │   ├── INCIDENT_RESPONSE.md          ← Plan de réponse aux incidents de sécurité
 │   └── TRAINING_PLAN.md              ← Plan de formation par rôle + certification interne
 │
-└── commercial/
-    └── PRODUCT_SHEET.md              ← Fiche produit (pour la direction et les décideurs)
+├── commercial/
+│   └── PRODUCT_SHEET.md              ← Fiche produit (pour la direction et les décideurs)
+│
+└── investor/                          ── Pour les investisseurs & partenaires stratégiques
+    ├── 01_PITCH_DECK.md
+    ├── 02_ROADMAP_PRODUIT.md
+    ├── 03_COMPETITIVE_MATRIX.md
+    ├── 04_LOI_TEMPLATE.md
+    ├── 05_POC_AGREEMENT.md
+    ├── 06_ADVISORY_BOARD.md
+    ├── 07_EXECUTIVE_SUMMARY.md
+    ├── 08_DATA_ROOM_INDEX.md
+    └── 09_TECHNICAL_ARCHITECTURE.md
 ```
 
 ---
@@ -63,6 +76,7 @@ docs/
 |---|---|
 | [Guide Utilisateur](user/USER_GUIDE.md) | Navigation, alertes, screening, rapports TRACFIN, pKYC |
 | [Méthodologie Moteur de Risque](user/RISK_ENGINE_METHODOLOGY.md) | 12 règles AML expliquées, pKYC, ML — aucune boîte noire |
+| [Biométrie Locale InsightFace](user/ML_BIOMETRIC_LOCAL.md) | eKYC facial sans cloud : architecture, seuils, RGPD |
 | [SLA](user/SLA.md) | Disponibilité 99,5%, temps de réponse, support P0→P3, pénalités |
 | [Release Notes](user/RELEASE_NOTES.md) | Historique versions, nouvelles fonctionnalités, migrations |
 
@@ -106,17 +120,22 @@ docs/
 
 | Métrique | Valeur |
 |---|---|
-| Version actuelle | 2.5.0 (Avril 2026) |
+| Version actuelle | **2.6.0 (Juin 2026)** |
 | Disponibilité SLA | 99,5% mensuel |
+| Modules backend | 23 modules tRPC |
+| Pages frontend | 29 pages React |
 | Règles AML | 12 (dont 3 spécifiques MENA) |
 | Sources de screening | 6 (OFAC, EU, UN, UK, PEP OpenSanctions, BAM/ANRF) |
 | Entités PEP indexées | 1,7M+ (OpenSanctions) |
 | Latence scoring AML | < 100ms (P50) |
-| Tests automatisés | 145 (9 suites Vitest) |
+| Tests automatisés | 140+ (Vitest) + 4 scénarios biométrie |
 | Chiffrement PII | AES-256-GCM (NIST SP 800-38D) |
 | Authentification | JWT HS256 + MFA TOTP RFC 6238 |
+| OCR | Tesseract.js local (fra+eng+ara) — aucun appel externe |
+| Biométrie eKYC | InsightFace/ArcFace local — aucun appel externe |
+| ML Scoring | IsolationForest + XGBoost (service Python local) |
 | Conformité | AMLD5/6, FATF 40 Rec., BAM, TRACFIN, GoAML, RGPD |
 
 ---
 
-*Dernière mise à jour : Avril 2026 — KYC-AML Platform v2.5*
+*Dernière mise à jour : **Juin 2026** — WatchReg KYC-AML Platform v2.6*

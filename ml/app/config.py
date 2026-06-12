@@ -19,13 +19,18 @@ class Settings(BaseSettings):
     models_dir: Path = Path("/app/models")
     model_version: str = "v1"
 
-    # Seuils de scoring
+    # Seuils de scoring AML
     anomaly_threshold: float = -0.1    # Isolation Forest : score < -0.1 = anomalie
     xgb_threshold: float = 0.6         # XGBoost : proba > 0.6 = suspect
 
     # Feature engineering
     rolling_window_hours: int = 24
     velocity_window_hours: int = 1
+
+    # Comparaison faciale InsightFace (local, sans appel externe)
+    face_model_name: str = "buffalo_sc"   # buffalo_sc (~100 MB) | buffalo_l (~300 MB)
+    face_pass_threshold: float = 0.40     # similarité cosinus ≥ 0.40 → PASS
+    face_review_threshold: float = 0.25   # similarité cosinus ≥ 0.25 → REVIEW, sinon FAIL
 
     class Config:
         env_file = ".env"

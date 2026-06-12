@@ -58,9 +58,10 @@ export const dashboardRouter = router({
   recentActivity: analystProc
     .input(z.object({
       limit: z.number().int().min(1).max(50).default(20),
+      hours: z.number().int().min(1).max(168).default(24),
     }))
     .query(async ({ input }) => {
-      const since = daysAgo(1);
+      const since = new Date(Date.now() - input.hours * 3_600_000);
 
       const [recentAlerts, recentCases, recentTransactions] = await Promise.all([
         // Dernières alertes ouvertes

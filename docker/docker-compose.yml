@@ -105,7 +105,7 @@ services:
       "
     profiles: [s3]
 
-  # ─── ML Scoring Service (optionnel en dev) ───────────────────────────────────
+  # ─── ML Scoring + Face Compare Service (local, sans appel externe) ──────────
   ml:
     build:
       context: ./ml
@@ -113,9 +113,12 @@ services:
     container_name: kyc_ml
     restart: unless-stopped
     environment:
-      ML_DATABASE_URL:      postgresql://kyc_user:kyc_password@postgres:5432/kyc_aml_db
-      ML_INTERNAL_API_KEY:  dev_ml_key_changeme
-      ML_DEBUG:             "true"
+      ML_DATABASE_URL:            postgresql://kyc_user:kyc_password@postgres:5432/kyc_aml_db
+      ML_INTERNAL_API_KEY:        dev_ml_key_changeme
+      ML_DEBUG:                   "true"
+      ML_FACE_MODEL_NAME:         buffalo_sc   # buffalo_l pour production (~300 MB)
+      ML_FACE_PASS_THRESHOLD:     "0.40"
+      ML_FACE_REVIEW_THRESHOLD:   "0.25"
     ports:
       - "8000:8000"
     volumes:
@@ -123,7 +126,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    profiles: [ml]
 
 volumes:
   postgres_data:

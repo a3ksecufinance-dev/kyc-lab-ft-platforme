@@ -44,6 +44,7 @@ const translations = {
       portal:            "Portail Client",
       audit:             "Audit Trail",
       correspondent:     "Banques Correspondantes",
+      approvals:         "Dual Control",
     },
     // ── Common ──────────────────────────────────────────────────────────────
     common: {
@@ -735,6 +736,7 @@ const translations = {
       portal:           "Customer Portal",
       audit:            "Audit Trail",
       correspondent:    "Correspondent Banks",
+      approvals:        "Dual Control",
     },
     common: {
       loading:      "Loading…",

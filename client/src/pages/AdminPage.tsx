@@ -672,13 +672,24 @@ function MlTab() {
           Lance un réentraînement complet du modèle ML sur les données de transactions et d'alertes récentes.
           Cette opération peut prendre plusieurs minutes.
         </p>
-        {mlRetrainMut.data && (
-          <div style={{ background: mlRetrainMut.data.success ? "rgba(52,211,153,0.1)" : "rgba(248,113,113,0.1)", border: `1px solid ${mlRetrainMut.data.success ? "rgba(52,211,153,0.3)" : "rgba(248,113,113,0.3)"}`, borderRadius: 6, padding: "8px 12px", marginBottom: 12 }}>
-            <p style={{ fontSize: 11, fontFamily: "var(--wr-font-mono)", color: mlRetrainMut.data.success ? "var(--wr-green)" : "var(--wr-red)", margin: 0 }}>
-              {mlRetrainMut.data.success ? `Réentraînement réussi — ${(mlRetrainMut.data as { message?: string }).message ?? ""}` : "Échec du réentraînement"}
-            </p>
-          </div>
-        )}
+        {mlRetrainMut.data && (() => {
+          const d = mlRetrainMut.data as { success: boolean; status?: string; message?: string };
+          const isSkipped = d.status === "skipped";
+          const isOk      = d.success && !isSkipped;
+          const bg     = isOk ? "rgba(52,211,153,0.1)"  : isSkipped ? "rgba(251,146,60,0.1)"  : "rgba(248,113,113,0.1)";
+          const border = isOk ? "rgba(52,211,153,0.3)"  : isSkipped ? "rgba(251,146,60,0.3)"  : "rgba(248,113,113,0.3)";
+          const color  = isOk ? "var(--wr-green)"        : isSkipped ? "var(--wr-amber)"        : "var(--wr-red)";
+          const label  = isOk
+            ? `Réentraînement terminé — ${d.message ?? ""}`
+            : isSkipped
+            ? `Service ML indisponible — ${d.message ?? ""}`
+            : "Échec du réentraînement";
+          return (
+            <div style={{ background: bg, border: `1px solid ${border}`, borderRadius: 6, padding: "8px 12px", marginBottom: 12 }}>
+              <p style={{ fontSize: 11, fontFamily: "var(--wr-font-mono)", color, margin: 0 }}>{label}</p>
+            </div>
+          );
+        })()}
         {mlRetrainMut.error && (
           <p style={{ fontSize: 11, fontFamily: "var(--wr-font-mono)", color: "var(--wr-red)", marginBottom: 12 }}>{mlRetrainMut.error.message}</p>
         )}

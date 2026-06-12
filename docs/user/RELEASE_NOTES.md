@@ -1,6 +1,41 @@
-# Release Notes — KYC-AML Platform
+# Release Notes — WatchReg KYC-AML Platform
 
 > Historique des versions, changements majeurs et notes de migration.
+
+---
+
+## v2.6.0 — Juin 2026
+
+### Nouveautés — Modules locaux 100% souverains (sans dépendance cloud)
+
+- **Biométrie InsightFace/ArcFace** : comparaison faciale selfie ↔ document entièrement locale, sans appel externe. Modèle `buffalo_sc` (~14 MB) téléchargé une fois, puis embarqué. Seuils configurables (`ML_FACE_PASS_THRESHOLD=0.40`, `ML_FACE_REVIEW_THRESHOLD=0.25`). Endpoint `POST /face/compare` sur le service ML Python.
+- **OCR confirmé 100% local** : Tesseract.js (fra+eng+ara) — aucun appel AWS/Azure/Google. Support arabe via `OCR_LANG_ARABIC=true`.
+- **ML Scoring intégré Docker** : le service Python (IsolationForest + XGBoost) démarre automatiquement avec `docker compose up -d` (suppression du profil optionnel `ml`).
+- **Configuration face via Docker** : variables `ML_FACE_MODEL_NAME` (buffalo_sc/buffalo_l), `ML_FACE_PASS_THRESHOLD`, `ML_FACE_REVIEW_THRESHOLD` dans `docker-compose.yml`.
+
+### Résultats de tests biométrie validés
+
+| Scénario | Résultat | Similarité |
+|---|---|---|
+| Même personne (selfie = document) | PASS | 1.000 (100%) |
+| Personnes différentes | FAIL | 0.107 (10%) |
+| Visage masqué / illisible | FAIL | — |
+| Selfie sans photo document | REVIEW | — |
+
+### Améliorations
+- `ekyc.biometric.ts` : provider `local` appelle désormais `ML_SERVICE_URL/face/compare` avec fallback REVIEW automatique si service ML indisponible (pas de blocage onboarding).
+- `ml/app/face.py` : module InsightFace avec lazy loading thread-safe, sélection visage le plus grand, similarité cosinus ArcFace.
+- Dockerfile ML : ajout libs système OpenCV (`libgl1`, `libglib2.0-0`, `libsm6`, `libxrender1`, `libxext6`).
+
+### Dépendances ajoutées (ml/requirements.txt)
+- `insightface==0.7.3`
+- `onnxruntime==1.19.2`
+- `opencv-python-headless==4.10.0.84`
+
+### Notes de déploiement
+- **1er démarrage** : InsightFace télécharge le modèle automatiquement (~14 MB pour buffalo_sc, ~300 MB pour buffalo_l). Le service est disponible dès le téléchargement. Prévoir le stockage dans le volume `ml_models`.
+- **Modèle recommandé POC** : `buffalo_sc` (rapide, suffisant). **Modèle production** : `buffalo_l` (précision maximale).
+- Aucune clé API externe requise pour l'eKYC en mode `local`.
 
 ---
 

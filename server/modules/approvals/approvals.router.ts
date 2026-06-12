@@ -6,12 +6,42 @@ import { z } from "zod";
 import { router, complianceProc, supervisorProc } from "../../_core/trpc";
 import { createAuditFromContext } from "../../_core/audit";
 import {
+  createApprovalRequest,
   listApprovalRequests,
   getPendingApproval,
   reviewApproval,
 } from "./approvals.service";
 
 export const approvalsRouter = router({
+
+  request: complianceProc
+    .input(z.object({
+      action:        z.enum(["SAR_TRANSMIT", "CASE_DECIDE", "CUSTOMER_BLOCK", "WALLET_SUSPEND"]),
+      entityType:    z.string().min(1).max(50),
+      entityId:      z.number().int().positive(),
+      requesterNote: z.string().max(1000).optional(),
+      payload:       z.record(z.string(), z.unknown()).optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const log = createAuditFromContext(ctx);
+      const result = await createApprovalRequest({
+        action:        input.action,
+        entityType:    input.entityType,
+        entityId:      input.entityId,
+        requestedBy:   ctx.user.id,
+        ...(input.requesterNote !== undefined && { requesterNote: input.requesterNote }),
+        ...(input.payload       !== undefined && { payload: input.payload }),
+      });
+
+      await log({
+        action:     "APPROVAL_REQUESTED",
+        entityType: "approval",
+        entityId:   String(result.id),
+        details:    { action: input.action, entityType: input.entityType, entityId: input.entityId },
+      });
+
+      return result;
+    }),
 
   list: complianceProc
     .input(z.object({

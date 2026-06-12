@@ -12,6 +12,11 @@ export default tseslint.config(
       "drizzle/migrations/**",
       "e2e/**",
       "eslint.config.js",
+      ".venv/**",
+      "ml/.venv/**",
+      "ml/.venv312/**",
+      "ml/venv/**",
+      "ml/app/__pycache__/**",
     ],
   },
 

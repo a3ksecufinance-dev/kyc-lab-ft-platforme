@@ -1,4 +1,4 @@
-import { useState }   from "react";
+import { useState, useMemo }   from "react";
 import { AppLayout }  from "../components/layout/AppLayout";
 import { StatCard }   from "../components/ui/StatCard";
 import { Badge }      from "../components/ui/Badge";
@@ -182,12 +182,15 @@ function Card({
 }
 
 // ─── Panneau Direction — 8 KPIs cartographie conformité ──────────────────────
-function DirectionPanel() {
-  const now      = new Date();
-  const yearStart = new Date(now.getFullYear(), 0, 1).toISOString();
+function DirectionPanel({ selectedYear, onYearChange }: {
+  selectedYear: number;
+  onYearChange: (y: number) => void;
+}) {
+  const yearStart = useMemo(() => new Date(selectedYear, 0, 1).toISOString(), [selectedYear]);
+  const yearEnd   = useMemo(() => new Date(selectedYear, 11, 31, 23, 59, 59).toISOString(), [selectedYear]);
 
   const { data: kpis, isLoading, error } = trpc.reports.amld6Stats.useQuery(
-    { from: yearStart, to: now.toISOString() },
+    { from: yearStart, to: yearEnd },
     { retry: false, staleTime: 60_000 }
   );
 
@@ -291,17 +294,31 @@ function DirectionPanel() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
-      {/* Header */}
+      {/* Header + filtre année */}
       <div style={{ background: `${C.gold}08`, border: `1px solid ${C.gold}25`, borderRadius: 10, padding: "14px 18px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div>
           <p style={{ fontSize: 11, fontFamily: C.mono, color: C.gold, margin: "0 0 2px", letterSpacing: "0.16em", textTransform: "uppercase" }}>
             Tableau de bord Direction — Comité de Conformité
           </p>
           <p style={{ fontSize: 11, fontFamily: C.mono, color: C.text3, margin: 0 }}>
-            Période : 1 janv. {now.getFullYear()} → aujourd'hui · 8 KPIs cartographie conformité BAM/FATF
+            Période : 1 janv. {selectedYear} → 31 déc. {selectedYear} · 8 KPIs cartographie conformité BAM/FATF
           </p>
         </div>
-        <Shield size={20} style={{ color: C.gold, opacity: 0.6 }} />
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {/* Sélecteur année */}
+          <div style={{ display: "flex", gap: 4 }}>
+            {[new Date().getFullYear() - 2, new Date().getFullYear() - 1, new Date().getFullYear()].map(y => (
+              <button key={y} onClick={() => onYearChange(y)} style={{
+                padding: "4px 10px", fontSize: 11, fontFamily: C.mono,
+                background: selectedYear === y ? `${C.gold}20` : "none",
+                border: `1px solid ${selectedYear === y ? C.gold : C.border2}`,
+                borderRadius: 6, color: selectedYear === y ? C.gold : C.text3,
+                cursor: "pointer",
+              }}>{y}</button>
+            ))}
+          </div>
+          <Shield size={20} style={{ color: C.gold, opacity: 0.6 }} />
+        </div>
       </div>
 
       {/* 8 KPI cards — 4×2 */}
@@ -376,9 +393,26 @@ function DirectionPanel() {
   );
 }
 
+// ─── Chip filtre réutilisable ─────────────────────────────────────────────────
+function FilterChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button onClick={onClick} style={{
+      padding: "4px 10px", fontSize: 11, fontFamily: C.mono,
+      background: active ? `${C.gold}15` : "none",
+      border: `1px solid ${active ? C.gold : C.border2}`,
+      borderRadius: 6, color: active ? C.gold : C.text3,
+      cursor: "pointer", transition: "all 0.12s",
+    }}>{label}</button>
+  );
+}
+
 // ─── Page principale ──────────────────────────────────────────────────────────
 export function DashboardPage() {
-  const [dashTab, setDashTab] = useState<"ops" | "direction">("ops");
+  const [dashTab,       setDashTab]       = useState<"ops" | "direction">("ops");
+  const [trendDays,     setTrendDays]     = useState(30);
+  const [activityHours, setActivityHours] = useState(24);
+  const [alertPriority, setAlertPriority] = useState<"ALL" | "CRITICAL" | "HIGH" | "MEDIUM" | "LOW">("ALL");
+  const [directionYear, setDirectionYear] = useState(new Date().getFullYear());
 
   const { data: overview, isLoading, refetch, isRefetching } =
     trpc.dashboard.overview.useQuery(undefined, {
@@ -387,13 +421,21 @@ export function DashboardPage() {
     });
 
   const { data: recent } = trpc.dashboard.recentActivity.useQuery(
-    { limit: 6 },
+    { limit: 10, hours: activityHours },
     { refetchInterval: 30_000 }
   );
 
   const { data: riskDist } = trpc.dashboard.riskDistribution.useQuery();
 
   const { t } = useI18n();
+
+  // Filtre client-side priorité alertes
+  const filteredAlerts = useMemo(() => {
+    if (!recent?.recentAlerts) return [];
+    return alertPriority === "ALL"
+      ? recent.recentAlerts
+      : recent.recentAlerts.filter((a: { priority: string }) => a.priority === alertPriority);
+  }, [recent?.recentAlerts, alertPriority]);
 
   return (
     <AppLayout>
@@ -462,9 +504,50 @@ export function DashboardPage() {
         </div>
 
         {/* ── Tab Direction ─────────────────────────────────────────────── */}
-        {dashTab === "direction" && <DirectionPanel />}
+        {dashTab === "direction" && (
+          <DirectionPanel selectedYear={directionYear} onYearChange={setDirectionYear} />
+        )}
 
         {dashTab === "ops" && <>
+
+        {/* ── Barre de filtres opérationnelle ─────────────────────────────── */}
+        <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "10px 14px", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, flexWrap: "wrap" }}>
+
+          {/* Période graphique */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 10, fontFamily: C.mono, color: C.text3, textTransform: "uppercase", letterSpacing: "0.1em" }}>Tendances</span>
+            <div style={{ display: "flex", gap: 3 }}>
+              {([7, 14, 30, 90] as const).map(d => (
+                <FilterChip key={d} label={`${d}j`} active={trendDays === d} onClick={() => setTrendDays(d)} />
+              ))}
+            </div>
+          </div>
+
+          <div style={{ width: 1, height: 20, background: C.border }} />
+
+          {/* Fenêtre activité récente */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 10, fontFamily: C.mono, color: C.text3, textTransform: "uppercase", letterSpacing: "0.1em" }}>Activité</span>
+            <div style={{ display: "flex", gap: 3 }}>
+              {([{ h: 24, label: "24h" }, { h: 48, label: "48h" }, { h: 168, label: "7j" }]).map(({ h, label }) => (
+                <FilterChip key={h} label={label} active={activityHours === h} onClick={() => setActivityHours(h)} />
+              ))}
+            </div>
+          </div>
+
+          <div style={{ width: 1, height: 20, background: C.border }} />
+
+          {/* Priorité alertes */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 10, fontFamily: C.mono, color: C.text3, textTransform: "uppercase", letterSpacing: "0.1em" }}>Priorité</span>
+            <div style={{ display: "flex", gap: 3 }}>
+              {(["ALL", "CRITICAL", "HIGH", "MEDIUM", "LOW"] as const).map(p => (
+                <FilterChip key={p} label={p === "ALL" ? "Toutes" : p} active={alertPriority === p} onClick={() => setAlertPriority(p)} />
+              ))}
+            </div>
+          </div>
+
+        </div>
 
         {/* ── KPIs ────────────────────────────────────────────────────────── */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
@@ -518,7 +601,7 @@ export function DashboardPage() {
               </div>
             }
           >
-            <TrendChart days={30} />
+            <TrendChart days={trendDays} />
           </Card>
 
           {/* Colonne droite */}
@@ -564,14 +647,17 @@ export function DashboardPage() {
 
           {/* Alertes récentes */}
           <Card title={t.dashboard.recentAlerts} right={
-            <span style={{ fontSize: 9, fontFamily: C.mono, color: C.text3, letterSpacing: "0.1em", textTransform: "uppercase" }}>24h</span>
+            <span style={{ fontSize: 9, fontFamily: C.mono, color: C.text3, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+              {activityHours < 48 ? `${activityHours}h` : `${activityHours / 24}j`}
+              {alertPriority !== "ALL" && ` · ${alertPriority}`}
+            </span>
           } noPad>
             <div>
-              {!recent?.recentAlerts.length ? (
+              {!filteredAlerts.length ? (
                 <p style={{ padding: "20px 18px", fontSize: 12, fontFamily: C.mono, color: C.text3, textAlign: "center" }}>
                   {t.dashboard.noAlerts}
                 </p>
-              ) : recent.recentAlerts.map((a: {
+              ) : filteredAlerts.map((a: {
                 id: number; alertId: string; scenario: string;
                 priority: string; riskScore: number; createdAt: Date;
               }) => (

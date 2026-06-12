@@ -32,10 +32,22 @@ function hoursAgo(n: number): Date {
 
 async function resetDb() {
   console.log("Suppression des données existantes...");
+  // Ordre respectant les FK (feuilles en premier)
+  await db.delete(schema.correspondentAssessments);
+  await db.delete(schema.approvalRequests);
+  await db.delete(schema.caseTimeline);
+  await db.delete(schema.amlRuleExecutions);
+  await db.delete(schema.amlRuleFeedback);
   await db.delete(schema.screeningResults);
+  await db.delete(schema.pkycSnapshots);
+  await db.delete(schema.kycTierSnapshots);
+  await db.delete(schema.ubos);
+  await db.delete(schema.documents);
+  await db.delete(schema.reports);
   await db.delete(schema.cases);
   await db.delete(schema.alerts);
   await db.delete(schema.transactions);
+  await db.delete(schema.wallets);
   await db.delete(schema.customers);
   await db.delete(schema.users);
   console.log("   ✓ Tables vidées");
@@ -590,13 +602,150 @@ async function main() {
     ] as any);
     console.log("   ✓ 6 résultats de screening créés");
 
+    // ── 7. RAPPORTS SAR/STR ──────────────────────────────────────────────────
+    console.log("\n📄 Création des rapports SAR/STR...");
+    const rptId = (prefix: string) => `${prefix}-${nanoid(10).toUpperCase()}`;
+
+    const reportRows = await db.insert(schema.reports).values([
+      // SAR SUBMITTED — Qadiri (demo workflow complet)
+      { reportId: rptId("SAR"), reportType: "SAR" as const,
+        customerId: cQadiri.id, caseId: null,
+        title: "SAR — QADIRI Hassan — Structuring + offshore",
+        status: "SUBMITTED" as const,
+        suspicionType: "Structuring + Transferts haute juridiction à risque",
+        amountInvolved: "504200.00", currency: "MAD",
+        content: {
+          subjectDescription: "Client non-résident (UAE) effectuant des virements répétés vers BVI. Pattern de structuring détecté sur 3 jours.",
+          suspiciousActivities: ["Structuring", "Transactions vers pays à risque FATF", "Incohérence profil-flux"],
+          evidenceSummary: "3 virements sous 10 000 MAD + 1 virement de 485 000 MAD vers VP Bank BVI en 24h.",
+          narrativeSummary: "Le client Hassan QADIRI, résident UAE, présente un schéma de fractionnement de transactions suivi d'un virement massif vers les Îles Vierges Britanniques. Le profil déclaré (consultant indépendant) est incompatible avec les flux observés. Risque élevé de blanchiment via structures offshore."
+        },
+        submittedBy: uAnalyst.id, submittedAt: daysAgo(3),
+        regulatoryRef: "TRACFIN-2026-MAR-00127",
+        anrfDepositDate: daysAgo(2), anrfReference: "ANRF/2026/00127", anrfStatus: "ACCUSEE",
+        createdAt: daysAgo(7) },
+
+      // STR REVIEW — Shell Holdings (en attente dual control)
+      { reportId: rptId("STR"), reportType: "STR" as const,
+        customerId: cShell.id, caseId: null,
+        title: "STR — SHELL HOLDINGS BVI — Dépôt 250 000 MAD bloqué",
+        status: "REVIEW" as const,
+        suspicionType: "Source de fonds non vérifiée — KYC incomplet",
+        amountInvolved: "250000.00", currency: "MAD",
+        content: {
+          transactionId: "TXN-SHELL-2026",
+          transactionDate: daysAgo(1).toISOString(),
+          transactionAmount: "250000.00",
+          transactionType: "DEPOSIT",
+          suspicionBasis: "Montant dépassant le seuil TRACFIN — source des fonds inconnue",
+          involvedParties: ["Shell Holdings BVI Ltd", "Banque MAD correspondante"],
+          evidenceSummary: "Transaction bloquée — bénéficiaire effectif non identifié, KYC en attente.",
+          narrativeSummary: "Dépôt de 250 000 MAD par société offshore BVI dont le bénéficiaire effectif reste non identifié après 48h. Transaction automatiquement bloquée. STR obligatoire selon réglementation BAM."
+        },
+        submittedBy: uSupervisor.id, submittedAt: daysAgo(1),
+        createdAt: daysAgo(2) },
+
+      // SAR DRAFT — Atlas Holding (en cours de rédaction)
+      { reportId: rptId("SAR"), reportType: "SAR" as const,
+        customerId: cAtlas.id, caseId: null,
+        title: "SAR — ATLAS HOLDING — Virement offshore BVI",
+        status: "DRAFT" as const,
+        suspicionType: "Transfert vers entité liée — juridiction à risque",
+        amountInvolved: "320000.00", currency: "MAD",
+        content: {
+          subjectDescription: "Holding immobilier avec filiales offshore. Virement vers entité BVI liée.",
+          suspiciousActivities: ["Transfert intragroupe offshore", "Structures opaques"],
+          evidenceSummary: "Virement de 320 000 MAD vers Atlas Real Estate BVI, filiale non documentée.",
+          narrativeSummary: "Atlas Holding SA a effectué un virement de 320 000 MAD vers une entité BVI portant un nom similaire sans justification économique documentée. L'opération paraît être un transfert de fonds vers une structure offshore opaque."
+        },
+        submittedBy: uAnalyst.id,
+        createdAt: daysAgo(2) },
+
+      // SAR APPROVED — Hafidi (archivé)
+      { reportId: rptId("SAR"), reportType: "SAR" as const,
+        customerId: cHafidi.id, caseId: null,
+        title: "SAR — HAFIDI Yassine — Virements répétés Caïmans",
+        status: "APPROVED" as const,
+        suspicionType: "Transferts répétés haute juridiction à risque",
+        amountInvolved: "143000.00", currency: "MAD",
+        content: {
+          subjectDescription: "Consultant indépendant effectuant des virements répétés vers les Caïmans.",
+          suspiciousActivities: ["Transactions vers pays à risque", "Volume spike +340%"],
+          evidenceSummary: "2 virements de 75 000 et 68 000 MAD vers Offshore Ventures Ltd (KY) en 4 jours.",
+          narrativeSummary: "Yassine HAFIDI a réalisé deux virements vers les Caïmans sous couvert de 'services consulting'. La contrepartie est une entité sans historique commercial vérifiable. Le volume total dépasse de 340% son historique habituel."
+        },
+        submittedBy: uCo.id, submittedAt: daysAgo(15),
+        approvedBy: uSupervisor.id, approvedAt: daysAgo(12),
+        regulatoryRef: "TRACFIN-2026-MAR-00098",
+        anrfDepositDate: daysAgo(11), anrfReference: "ANRF/2026/00098", anrfStatus: "CLASSEE",
+        createdAt: daysAgo(20) },
+    ] as any).returning();
+    console.log(`   ✓ ${reportRows.length} rapports SAR/STR créés`);
+
+    // ── 8. APPROVAL REQUESTS (Dual Control) ─────────────────────────────────
+    console.log("\n🔐 Création des demandes d'approbation Dual Control...");
+    const now = new Date();
+    const expiresIn48h = new Date(now.getTime() + 48 * 3_600_000);
+
+    await db.insert(schema.approvalRequests).values([
+      // Demande PENDING — STR Shell (en attente d'un second compliance officer)
+      { action: "SAR_TRANSMIT" as const,
+        entityType: "report", entityId: reportRows[1]?.id ?? 2,
+        requestedBy: uSupervisor.id,
+        status: "PENDING" as const,
+        requesterNote: "STR urgent — transaction bloquée, délai réglementaire 72h. Merci de valider.",
+        payload: { reportType: "STR", title: "STR — SHELL HOLDINGS BVI", amount: "250000.00", currency: "MAD" },
+        expiresAt: expiresIn48h,
+        createdAt: daysAgo(1) },
+
+      // Demande PENDING — Décision dossier QADIRI
+      { action: "CASE_DECIDE" as const,
+        entityType: "case", entityId: 1,
+        requestedBy: uAnalyst.id,
+        status: "PENDING" as const,
+        requesterNote: "Dossier QADIRI prêt pour décision finale. Recommandation : transmission SAR + gel préventif.",
+        payload: { caseRef: "QADIRI Hassan", severity: "CRITICAL" },
+        expiresAt: expiresIn48h,
+        createdAt: hoursAgo(4) },
+
+      // Demande APPROVED — SAR Hafidi (historique)
+      { action: "SAR_TRANSMIT" as const,
+        entityType: "report", entityId: reportRows[3]?.id ?? 4,
+        requestedBy: uCo.id, reviewedBy: uSupervisor.id,
+        status: "APPROVED" as const,
+        requesterNote: "SAR HAFIDI prêt — double relecture effectuée.",
+        reviewerNote: "Validé. Éléments probants suffisants. Transmission TRACFIN autorisée.",
+        payload: { reportType: "SAR", title: "SAR HAFIDI", amount: "143000.00" },
+        expiresAt: new Date(daysAgo(12).getTime() + 48 * 3_600_000),
+        reviewedAt: daysAgo(12),
+        createdAt: daysAgo(15) },
+
+      // Demande REJECTED (historique)
+      { action: "SAR_TRANSMIT" as const,
+        entityType: "report", entityId: reportRows[2]?.id ?? 3,
+        requestedBy: uAnalyst.id, reviewedBy: uCo.id,
+        status: "REJECTED" as const,
+        requesterNote: "Draft SAR Atlas — à valider.",
+        reviewerNote: "Dossier incomplet. Manque pièces justificatives flux BVI. Renvoyer après complément.",
+        payload: { reportType: "SAR", title: "SAR Atlas Holding" },
+        expiresAt: new Date(daysAgo(1).getTime() + 48 * 3_600_000),
+        reviewedAt: daysAgo(1),
+        createdAt: daysAgo(2) },
+    ] as any);
+    console.log("   ✓ 4 demandes d'approbation créées (2 PENDING, 1 APPROVED, 1 REJECTED)");
+
     // ── RÉSUMÉ ───────────────────────────────────────────────────────────────
     console.log("\n========================================");
     console.log("✅ Seed terminé avec succès !");
-    console.log("\n🔐 Connexion :");
-    console.log("   URL      : http://localhost:5173/login");
-    console.log("   Email    : admin@labft.ma");
-    console.log("   Password : Admin2026!LabFT");
+    console.log("\n🔐 Comptes de démonstration :");
+    console.log("   URL              : http://localhost:5173/login");
+    console.log("   Admin            : admin@labft.ma        / Admin2026!LabFT");
+    console.log("   Analyste         : analyste@labft.ma     / Analyst2026!");
+    console.log("   Superviseur      : superviseur@labft.ma  / Superv2026!");
+    console.log("   Compliance Off.  : compliance@labft.ma   / Compli2026!");
+    console.log("\n📊 Données créées :");
+    console.log(`   ${customers.length} clients · ${transactions.length} transactions · ${alerts.length} alertes`);
+    console.log(`   4 dossiers · 4 rapports SAR/STR · 4 demandes Dual Control`);
     console.log("\n🔗 Premier client ID pour webhook :");
     console.log(`   customerId : ${cAlami.id} (Mohammed ALAMI)`);
     console.log(`   curl -X POST http://localhost:3000/webhooks/transaction \\`);

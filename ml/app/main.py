@@ -23,6 +23,7 @@ from .config import settings
 from .models import get_model_manager
 from .features import TransactionContext, extract_features, FEATURE_NAMES
 from .database import get_db_engine
+from .face import init_face_model, compare_faces, is_face_model_ready
 from sqlalchemy import text
 
 log = structlog.get_logger()
@@ -53,6 +54,16 @@ async def lifespan(app: FastAPI):
     if manager.is_ready:
         MODEL_GAUGE.labels(version=manager.model_version).set(1)
         log.info("ML service prêt", version=manager.model_version, samples=manager.training_samples)
+
+    # Chargement du modèle biométrique InsightFace (local, sans appel externe)
+    face_ok = init_face_model(
+        model_name=settings.face_model_name,
+        models_dir=str(settings.models_dir / "insightface"),
+    )
+    if face_ok:
+        log.info("InsightFace prêt", model=settings.face_model_name)
+    else:
+        log.warning("InsightFace indisponible — /face/compare retournera REVIEW systématique")
 
     yield
     log.info("ML service arrêté")
@@ -120,6 +131,22 @@ class RetrainResponse(BaseModel):
     xgb_positive_samples: Optional[int] = None
     duration_seconds: float
     trained_at:       datetime
+
+
+class FaceCompareRequest(BaseModel):
+    selfie_b64:    str            # image selfie encodée en base64 (JPEG/PNG)
+    doc_photo_b64: Optional[str] = None  # photo extraite du document (optionnel)
+
+
+class FaceCompareResponse(BaseModel):
+    status:          str    # PASS | REVIEW | FAIL
+    similarity:      float  # similarité cosinus 0.0 – 1.0
+    liveness_score:  int    # 0 – 100
+    detail:          str
+    selfie_detected: bool
+    doc_detected:    bool
+    model_ready:     bool
+    provider:        str = "insightface"
 
 
 # ─── Endpoints ────────────────────────────────────────────────────────────────
@@ -264,6 +291,34 @@ async def retrain(
         RETRAIN_COUNTER.labels(status="error").inc()
         log.error("Erreur réentraînement", error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/face/compare", response_model=FaceCompareResponse)
+async def face_compare(
+    req: FaceCompareRequest,
+    _:   str = Depends(verify_api_key),
+):
+    """
+    Comparaison faciale locale (InsightFace/ArcFace) — aucun appel externe.
+
+    Envoyer selfie_b64 (obligatoire) + doc_photo_b64 (optionnel).
+    Si doc_photo_b64 absent → REVIEW systématique (impossible de comparer).
+    """
+    result = compare_faces(
+        selfie_b64    = req.selfie_b64,
+        doc_photo_b64 = req.doc_photo_b64,
+        pass_threshold   = settings.face_pass_threshold,
+        review_threshold = settings.face_review_threshold,
+    )
+    return FaceCompareResponse(
+        status          = result.status,
+        similarity      = result.similarity,
+        liveness_score  = result.liveness_score,
+        detail          = result.detail,
+        selfie_detected = result.selfie_detected,
+        doc_detected    = result.doc_detected,
+        model_ready     = is_face_model_ready(),
+    )
 
 
 # ─── Helpers DB ───────────────────────────────────────────────────────────────

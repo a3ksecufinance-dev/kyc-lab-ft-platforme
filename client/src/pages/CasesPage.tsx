@@ -5,9 +5,11 @@ import { DataTable, type Column } from "../components/ui/DataTable";
 import { Badge } from "../components/ui/Badge";
 import { trpc } from "../lib/trpc";
 import { formatDate, formatRelative, formatNumber } from "../lib/utils";
-import { FolderPlus, Clock, User } from "lucide-react";
+import { FolderPlus, Clock, User, GitMerge } from "lucide-react";
 import { useI18n } from "../hooks/useI18n";
 import { useLocation } from "wouter";
+import { useAuth } from "../hooks/useAuth";
+import { hasRole } from "../lib/auth";
 
 const C = {
   surface: "var(--wr-card)",
@@ -38,6 +40,8 @@ type CaseStatus = "OPEN" | "UNDER_INVESTIGATION" | "PENDING_APPROVAL" | "ESCALAT
 
 export function CasesPage() {
   const { t } = useI18n();
+  const { user } = useAuth();
+  const canRequestApproval = hasRole(user, "compliance_officer");
   const [, navigate] = useLocation();
   const [page, setPage] = useState(1);
   const [status, setStatus]     = useState<string>("");
@@ -69,6 +73,10 @@ export function CasesPage() {
       setShowCreate(false);
       setForm({ customerId: "", title: "", description: "", severity: "MEDIUM", dueDate: "" });
     },
+  });
+
+  const requestApprovalMutation = trpc.approvals.request.useMutation({
+    onSuccess: () => utils.cases.list.invalidate(),
   });
 
   const COLUMNS: Column<Case>[] = [
@@ -120,6 +128,23 @@ export function CasesPage() {
       key: "date", header: t.cases.createdAt, width: "w-28",
       render: (r) => <span style={{ fontFamily: C.mono, fontSize: 10, color: C.text3 }}>{formatRelative(r.createdAt)}</span>,
     },
+    ...(canRequestApproval ? [{
+      key: "approval" as const, header: "Dual Control", width: "w-28",
+      render: (r: Case) => r.status === "UNDER_INVESTIGATION" ? (
+        <button
+          disabled={requestApprovalMutation.isPending}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (confirm(`Soumettre le dossier "${r.title}" pour approbation Dual Control (4 yeux) ?`)) {
+              requestApprovalMutation.mutate({ action: "CASE_DECIDE", entityType: "case", entityId: r.id, requesterNote: `Dossier ${r.caseId} — ${r.title}` });
+            }
+          }}
+          style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 8px", fontSize: 10, fontFamily: C.mono, color: C.amber, background: `${C.amber}10`, border: `1px solid ${C.amber}30`, borderRadius: 5, cursor: "pointer" }}
+        >
+          <GitMerge size={9} /> 4-yeux
+        </button>
+      ) : <span style={{ fontSize: 10, fontFamily: C.mono, color: C.text4 }}>—</span>,
+    }] : []),
   ];
 
   return (

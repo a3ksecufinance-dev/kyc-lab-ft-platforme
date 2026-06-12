@@ -21,6 +21,10 @@ import crypto        from "node:crypto";
 import { createLogger } from "../../_core/logger";
 import { ENV }          from "../../_core/env";
 
+const ML_SERVICE_URL = ENV.ML_SERVICE_URL;
+const ML_API_KEY     = ENV.ML_INTERNAL_API_KEY;
+const FACE_TIMEOUT   = 30_000; // 30 s (InsightFace CPU peut être lent à froid)
+
 const log = createLogger("ekyc-biometric");
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -326,40 +330,111 @@ async function runSumsubLiveness(
   };
 }
 
-// ─── Provider local — heuristique (dev/fallback) ──────────────────────────────
-// Sans modèle ML biométrique réel : REVIEW systématique + contrôles de base.
+// ─── Provider local — InsightFace via ML service (ArcFace, 100% local) ────────
 
-async function runLocalLiveness(selfieBuffer: Buffer): Promise<LivenessResult> {
+interface MlFaceCompareResponse {
+  status:          "PASS" | "REVIEW" | "FAIL";
+  similarity:      number;
+  liveness_score:  number;
+  detail:          string;
+  selfie_detected: boolean;
+  doc_detected:    boolean;
+  model_ready:     boolean;
+}
+
+async function runLocalLiveness(
+  selfieBuffer:   Buffer,
+  docPhotoBuffer: Buffer | undefined,
+): Promise<LivenessResult> {
   const sizeMb = selfieBuffer.length / (1024 * 1024);
-  const hash   = crypto.createHash("sha256").update(selfieBuffer).digest("hex");
-  // Score pseudo-aléatoire déterministe 55-84 → toujours REVIEW (jamais PASS/FAIL)
-  const score  = 55 + (parseInt(hash.slice(0, 4), 16) % 30);
 
-  return {
-    status:        "REVIEW",
-    score,
-    livenessScore: score,
-    checks: [
-      {
-        id:       "selfie_size",
-        label:    "Taille image selfie",
-        status:   sizeMb >= 0.05 ? "PASS" : "WARN",
-        score:    sizeMb >= 0.05 ? 80 : 30,
-        blocking: false,
-        detail:   `${(sizeMb * 1024).toFixed(0)} KB — ${sizeMb >= 0.05 ? "résolution OK" : "image trop petite (<50 KB)"}`,
-      },
-      {
-        id:       "local_liveness",
-        label:    "Détection de vivacité (heuristique locale)",
-        status:   "WARN",
-        score,
-        blocking: false,
-        detail:   "Aucun modèle biométrique réel — révision manuelle systématique en mode local. Configurer EKYC_PROVIDER=onfido ou sumsub en production.",
-      },
-    ],
-    provider:    "local",
-    processedAt: new Date(),
+  // Contrôle préalable : taille minimale du selfie
+  const sizeCheck: BiometricCheck = {
+    id:       "selfie_size",
+    label:    "Taille image selfie",
+    status:   sizeMb >= 0.05 ? "PASS" : "WARN",
+    score:    sizeMb >= 0.05 ? 80 : 30,
+    blocking: false,
+    detail:   `${(sizeMb * 1024).toFixed(0)} KB — ${sizeMb >= 0.05 ? "résolution OK" : "image trop petite (<50 KB)"}`,
   };
+
+  // Appel au service ML Python (InsightFace/ArcFace — local, sans provider externe)
+  try {
+    const selfieB64 = selfieBuffer.toString("base64");
+    const docB64    = docPhotoBuffer ? docPhotoBuffer.toString("base64") : undefined;
+
+    const body = JSON.stringify({
+      selfie_b64:    selfieB64,
+      doc_photo_b64: docB64 ?? null,
+    });
+
+    const res = await fetch(`${ML_SERVICE_URL}/face/compare`, {
+      method:  "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Api-Key":    ML_API_KEY,
+      },
+      body,
+      signal: AbortSignal.timeout(FACE_TIMEOUT),
+    });
+
+    if (!res.ok) {
+      throw new Error(`ML service HTTP ${res.status}`);
+    }
+
+    const data = await res.json() as MlFaceCompareResponse;
+
+    const faceCheck: BiometricCheck = {
+      id:       "insightface_match",
+      label:    "Correspondance faciale selfie ↔ document (InsightFace/ArcFace)",
+      status:   data.status === "PASS" ? "PASS" : data.status === "FAIL" ? "FAIL" : "WARN",
+      score:    data.liveness_score,
+      blocking: data.status === "FAIL",
+      detail:   data.detail +
+                (data.similarity > 0 ? ` | similarité: ${(data.similarity * 100).toFixed(1)}%` : "") +
+                (!data.model_ready ? " | modèle en chargement" : ""),
+    };
+
+    return {
+      status:        data.status,
+      score:         data.liveness_score,
+      livenessScore: data.liveness_score,
+      checks:        [sizeCheck, faceCheck],
+      provider:      "local-insightface",
+      processedAt:   new Date(),
+    };
+
+  } catch (err) {
+    // Fallback : ML service indisponible → REVIEW, ne pas bloquer l'onboarding
+    const errMsg = err instanceof Error ? err.name === "TimeoutError"
+      ? "ML service timeout (30s) — IndightFace chargement lent (normal au 1er démarrage)"
+      : err.message
+      : String(err);
+
+    log.warn({ err: errMsg }, "ML face service indisponible — fallback REVIEW");
+
+    const hash  = crypto.createHash("sha256").update(selfieBuffer).digest("hex");
+    const score = 55 + (parseInt(hash.slice(0, 4), 16) % 10); // 55-64 → toujours REVIEW
+
+    return {
+      status:        "REVIEW",
+      score,
+      livenessScore: score,
+      checks: [
+        sizeCheck,
+        {
+          id:       "insightface_unavailable",
+          label:    "Comparaison faciale (InsightFace)",
+          status:   "WARN",
+          score,
+          blocking: false,
+          detail:   `Service ML indisponible (${errMsg.slice(0, 150)}) — révision manuelle requise`,
+        },
+      ],
+      provider:    "local-fallback",
+      processedAt: new Date(),
+    };
+  }
 }
 
 // ─── API publique ─────────────────────────────────────────────────────────────
@@ -390,7 +465,7 @@ export async function verifyLiveness(
         result = await runSumsubLiveness(selfieBuffer, applicantId);
         break;
       default:
-        result = await runLocalLiveness(selfieBuffer);
+        result = await runLocalLiveness(selfieBuffer, docPhotoBuffer);
     }
   } catch (err) {
     log.error({ err, provider }, "Erreur vérification biométrique — fallback REVIEW");

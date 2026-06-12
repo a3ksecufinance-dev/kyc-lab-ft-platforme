@@ -135,9 +135,9 @@ export function Amld6Page() {
   const fromDate = `${fromYear}-01-01T00:00:00.000Z`;
   const toDate   = `${fromYear}-12-31T23:59:59.999Z`;
 
-  const { data, isLoading, refetch, isFetching } = trpc.reports.amld6Stats.useQuery(
+  const { data, isLoading, error, refetch, isFetching } = trpc.reports.amld6Stats.useQuery(
     { from: fromDate, to: toDate },
-    { refetchOnWindowFocus: false }
+    { refetchOnWindowFocus: false, retry: false, staleTime: 5 * 60_000 }
   );
   const exportMutation = trpc.reports.amld6ExportCsv.useMutation();
 
@@ -206,8 +206,24 @@ export function Amld6Page() {
           </div>
         )}
 
+        {/* ── Erreur (accès refusé ou autre) ── */}
+        {!isLoading && error && (
+          <div style={{ textAlign: "center", padding: "60px 0" }}>
+            <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 12, background: `var(--wr-amber)08`, border: `1px solid var(--wr-amber)25`, borderRadius: 12, padding: "24px 40px" }}>
+              <span style={{ fontSize: 13, fontFamily: C.mono, color: "var(--wr-amber)" }}>
+                {(error as { message?: string }).message?.includes("Permission")
+                  ? "Accès restreint — Compliance Officer requis"
+                  : "Erreur lors du calcul des KPIs"}
+              </span>
+              <button onClick={() => refetch()} style={{ fontSize: 11, fontFamily: C.mono, color: C.text3, background: "none", border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 12px", cursor: "pointer" }}>
+                Réessayer
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* ── Pas de données ── */}
-        {!isLoading && !kpi && (
+        {!isLoading && !error && !kpi && (
           <div style={{ textAlign: "center", padding: "80px 0", fontSize: 12, fontFamily: C.mono, color: C.text3 }}>
             {t.amld6.noData} — {fromYear}
           </div>

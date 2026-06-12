@@ -7,7 +7,7 @@ import {
   Settings, BarChart2, Key, Network,
   Sun, Moon, Repeat2, Wallet, Users2, Globe, User,
   ShieldCheck, FileBarChart, Scale, Gauge, ScrollText, Building2,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, GitMerge,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { useI18n } from "../../hooks/useI18n";
@@ -65,6 +65,7 @@ const NAV_GROUPS: NavGroup[] = [
       { path: "/aml-rules",   icon: Shield,       labelKey: "amlRules",    minRole: "supervisor" },
       { path: "/pkyc",        icon: Repeat2,      labelKey: "pkyc",        minRole: "analyst" },
       { path: "/reports",     icon: FileBarChart, labelKey: "reports",     minRole: "analyst" },
+      { path: "/approvals",   icon: GitMerge,     labelKey: "approvals",   minRole: "compliance_officer", badge: true },
     ],
   },
   {
