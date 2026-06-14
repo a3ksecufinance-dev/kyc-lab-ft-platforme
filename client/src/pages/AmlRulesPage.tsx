@@ -15,6 +15,7 @@ import { useState } from "react";
 import type React from "react";
 import { AppLayout }    from "../components/layout/AppLayout";
 import { trpc }         from "../lib/trpc";
+import { formatNumber } from "../lib/utils";
 import { useAuth }      from "../hooks/useAuth";
 import { hasRole }      from "../lib/auth";
 import { useI18n }      from "../hooks/useI18n";
@@ -354,6 +355,7 @@ function ConditionBuilder({
 // ─── Simulateur ───────────────────────────────────────────────────────────────
 
 function RuleSimulator({ cond }: { cond: Condition }) {
+  const { t } = useI18n();
   const [tx, setTx] = useState({
     amount: "8500", currency: "MAD", channel: "ONLINE",
     transactionType: "TRANSFER", counterpartyCountry: "MA",
@@ -412,7 +414,7 @@ function RuleSimulator({ cond }: { cond: Condition }) {
         }
         <div>
           <p style={{ fontSize: 12, fontFamily: C.mono, fontWeight: 700, color: triggered ? C.red : C.green, margin: "0 0 2px" }}>
-            {triggered ? "RÈGLE DÉCLENCHÉE" : "Aucun déclenchement"}
+            {triggered ? t.amlRules.ruleTriggered : t.amlRules.noTrigger}
           </p>
           <p style={{ fontSize: 10, fontFamily: C.mono, color: C.text3, margin: 0 }}>
             {triggered ? "Cette transaction créerait une alerte AML" : "Transaction passerait sans alerte"}
@@ -1037,6 +1039,7 @@ type JurisdictionProfile = {
 // ─── Jurisdictions panel ──────────────────────────────────────────────────────
 
 function JurisdictionsPanel({ canEdit }: { canEdit: boolean }) {
+  const { t } = useI18n();
   const utils = trpc.useUtils();
   const invalidate = () => utils.jurisdictions.list.invalidate();
   const { data: jurisdictions, isLoading } = trpc.jurisdictions.list.useQuery();
@@ -1083,11 +1086,11 @@ function JurisdictionsPanel({ canEdit }: { canEdit: boolean }) {
 
       {/* Table */}
       {isLoading ? (
-        <div className="text-center py-12 text-[11px] font-mono text-[var(--wr-text-4)]">Chargement…</div>
+        <div className="text-center py-12 text-[11px] font-mono text-[var(--wr-text-4)]">{t.common.loading}</div>
       ) : !jurisdictions?.length ? (
         <div className="text-center py-16 border border-dashed border-[var(--wr-border)] rounded-lg">
           <Globe size={32} className="mx-auto text-[var(--wr-border)] mb-3" />
-          <p className="text-sm font-mono text-[var(--wr-text-4)]">Aucune juridiction configurée</p>
+          <p className="text-sm font-mono text-[var(--wr-text-4)]">{t.amlRules.noJurisdiction}</p>
         </div>
       ) : (
         <div className="bg-[var(--wr-bg)] border border-[var(--wr-border)] rounded-lg overflow-hidden">
@@ -1186,7 +1189,7 @@ function JurisdictionsPanel({ canEdit }: { canEdit: boolean }) {
               <div key={label} className="flex justify-between items-center text-[10px] font-mono py-1 border-b border-[var(--wr-border)]/30">
                 <span className="text-[var(--wr-text-4)]">{label}</span>
                 <span className="text-[var(--wr-text-1)] font-semibold">
-                  {typeof value === "number" ? value.toLocaleString("fr-FR") : value}
+                  {typeof value === "number" ? formatNumber(value) : value}
                   {unit && <span className="text-[var(--wr-text-4)] font-normal ml-1">{unit}</span>}
                 </span>
               </div>
@@ -1441,7 +1444,7 @@ export function AmlRulesPage() {
               <button onClick={() => seedMut.mutate()} disabled={seedMut.isPending}
                 className={`${btnGhost} flex items-center gap-1.5`}>
                 <FlaskConical size={12} />
-                {seedMut.isPending ? "Chargement..." : "Charger règles BAM"}
+                {seedMut.isPending ? t.common.loading : t.amlRules.loadBamRules}
               </button>
             )}
             {pageTab === "rules" && canEdit && (
@@ -1493,7 +1496,7 @@ export function AmlRulesPage() {
             {/* Liste */}
             {isLoading ? (
               <div className="text-center py-12 text-[11px] font-mono text-[var(--wr-text-4)]">
-                Chargement des règles...
+                {t.common.loading}
               </div>
             ) : !rules?.length ? (
               <div className="text-center py-16 border border-dashed border-[var(--wr-border)] rounded-lg">

@@ -272,11 +272,13 @@ function DocumentCard({ doc, canVerify, canDelete, onRefresh }: DocumentCardProp
           {doc.fileUrl && (
             <button onClick={() => setShowViewer(true)}
               style={{ padding: 6, background: "none", border: "none", cursor: "pointer", color: C.text4, borderRadius: 6, display: "flex", alignItems: "center" }}
-              title={t.documents.viewDocument}>
+              title={t.documents.viewDocument}
+              aria-label={t.documents.viewDocument}>
               <Eye size={13} />
             </button>
           )}
           <button onClick={() => setExpanded(!expanded)}
+            aria-label={expanded ? t.common.close : t.documents.viewDocument}
             style={{ padding: 6, background: "none", border: "none", cursor: "pointer", color: C.text4, borderRadius: 6, display: "flex", alignItems: "center" }}>
             {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
           </button>
@@ -382,7 +384,8 @@ function DocumentCard({ doc, canVerify, canDelete, onRefresh }: DocumentCardProp
       {showViewer && doc.fileUrl && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}
           onClick={() => setShowViewer(false)}>
-          <div style={{ width: "100%", maxWidth: 768, maxHeight: "90vh", borderRadius: 12, overflow: "hidden", background: "#fff" }}
+          <div role="dialog" aria-modal="true" aria-label={t.documents.viewDocument}
+            style={{ width: "100%", maxWidth: 768, maxHeight: "90vh", borderRadius: 12, overflow: "hidden", background: "#fff" }}
             onClick={(e: React.MouseEvent) => e.stopPropagation()}>
             {doc.mimeType === "application/pdf" ? (
               <iframe src={doc.fileUrl} style={{ width: "100%", height: "85vh", display: "block" }} title="Document" />

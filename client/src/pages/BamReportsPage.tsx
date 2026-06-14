@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { AppLayout } from "../components/layout/AppLayout";
 import { trpc } from "../lib/trpc";
-import { formatNumber } from "../lib/utils";
+import { formatNumber, formatDateTime } from "../lib/utils";
+import { useI18n } from "../hooks/useI18n";
 import { BarChart2, Download, Calendar } from "lucide-react";
 import { useInstitution } from "../context/InstitutionContext";
 
@@ -23,10 +24,6 @@ const C = {
 type ReportType = "monthly" | "quarterly" | "annual";
 
 const CURRENT_YEAR = new Date().getFullYear();
-const MONTHS = [
-  "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
-  "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
-];
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -50,6 +47,7 @@ function KpiRow({ label, value, sub }: { label: string; value: string | number; 
 }
 
 export function BamReportsPage() {
+  const { t } = useI18n();
   const flags = useInstitution();
   const [reportType, setReportType] = useState<ReportType>("monthly");
   const [year, setYear] = useState(CURRENT_YEAR);
@@ -84,7 +82,7 @@ export function BamReportsPage() {
       <AppLayout>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh", flexDirection: "column", gap: 12 }}>
           <BarChart2 size={32} style={{ color: C.text3, opacity: 0.4 }} />
-          <p style={{ color: C.text3, fontSize: 13 }}>Rapports BAM non activés pour cette institution.</p>
+          <p style={{ color: C.text3, fontSize: 13 }}>{t.bam.moduleNotActive}</p>
         </div>
       </AppLayout>
     );
@@ -98,10 +96,10 @@ export function BamReportsPage() {
         <div style={{ marginBottom: 24 }}>
           <h1 style={{ fontSize: 18, fontWeight: 600, color: C.text1, margin: "0 0 4px", display: "flex", alignItems: "center", gap: 8 }}>
             <BarChart2 size={18} style={{ color: C.gold }} />
-            Rapports réglementaires BAM
+            {t.bam.title}
           </h1>
           <p style={{ fontSize: 12, color: C.text3, margin: 0 }}>
-            Circulaire BAM n°5/W/2023 — {flags.institutionName}
+            {t.bam.circular} — {flags.institutionName}
           </p>
         </div>
 
@@ -120,14 +118,14 @@ export function BamReportsPage() {
                   fontWeight: reportType === rt ? 600 : 400,
                 }}
               >
-                {rt === "monthly" ? "Mensuel" : rt === "quarterly" ? "Trimestriel" : "Annuel"}
+                {rt === "monthly" ? t.bam.monthly : rt === "quarterly" ? t.bam.quarterly : t.bam.annual}
               </button>
             ))}
           </div>
 
           <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
             <div>
-              <label style={{ fontSize: 11, color: C.text3, display: "block", marginBottom: 5 }}>Année</label>
+              <label style={{ fontSize: 11, color: C.text3, display: "block", marginBottom: 5 }}>{t.bam.year}</label>
               <select
                 value={year}
                 onChange={e => { setYear(Number(e.target.value)); setGenerate(false); }}
@@ -142,21 +140,21 @@ export function BamReportsPage() {
 
             {reportType === "monthly" && (
               <div>
-                <label style={{ fontSize: 11, color: C.text3, display: "block", marginBottom: 5 }}>Mois</label>
+                <label style={{ fontSize: 11, color: C.text3, display: "block", marginBottom: 5 }}>{t.bam.month}</label>
                 <select
                   value={month}
                   onChange={e => { setMonth(Number(e.target.value)); setGenerate(false); }}
                   style={{ fontSize: 12, padding: "6px 10px", borderRadius: 7, border: `1px solid ${C.border2}`,
                     background: "var(--wr-bg)", color: C.text1, outline: "none", cursor: "pointer" }}
                 >
-                  {MONTHS.map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
+                  {t.bam.months.map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
                 </select>
               </div>
             )}
 
             {reportType === "quarterly" && (
               <div>
-                <label style={{ fontSize: 11, color: C.text3, display: "block", marginBottom: 5 }}>Trimestre</label>
+                <label style={{ fontSize: 11, color: C.text3, display: "block", marginBottom: 5 }}>{t.bam.quarter}</label>
                 <select
                   value={quarter}
                   onChange={e => { setQuarter(Number(e.target.value)); setGenerate(false); }}
@@ -180,7 +178,7 @@ export function BamReportsPage() {
               }}
             >
               <Calendar size={13} />
-              Générer
+              {t.bam.generate}
             </button>
           </div>
         </div>
@@ -188,7 +186,7 @@ export function BamReportsPage() {
         {/* ── Résultats ────────────────────────────────────────────────────── */}
         {isLoading && (
           <div style={{ padding: "40px 0", textAlign: "center", color: C.text3, fontSize: 12 }}>
-            Génération du rapport en cours…
+            {t.bam.generating}
           </div>
         )}
 
@@ -199,7 +197,7 @@ export function BamReportsPage() {
               <div>
                 <p style={{ fontFamily: C.mono, fontSize: 11, color: C.blue, margin: "0 0 3px" }}>{report.reportType}</p>
                 <p style={{ fontSize: 11, color: C.text3, margin: 0 }}>
-                  Généré le {new Date(report.generatedAt).toLocaleString("fr-MA")} · {report.institution}
+                  {t.bam.generatedAt} {formatDateTime(report.generatedAt)} · {report.institution}
                 </p>
               </div>
               <button
@@ -220,18 +218,18 @@ export function BamReportsPage() {
             </div>
 
             {/* Section 1 : Vue d'ensemble */}
-            <SectionCard title="Article 11 — Vue d'ensemble">
-              <KpiRow label="Nombre total de transactions"   value={formatNumber(report.overview.totalTransactions)} />
-              <KpiRow label="Volume total (MAD)"             value={formatNumber(report.overview.totalVolumeMad)}    sub="MAD" />
-              <KpiRow label="Wallets actifs"                 value={formatNumber(report.overview.activeWallets)} />
-              <KpiRow label="Agents actifs"                  value={formatNumber(report.overview.activeAgents)} />
-              <KpiRow label="Alertes générées sur la période" value={formatNumber(report.overview.alertsGenerated)} />
+            <SectionCard title={t.bam.art11Overview}>
+              <KpiRow label={t.bam.totalTransactions}  value={formatNumber(report.overview.totalTransactions)} />
+              <KpiRow label={t.bam.totalVolume}        value={formatNumber(report.overview.totalVolumeMad)}    sub="MAD" />
+              <KpiRow label={t.bam.activeWallets}      value={formatNumber(report.overview.activeWallets)} />
+              <KpiRow label={t.bam.activeAgents}       value={formatNumber(report.overview.activeAgents)} />
+              <KpiRow label={t.bam.alertsGenerated}    value={formatNumber(report.overview.alertsGenerated)} />
             </SectionCard>
 
             {/* Section 2 : Par canal */}
-            <SectionCard title="Article 12 — Ventilation par canal">
+            <SectionCard title={t.bam.art12Channel}>
               {report.byChannel.length === 0
-                ? <p style={{ fontSize: 12, color: C.text3 }}>Aucune transaction sur la période.</p>
+                ? <p style={{ fontSize: 12, color: C.text3 }}>{t.bam.noTransactionsPeriod}</p>
                 : report.byChannel.map(c => (
                     <KpiRow key={c.channel} label={c.channel}
                       value={`${formatNumber(c.count)} tx`}
@@ -241,9 +239,9 @@ export function BamReportsPage() {
             </SectionCard>
 
             {/* Section 3 : Par type */}
-            <SectionCard title="Article 13 — Ventilation par type d'opération">
+            <SectionCard title={t.bam.art13Type}>
               {report.byTransactionType.length === 0
-                ? <p style={{ fontSize: 12, color: C.text3 }}>Aucune transaction sur la période.</p>
+                ? <p style={{ fontSize: 12, color: C.text3 }}>{t.bam.noTransactionsPeriod}</p>
                 : report.byTransactionType.map(r => (
                     <KpiRow key={r.type} label={r.type}
                       value={`${formatNumber(r.count)} tx`}
@@ -253,13 +251,13 @@ export function BamReportsPage() {
             </SectionCard>
 
             {/* Section 4 : Flux P2P */}
-            <SectionCard title="Flux P2P (indicateur EP)">
-              <KpiRow label="Transferts P2P" value={`${formatNumber(report.p2p.count)} tx`} sub={`${formatNumber(report.p2p.volume)} MAD`} />
+            <SectionCard title={t.bam.p2pFlows}>
+              <KpiRow label={t.bam.p2pTransfers} value={`${formatNumber(report.p2p.count)} tx`} sub={`${formatNumber(report.p2p.volume)} MAD`} />
             </SectionCard>
 
             {/* Section 5 : Opérations agents */}
             {report.agentOperations.length > 0 && (
-              <SectionCard title="Opérations agents (float)">
+              <SectionCard title={t.bam.agentOps}>
                 {report.agentOperations.map(r => (
                   <KpiRow key={r.type} label={r.type} value={`${formatNumber(r.count)} tx`} sub={`${formatNumber(r.volume)} MAD`} />
                 ))}

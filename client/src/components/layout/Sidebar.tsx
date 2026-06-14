@@ -8,6 +8,7 @@ import {
   Sun, Moon, Repeat2, Wallet, Users2, Globe,
   ShieldCheck, FileBarChart, Scale, Gauge, ScrollText, Building2,
   ChevronLeft, ChevronRight, GitMerge, KeyRound,
+  Cog, BellRing, Plug,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { useI18n } from "../../hooks/useI18n";
@@ -61,7 +62,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     labelKey: "amlEngine",
     items: [
-      { path: "/aml-rules",   icon: Shield,       labelKey: "amlRules",    minRole: "supervisor" },
+      { path: "/aml-rules",   icon: Shield,       labelKey: "amlRules",    minRole: "analyst" },
       { path: "/pkyc",        icon: Repeat2,      labelKey: "pkyc",        minRole: "analyst" },
       { path: "/reports",     icon: FileBarChart, labelKey: "reports",     minRole: "analyst" },
       { path: "/approvals",   icon: GitMerge,     labelKey: "approvals",   minRole: "compliance_officer", badge: true },
@@ -77,12 +78,20 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    labelKey: "account",
+    items: [
+      { path: "/mfa",           icon: Key,     labelKey: "mfa",           minRole: "analyst" },
+      { path: "/notifications", icon: BellRing, labelKey: "notifications", minRole: "analyst", badge: true },
+    ],
+  },
+  {
     labelKey: "system",
     items: [
-      { path: "/audit",  icon: ScrollText, labelKey: "audit",  minRole: "supervisor" },
-      { path: "/mfa",    icon: Key,        labelKey: "mfa",    minRole: "analyst" },
-      { path: "/admin",    icon: Settings,   labelKey: "admin",    minRole: "admin" },
-      { path: "/license",  icon: KeyRound,   labelKey: "license",  minRole: "admin" },
+      { path: "/audit",      icon: ScrollText, labelKey: "audit",      minRole: "supervisor" },
+      { path: "/connectors", icon: Plug,       labelKey: "connectors", minRole: "supervisor" },
+      { path: "/config",     icon: Cog,        labelKey: "config",     minRole: "admin" },
+      { path: "/admin",      icon: Settings,   labelKey: "admin",      minRole: "admin" },
+      { path: "/license",    icon: KeyRound,   labelKey: "license",    minRole: "admin" },
     ],
   },
   {

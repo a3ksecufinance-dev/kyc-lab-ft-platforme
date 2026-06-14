@@ -66,7 +66,7 @@ export function ScoreBadge({ score, size = "md", showLabel = false }: ScoreBadge
           fill={color}
           fontSize={fontSize}
           fontWeight={700}
-          fontFamily="'JetBrains Mono', monospace"
+          fontFamily="var(--wr-font-mono)"
         >
           {progress}
         </text>

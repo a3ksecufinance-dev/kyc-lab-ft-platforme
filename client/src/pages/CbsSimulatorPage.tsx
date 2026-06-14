@@ -14,6 +14,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth }    from "../hooks/useAuth";
 import { trpc }       from "../lib/trpc";
+import { formatNumber } from "../lib/utils";
 import { useLocation } from "wouter";
 
 // ─── Palette CBS (complètement différente du KYC-AML) ────────────────────────
@@ -753,7 +754,7 @@ export function CbsSimulatorPage() {
                   : form.productType === "MOBILE_ORANGE" ? "Portefeuille Orange Money"
                   : "Portefeuille Wave"
                 } />
-                <RecapRow label="Dépôt initial"  value={`${parseFloat(form.depositAmount).toLocaleString("fr-MA")} MAD`} />
+                <RecapRow label="Dépôt initial"  value={`${formatNumber(parseFloat(form.depositAmount))} MAD`} />
                 <RecapRow label="Motif"          value={form.depositMotif} />
               </RecapSection>
 
@@ -762,7 +763,7 @@ export function CbsSimulatorPage() {
                 <RecapRow label="Adresse"        value={`${form.address}, ${form.city}`} />
                 <RecapRow label="Profession"     value={form.profession} />
                 <RecapRow label="Source revenus" value={form.sourceOfFunds} />
-                <RecapRow label="Revenu mensuel" value={`${parseFloat(form.monthlyIncome || "0").toLocaleString("fr-MA")} MAD`} />
+                <RecapRow label="Revenu mensuel" value={`${formatNumber(parseFloat(form.monthlyIncome || "0"))} MAD`} />
               </RecapSection>
 
               {/* Documents uploadés */}

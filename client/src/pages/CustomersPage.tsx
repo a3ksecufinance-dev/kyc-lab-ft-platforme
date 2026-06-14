@@ -61,6 +61,7 @@ type EditForm = {
 function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (id: number) => void }) {
   const [, navigate] = useLocation();
   const utils = trpc.useUtils();
+  const { t } = useI18n();
   const [form, setForm] = useState<CreateForm>(EMPTY_CREATE);
   const mut = trpc.customers.create.useMutation({
     onSuccess: (data) => {
@@ -86,11 +87,11 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}
       onClick={onClose}>
-      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, width: "100%", maxWidth: 640, maxHeight: "90vh", overflow: "auto", padding: 24 }}
+      <div role="dialog" aria-modal="true" aria-label="Nouveau client" style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, width: "100%", maxWidth: 640, maxHeight: "90vh", overflow: "auto", padding: 24 }}
         onClick={(e: React.MouseEvent) => e.stopPropagation()}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
           <h2 style={{ fontSize: 16, fontWeight: 400, fontFamily: C.serif, color: C.text1, margin: 0 }}>Nouveau client</h2>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: C.text3, padding: 4 }}><X size={16} /></button>
+          <button onClick={onClose} aria-label={t.common.close} style={{ background: "none", border: "none", cursor: "pointer", color: C.text3, padding: 4 }}><X size={16} /></button>
         </div>
 
         {mut.error && (
@@ -160,6 +161,7 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
 
 function EditModal({ customer, onClose }: { customer: Customer; onClose: () => void }) {
   const utils = trpc.useUtils();
+  const { t } = useI18n();
   const [form, setForm] = useState<EditForm>({
     kycStatus: customer.kycStatus,
     riskLevel: customer.riskLevel,
@@ -187,13 +189,13 @@ function EditModal({ customer, onClose }: { customer: Customer; onClose: () => v
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}
       onClick={onClose}>
-      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, width: "100%", maxWidth: 480, padding: 24 }}
+      <div role="dialog" aria-modal="true" aria-label={`Modifier — ${customer.firstName} ${customer.lastName}`} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, width: "100%", maxWidth: 480, padding: 24 }}
         onClick={(e: React.MouseEvent) => e.stopPropagation()}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
           <h2 style={{ fontSize: 16, fontWeight: 400, fontFamily: C.serif, color: C.text1, margin: 0 }}>
             Modifier — {customer.firstName} {customer.lastName}
           </h2>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: C.text3, padding: 4 }}><X size={16} /></button>
+          <button onClick={onClose} aria-label={t.common.close} style={{ background: "none", border: "none", cursor: "pointer", color: C.text3, padding: 4 }}><X size={16} /></button>
         </div>
 
         {mut.error && (
@@ -333,6 +335,7 @@ export function CustomersPage() {
           onClick={(e: React.MouseEvent) => { e.stopPropagation(); setEditTarget(r); }}
           style={{ padding: 5, background: "none", border: `1px solid ${C.border2}`, borderRadius: 5, cursor: "pointer", color: C.text3, display: "flex", alignItems: "center" }}
           title="Modifier"
+          aria-label={t.common.edit}
         >
           <Pencil size={11} />
         </button>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { AppLayout } from "../components/layout/AppLayout";
+import { EmptyState } from "../components/ui/EmptyState";
 import { Badge } from "../components/ui/Badge";
 import { trpc } from "../lib/trpc";
 import { formatDate, formatRelative } from "../lib/utils";
@@ -140,7 +141,7 @@ export function CaseDetailPage() {
   const isClosed = c.status === "CLOSED";
 
   return (
-    <AppLayout>
+    <AppLayout breadcrumbs={[{ label: t.nav.cases, href: "/cases" }, { label: `#${caseId}` }]}>
       {/* ─── Breadcrumb ─────────────────────────────────────────────────── */}
       <button
         onClick={() => navigate("/cases")}
@@ -251,9 +252,7 @@ export function CaseDetailPage() {
             ) : c.findings ? (
               <pre style={{ margin: 0, fontSize: 12, color: C.text2, fontFamily: "inherit", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{c.findings}</pre>
             ) : (
-              <p style={{ fontSize: 12, color: C.text4, fontFamily: C.mono, fontStyle: "italic", margin: 0 }}>
-                Aucune conclusion enregistrée.
-              </p>
+              <EmptyState message={t.common.noData} compact />
             )}
           </div>
 
@@ -419,7 +418,7 @@ export function CaseDetailPage() {
               Timeline
             </div>
             {!timeline || timeline.length === 0 ? (
-              <p style={{ fontSize: 11, fontFamily: C.mono, color: C.text4, margin: 0 }}>Aucun événement.</p>
+              <EmptyState message={t.common.noData} compact />
             ) : (
               <div style={{ position: "relative" }}>
                 {/* Vertical line */}

@@ -6,13 +6,20 @@ import { useI18n } from "../../hooks/useI18n";
 import { useAuth } from "../../hooks/useAuth";
 import { Bell } from "lucide-react";
 
+interface Breadcrumb {
+  label: string;
+  href?: string;
+}
+
 interface AppLayoutProps {
   children: ReactNode;
   title?: string;
+  breadcrumbs?: Breadcrumb[];
 }
 
 function LiveClock() {
   const [time, setTime] = useState(() => new Date());
+  const { lang } = useI18n();
   useEffect(() => {
     const id = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(id);
@@ -20,7 +27,8 @@ function LiveClock() {
   const hh = String(time.getHours()).padStart(2, "0");
   const mm = String(time.getMinutes()).padStart(2, "0");
   const ss = String(time.getSeconds()).padStart(2, "0");
-  const dd = time.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
+  const locale = lang === "en" ? "en-US" : "fr-FR";
+  const dd = time.toLocaleDateString(locale, { day: "2-digit", month: "short", year: "numeric" });
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
       <span style={{
@@ -42,7 +50,7 @@ function LiveClock() {
   );
 }
 
-export function AppLayout({ children, title }: AppLayoutProps) {
+export function AppLayout({ children, title, breadcrumbs }: AppLayoutProps) {
   const { t } = useI18n();
   const { user } = useAuth();
   const { data: alertStats } = trpc.alerts.stats.useQuery(undefined, {
@@ -104,23 +112,46 @@ export function AppLayout({ children, title }: AppLayoutProps) {
 
           {/* Left: title + breadcrumb */}
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            {title ? (
+            {(title || (breadcrumbs && breadcrumbs.length > 0)) ? (
               <>
                 <div style={{
                   width: 3, height: 18, borderRadius: 2,
                   background: "linear-gradient(180deg, var(--wr-gold-bright), var(--wr-gold))",
                   flexShrink: 0,
                 }} />
-                <h1 style={{
-                  fontSize: 15,
-                  fontWeight: 500,
-                  color: "var(--wr-text-1)",
-                  fontFamily: "var(--wr-font-serif)",
-                  letterSpacing: "-0.25px",
-                  margin: 0,
-                }}>
-                  {title}
-                </h1>
+                <div>
+                  {breadcrumbs && breadcrumbs.length > 0 && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
+                      {breadcrumbs.map((crumb, i) => (
+                        <span key={i} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          {i > 0 && <span style={{ fontSize: 9, color: "var(--wr-text-4)", opacity: 0.5 }}>/</span>}
+                          {crumb.href ? (
+                            <a href={crumb.href} style={{ fontSize: 10, fontFamily: "var(--wr-font-mono)", color: "var(--wr-text-4)", textDecoration: "none", letterSpacing: "0.04em" }}
+                              onMouseEnter={e => (e.currentTarget.style.color = "var(--wr-text-2)")}
+                              onMouseLeave={e => (e.currentTarget.style.color = "var(--wr-text-4)")}
+                            >
+                              {crumb.label}
+                            </a>
+                          ) : (
+                            <span style={{ fontSize: 10, fontFamily: "var(--wr-font-mono)", color: "var(--wr-text-3)", letterSpacing: "0.04em" }}>{crumb.label}</span>
+                          )}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {title && (
+                    <h1 style={{
+                      fontSize: 15,
+                      fontWeight: 500,
+                      color: "var(--wr-text-1)",
+                      fontFamily: "var(--wr-font-serif)",
+                      letterSpacing: "-0.25px",
+                      margin: 0,
+                    }}>
+                      {title}
+                    </h1>
+                  )}
+                </div>
               </>
             ) : <div />}
           </div>
@@ -148,7 +179,7 @@ export function AppLayout({ children, title }: AppLayoutProps) {
                   color: criticalAlerts > 0 ? "#FF6570" : "#F59E0B",
                   letterSpacing: "0.05em",
                 }}>
-                  {openAlerts} {criticalAlerts > 0 ? `· ${criticalAlerts} CRITIQUE${criticalAlerts > 1 ? "S" : ""}` : ""}
+                  {openAlerts} {criticalAlerts > 0 ? `· ${criticalAlerts} ${t.common.critical}${criticalAlerts > 1 ? t.common.pluralS : ""}` : ""}
                 </span>
               </div>
             )}

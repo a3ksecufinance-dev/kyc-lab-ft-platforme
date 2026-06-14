@@ -137,7 +137,7 @@ export function CustomerDetailPage() {
   }
 
   return (
-    <AppLayout>
+    <AppLayout breadcrumbs={[{ label: t.nav.customers, href: "/customers" }, { label: `${customer.firstName} ${customer.lastName}` }]}>
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -514,7 +514,7 @@ export function CustomerDetailPage() {
           ) : !documents?.length ? (
             <div className="text-center py-10 bg-[#0d1117] border border-[#21262d] rounded-lg">
               <FileText size={24} className="text-[#30363d] mx-auto mb-2" />
-              <p className="text-xs font-mono text-[#484f58]">Aucun document pour ce client</p>
+              <p className="text-xs font-mono text-[#484f58]">{t.common.noData}</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -700,11 +700,11 @@ export function CustomerDetailPage() {
           )}
 
           {!pkycHistory ? (
-            <div className="text-center py-12 text-[11px] font-mono text-[#7d8590]">Chargement…</div>
+            <div className="text-center py-12 text-[11px] font-mono text-[#7d8590]">{t.common.loading}</div>
           ) : pkycHistory.length === 0 ? (
             <div className="text-center py-16 border border-dashed border-[#21262d] rounded-lg">
               <RefreshCw size={28} className="mx-auto text-[#21262d] mb-3" />
-              <p className="text-sm font-mono text-[#7d8590]">Aucun historique pKYC disponible</p>
+              <p className="text-sm font-mono text-[#7d8590]">{t.common.noData}</p>
               <p className="text-[10px] font-mono text-[#7d8590] mt-1">Cliquez sur "Lancer le scoring" pour générer un profil</p>
             </div>
           ) : (
@@ -755,11 +755,11 @@ export function CustomerDetailPage() {
           </div>
 
           {!ubos ? (
-            <div className="text-center py-8 text-[11px] font-mono text-[#7d8590]">Chargement…</div>
+            <div className="text-center py-8 text-[11px] font-mono text-[#7d8590]">{t.common.loading}</div>
           ) : ubos.length === 0 ? (
             <div className="text-center py-16 border border-dashed border-[#21262d] rounded-lg">
               <Users2 size={28} className="mx-auto text-[#21262d] mb-3" />
-              <p className="text-sm font-mono text-[#7d8590]">Aucun bénéficiaire effectif enregistré</p>
+              <p className="text-sm font-mono text-[#7d8590]">{t.common.noData}</p>
             </div>
           ) : (
             <div className="bg-[#0d1117] border border-[#21262d] rounded-lg overflow-hidden">
@@ -802,11 +802,12 @@ export function CustomerDetailPage() {
           {showAddUbo && (
             <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}
               onClick={() => setShowAddUbo(false)}>
-              <div className="bg-[#0d1117] border border-[#21262d] rounded-2xl p-6 w-full max-w-lg"
+              <div role="dialog" aria-modal="true" aria-label="Ajouter un bénéficiaire effectif"
+                className="bg-[#0d1117] border border-[#21262d] rounded-2xl p-6 w-full max-w-lg"
                 onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-5">
                   <h2 className="text-sm font-semibold text-[#e6edf3] font-mono">Ajouter un bénéficiaire effectif</h2>
-                  <button onClick={() => setShowAddUbo(false)} className="text-[#7d8590] hover:text-[#e6edf3] transition-colors"><X size={16} /></button>
+                  <button onClick={() => setShowAddUbo(false)} aria-label={t.common.close} className="text-[#7d8590] hover:text-[#e6edf3] transition-colors"><X size={16} /></button>
                 </div>
 
                 {addUboMut.error && (
@@ -919,6 +920,7 @@ function WalletsTab({
   onPromote: (walletId: number, newTier: KycTier, reason: string) => void;
   isPending: boolean;
 }) {
+  const { t } = useI18n();
   const [promoting, setPromoting] = useState<WalletRow | null>(null);
   const [newTier, setNewTier] = useState<KycTier>("STANDARD");
   const [reason, setReason] = useState("");
@@ -927,7 +929,7 @@ function WalletsTab({
     return (
       <div className="bg-[#0d1117] border border-[#21262d] rounded-lg p-8 text-center">
         <Wallet size={26} className="text-[#30363d] mx-auto mb-3" />
-        <p className="text-xs font-mono text-[#7d8590]">Aucun wallet pour ce client.</p>
+        <p className="text-xs font-mono text-[#7d8590]">{t.common.noData}</p>
       </div>
     );
   }
@@ -969,7 +971,8 @@ function WalletsTab({
       {/* Modal promotion */}
       {promoting && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }}>
-          <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6 w-80">
+          <div role="dialog" aria-modal="true" aria-label="Promotion de tier"
+            className="bg-[#161b22] border border-[#30363d] rounded-xl p-6 w-80">
             <h3 className="text-sm font-semibold text-[#e6edf3] mb-1">Promotion de tier</h3>
             <p className="text-[10px] font-mono text-[#7d8590] mb-4">{promoting.walletId}</p>
             <div className="mb-3">
@@ -1039,6 +1042,7 @@ function EddTab({
   onReject: (caseId: number, reason: string) => void;
   isPending: boolean;
 }) {
+  const { t } = useI18n();
   const [selectedWalletId, setSelectedWalletId] = useState<number>(wallets[0]?.id ?? 0);
   const [interviewDate, setInterviewDate] = useState("");
   const [interviewNotes, setInterviewNotes] = useState("");
@@ -1076,7 +1080,7 @@ function EddTab({
         <div className="bg-[#0d1117] border border-[#21262d] rounded-lg p-6">
           <div className="flex items-center gap-3 mb-4">
             <ClipboardCheck size={18} className="text-[#30363d]" />
-            <p className="text-xs font-mono text-[#7d8590]">Aucun dossier EDD ouvert pour ce client</p>
+            <p className="text-xs font-mono text-[#7d8590]">{t.common.noData}</p>
           </div>
           {wallets.length > 0 && (
             <div className="flex items-center gap-3">

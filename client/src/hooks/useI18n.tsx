@@ -6,6 +6,7 @@ import {
   translations, getStoredLang, LANG_KEY,
   type Lang,
 } from "../lib/i18n";
+import { setCurrentLang } from "../lib/utils";
 
 // ─── Recursive string-value type (replaces literal types with string) ─────────
 type Stringified<T> = T extends string
@@ -29,10 +30,15 @@ const I18nContext = createContext<I18nContextValue | null>(null);
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>(getStoredLang);
+  const [lang, setLangState] = useState<Lang>(() => {
+    const initial = getStoredLang();
+    setCurrentLang(initial);
+    return initial;
+  });
 
   const setLang = useCallback((l: Lang) => {
     localStorage.setItem(LANG_KEY, l);
+    setCurrentLang(l);
     setLangState(l);
   }, []);
 

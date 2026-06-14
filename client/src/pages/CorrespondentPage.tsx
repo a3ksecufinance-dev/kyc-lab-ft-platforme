@@ -16,6 +16,7 @@ import { AppLayout } from "../components/layout/AppLayout";
 import { Badge } from "../components/ui/Badge";
 import { StatCard } from "../components/ui/StatCard";
 import { ScoreBadge } from "../components/ui/ScoreBadge";
+import { useI18n } from "../hooks/useI18n";
 import {
   Building2, AlertTriangle, Plus, Shield,
   RefreshCw, Search, X, Eye, Snowflake, Ban, FileText, Check,
@@ -76,9 +77,10 @@ function ConfirmDialog({ title, message, confirmLabel, danger, onConfirm, onCanc
   title: string; message: string; confirmLabel: string; danger?: boolean;
   onConfirm: () => void; onCancel: () => void; isPending?: boolean;
 }) {
+  const { t } = useI18n();
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-[#0f1117] border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl">
+      <div role="dialog" aria-modal="true" aria-label={title} className="bg-[#0f1117] border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl">
         <div className="p-5 border-b border-white/8">
           <h3 className="font-semibold text-white">{title}</h3>
         </div>
@@ -87,7 +89,7 @@ function ConfirmDialog({ title, message, confirmLabel, danger, onConfirm, onCanc
         </div>
         <div className="p-5 border-t border-white/8 flex gap-2 justify-end">
           <button onClick={onCancel} className="px-4 py-2 text-sm text-white/50 hover:text-white">
-            Annuler
+            {t.common.cancel}
           </button>
           <button
             onClick={onConfirm}
@@ -110,6 +112,7 @@ function FilterBar({ filters, onChange }: {
   filters: { search: string; country: string; riskLevel: string; status: string };
   onChange: (f: typeof filters) => void;
 }) {
+  const { t } = useI18n();
   const hasFilters = filters.country || filters.riskLevel || filters.status || filters.search;
 
   return (
@@ -119,7 +122,7 @@ function FilterBar({ filters, onChange }: {
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
         <input
           type="text"
-          placeholder="Rechercher une banque..."
+          placeholder={t.correspondent.searchPlaceholder}
           value={filters.search}
           onChange={(e) => onChange({ ...filters, search: e.target.value })}
           className="w-full pl-9 pr-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-white/25 focus:border-indigo-500/50 focus:outline-none"
@@ -177,6 +180,7 @@ function FilterBar({ filters, onChange }: {
 function AssessmentModal({ bankId, bankName, onClose, onSuccess }: {
   bankId: number; bankName: string; onClose: () => void; onSuccess: (msg: string) => void;
 }) {
+  const { t } = useI18n();
   const [form, setForm] = useState({
     amlFrameworkScore:    0,
     ownershipTranspScore: 0,
@@ -219,7 +223,7 @@ function AssessmentModal({ bankId, bankName, onClose, onSuccess }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-[#0f1117] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl">
+      <div role="dialog" aria-modal="true" aria-label="Evaluation FATF R.13" className="bg-[#0f1117] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl">
         <div className="p-5 border-b border-white/8">
           <h2 className="font-semibold text-white">Evaluation FATF R.13</h2>
           <p className="text-xs text-white/40 mt-0.5">{bankName}</p>
@@ -276,7 +280,7 @@ function AssessmentModal({ bankId, bankName, onClose, onSuccess }: {
           )}
         </div>
         <div className="p-5 border-t border-white/8 flex gap-2 justify-end">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-white/50 hover:text-white">Annuler</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm text-white/50 hover:text-white">{t.common.cancel}</button>
           <button
             onClick={() => assess.mutate({ bankId, ...form })}
             disabled={assess.isPending}
@@ -293,6 +297,7 @@ function AssessmentModal({ bankId, bankName, onClose, onSuccess }: {
 // ─── Create Modal ────────────────────────────────────────────────────────────
 
 function CreateModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (msg: string) => void }) {
+  const { t } = useI18n();
   const utils = trpc.useUtils();
   const [error, setError] = useState("");
   const [form, setForm] = useState({
@@ -321,7 +326,7 @@ function CreateModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-[#0f1117] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
+      <div role="dialog" aria-modal="true" aria-label="Nouvelle banque correspondante" className="bg-[#0f1117] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
         <div className="p-5 border-b border-white/8">
           <h2 className="font-semibold text-white flex items-center gap-2">
             <Plus size={16} className="text-indigo-400" />
@@ -369,7 +374,7 @@ function CreateModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
           )}
         </div>
         <div className="p-5 border-t border-white/8 flex gap-2 justify-end">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-white/50 hover:text-white">Annuler</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm text-white/50 hover:text-white">{t.common.cancel}</button>
           <button
             onClick={() => create.mutate({
               name:    form.name,
@@ -397,13 +402,14 @@ function DetailPanel({ bankId, onClose, onAction }: {
   bankId: number; onClose: () => void;
   onAction: (action: string, bankId: number) => void;
 }) {
+  const { t } = useI18n();
   const { data: bank, isLoading } = trpc.correspondent.get.useQuery({ id: bankId });
   const { data: assessments } = trpc.correspondent.getAssessments.useQuery({ id: bankId });
 
   if (isLoading || !bank) {
     return (
       <div className="fixed inset-y-0 right-0 z-40 w-full max-w-md bg-[#0a0b0f] border-l border-white/8 shadow-2xl">
-        <div className="p-6 text-white/30 text-sm">Chargement...</div>
+        <div className="p-6 text-white/30 text-sm">{t.common.loading}</div>
       </div>
     );
   }
@@ -428,7 +434,7 @@ function DetailPanel({ bankId, onClose, onAction }: {
               <Badge label={bank.riskLevel} variant="risk" />
             </div>
           </div>
-          <button onClick={onClose} className="text-white/40 hover:text-white p-1"><X size={18} /></button>
+          <button onClick={onClose} aria-label={t.common.close} className="text-white/40 hover:text-white p-1"><X size={18} /></button>
         </div>
 
         <div className="p-5 space-y-5">
@@ -516,7 +522,7 @@ function DetailPanel({ bankId, onClose, onAction }: {
 
             {!assessments || assessments.length === 0 ? (
               <div className="text-xs text-white/30 bg-white/3 rounded-xl p-4 text-center">
-                Aucune evaluation enregistree
+                {t.common.noData}
               </div>
             ) : (
               <div className="space-y-2">
@@ -592,6 +598,7 @@ function BankRow({ bank, onSelect, onAssess }: {
   onSelect: () => void;
   onAssess: () => void;
 }) {
+  const { t } = useI18n();
   const isOverdue = bank.nextReviewDate && new Date(bank.nextReviewDate) < new Date();
   const fatf = bank.fatfStatus ? FATF_STATUS_CONFIG[bank.fatfStatus] : null;
 
@@ -631,6 +638,7 @@ function BankRow({ bank, onSelect, onAssess }: {
           <button
             onClick={onSelect}
             title="Voir les details"
+            aria-label={t.common.details}
             className="p-1.5 text-white/30 hover:text-white/70 hover:bg-white/5 rounded transition-colors"
           >
             <Eye size={14} />
@@ -638,6 +646,7 @@ function BankRow({ bank, onSelect, onAssess }: {
           <button
             onClick={onAssess}
             title="Evaluer"
+            aria-label={t.common.validate}
             className="p-1.5 text-indigo-400/60 hover:text-indigo-400 hover:bg-indigo-500/10 rounded transition-colors"
           >
             <Shield size={14} />
@@ -651,6 +660,7 @@ function BankRow({ bank, onSelect, onAssess }: {
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export function CorrespondentPage() {
+  const { t } = useI18n();
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({ search: "", country: "", riskLevel: "", status: "" });
   const [assessBankId, setAssessBankId] = useState<number | null>(null);
@@ -763,6 +773,7 @@ export function CorrespondentPage() {
             onClick={() => refetch()}
             className="p-2 text-white/40 hover:text-white/70 border border-white/8 rounded-lg transition-colors"
             title="Rafraichir"
+            aria-label={t.common.refresh}
           >
             <RefreshCw size={15} />
           </button>
@@ -832,15 +843,15 @@ export function CorrespondentPage() {
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={8} className="text-center py-10 text-white/30 text-sm">Chargement...</td></tr>
+                <tr><td colSpan={8} className="text-center py-10 text-white/30 text-sm">{t.common.loading}</td></tr>
               ) : banks.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="text-center py-10">
                     <Building2 size={28} className="mx-auto text-white/15 mb-2" />
                     <div className="text-sm text-white/30">
                       {filters.search || filters.country || filters.riskLevel || filters.status
-                        ? "Aucun resultat pour ces filtres"
-                        : "Aucune banque correspondante enregistree"
+                        ? "{t.common.noResults}"
+                        : "{t.correspondent.noBanks}"
                       }
                     </div>
                     {!filters.search && !filters.country && !filters.riskLevel && !filters.status && (

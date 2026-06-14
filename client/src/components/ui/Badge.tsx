@@ -1,3 +1,4 @@
+import { useI18n } from "../../hooks/useI18n";
 
 interface BadgeProps {
   label:    string;
@@ -69,30 +70,14 @@ const PRIORITY: Record<string, BS> = {
 
 const D: BS = { bg:"rgba(100,116,139,0.09)", color:"#94A3B8", border:"rgba(100,116,139,0.18)" };
 
-const LABELS: Record<string, string> = {
-  LOW:"BAS", MEDIUM:"MOYEN", HIGH:"ÉLEVÉ", CRITICAL:"CRITIQUE",
-  OPEN:"OUVERT", IN_REVIEW:"EN RÉVISION", CLOSED:"FERMÉ",
-  FALSE_POSITIVE:"FAUX POSITIF", ESCALATED:"ESCALADÉ",
-  APPROVED:"APPROUVÉ", PENDING:"EN ATTENTE", REJECTED:"REJETÉ",
-  DRAFT:"BROUILLON", SUBMITTED:"SOUMIS", REVIEW:"EN RÉVISION",
-  FLAGGED:"SIGNALÉ", BLOCKED:"BLOQUÉ", COMPLETED:"COMPLÉTÉ",
-  CLEAR:"CLEAR", MATCH:"MATCH", UNDER_INVESTIGATION:"EN INVESTIGATION",
-  PENDING_APPROVAL:"EN APPROBATION", SAR_SUBMITTED:"SAR SOUMIS",
-  INDIVIDUAL:"INDIVIDUEL", CORPORATE:"ENTREPRISE", PEP:"PPE",
-  ACTIVE:"ACTIF", INACTIVE:"INACTIF", TESTING:"TEST",
-  TRANSFER:"VIREMENT", DEPOSIT:"DÉPÔT", WITHDRAWAL:"RETRAIT",
-  PAYMENT:"PAIEMENT", EXCHANGE:"CHANGE",
-  THRESHOLD:"SEUIL", PATTERN:"PATTERN", VELOCITY:"VÉLOCITÉ",
-  SANCTIONS:"SANCTIONS", FRAUD:"FRAUDE", NETWORK:"RÉSEAU",
-  ONLINE:"ONLINE", MOBILE:"MOBILE", BRANCH:"AGENCE", ATM:"ATM", API:"API",
-};
 
 // Statuses that show a live dot
 const DOT_STATUSES = new Set(["OPEN", "ACTIVE", "MATCH", "ESCALATED", "BLOCKED", "CRITICAL", "FRAUD"]);
 
 export function Badge({ label, variant = "default", className, dot }: BadgeProps) {
+  const { t } = useI18n();
   const upper   = label.toUpperCase().replace(/ /g, "_");
-  const display = LABELS[upper] ?? label;
+  const display = (t.badges as Record<string, string>)[upper] ?? label;
   const s: BS   =
     variant === "risk"     ? (RISK[upper]     ?? D) :
     variant === "status"   ? (STATUS[upper]   ?? D) :
@@ -107,7 +92,7 @@ export function Badge({ label, variant = "default", className, dot }: BadgeProps
       style={{
         display: "inline-flex", alignItems: "center", gap: 5,
         padding: "2px 8px 2px 7px", borderRadius: 5,
-        fontSize: 9.5, fontFamily: "'JetBrains Mono','Courier New',monospace",
+        fontSize: 9.5, fontFamily: "var(--wr-font-mono)",
         fontWeight: 600, letterSpacing: "0.10em",
         textTransform: "uppercase", whiteSpace: "nowrap",
         backgroundColor: s.bg, color: s.color,

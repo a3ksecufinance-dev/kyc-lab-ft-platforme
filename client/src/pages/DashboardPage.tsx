@@ -108,9 +108,10 @@ function TrendChart({ days }: { days: number }) {
 
 // ─── Barre de risque ──────────────────────────────────────────────────────────
 function RiskBar({ data }: { data: Record<string, number> }) {
+  const { t } = useI18n();
   const items = Object.entries(data).map(([key, value]) => ({ key, value }));
   const total = items.reduce((s, i) => s + i.value, 0);
-  if (!total) return <p style={{ fontSize: 12, color: C.text3, fontFamily: C.mono }}>Aucune donnée</p>;
+  if (!total) return <p style={{ fontSize: 12, color: C.text3, fontFamily: C.mono }}>{t.common.noData}</p>;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -340,7 +341,7 @@ function DirectionPanel({ selectedYear, onYearChange }: {
               </p>
             </div>
             <p style={{ fontSize: 26, fontWeight: 700, fontFamily: C.mono, color, margin: 0, lineHeight: 1 }}>
-              {typeof value === "number" ? value.toLocaleString("fr-FR") : value}
+              {typeof value === "number" ? formatNumber(value) : value}
             </p>
             <div>
               <p style={{ fontSize: 10, fontFamily: C.mono, color: C.text3, margin: "0 0 3px" }}>{sub}</p>

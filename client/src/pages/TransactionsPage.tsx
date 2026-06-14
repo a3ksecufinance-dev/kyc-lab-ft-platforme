@@ -4,7 +4,7 @@ import { AppLayout } from "../components/layout/AppLayout";
 import { DataTable, type Column } from "../components/ui/DataTable";
 import { Badge } from "../components/ui/Badge";
 import { trpc } from "../lib/trpc";
-import { formatAmount, formatRelative, formatNumber } from "../lib/utils";
+import { formatAmount, formatRelative, formatNumber, formatDateTime } from "../lib/utils";
 import { ShieldAlert, Search, X, Wallet, Plus, Upload, Eye } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { hasRole } from "../lib/auth";
@@ -165,6 +165,7 @@ export function TransactionsPage() {
             onClick={(e: React.MouseEvent) => { e.stopPropagation(); setDetailId(r.id); }}
             style={{ padding: 5, background: "none", border: `1px solid ${C.border2}`, borderRadius: 5, cursor: "pointer", color: C.text3, display: "flex", alignItems: "center" }}
             title="Détail"
+            aria-label="Détail"
           >
             <Eye size={11} />
           </button>
@@ -217,7 +218,7 @@ export function TransactionsPage() {
             { label: "Total transactions", value: txStats.total,       color: C.text1 },
             { label: "Suspectes",          value: txStats.suspicious,  color: C.red   },
             { label: "Aujourd'hui",        value: txStats.todayCount,  color: C.blue  },
-            { label: "Volume aujourd'hui", value: txStats.todayVolume.toLocaleString("fr-MA", { maximumFractionDigits: 0 }), color: C.green },
+            { label: "Volume aujourd'hui", value: formatNumber(txStats.todayVolume), color: C.green },
             { label: "Bloquées",           value: txStats.byStatus["BLOCKED"] ?? 0, color: C.amber },
           ] as const).map(({ label, value, color }) => (
             <div key={label} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px" }}>
@@ -240,7 +241,7 @@ export function TransactionsPage() {
             style={{ width: "100%", background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, paddingTop: 7, paddingBottom: 7, paddingLeft: 30, paddingRight: 28, fontSize: 11, fontFamily: C.mono, color: C.text2, outline: "none", boxSizing: "border-box" as const }}
           />
           {search && (
-            <button onClick={() => { setSearch(""); setPage(1); }} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", color: C.text4, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+            <button onClick={() => { setSearch(""); setPage(1); }} aria-label={t.common.close} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", color: C.text4, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
               <X size={11} />
             </button>
           )}
@@ -338,7 +339,7 @@ export function TransactionsPage() {
       {/* Modal création transaction */}
       {showCreate && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
-          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 24, width: "100%", maxWidth: 500 }}>
+          <div role="dialog" aria-modal="true" aria-label="Nouvelle transaction" style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 24, width: "100%", maxWidth: 500 }}>
             <h3 style={{ fontSize: 13, fontWeight: 600, fontFamily: C.mono, color: C.text1, margin: "0 0 16px" }}>Nouvelle transaction</h3>
             <div style={{ display: "flex", flexDirection: "column" as const, gap: 12 }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -415,7 +416,7 @@ export function TransactionsPage() {
       {/* Modal import CSV */}
       {showImport && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
-          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 24, width: "100%", maxWidth: 560 }}>
+          <div role="dialog" aria-modal="true" aria-label="Import CSV / MT940" style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 24, width: "100%", maxWidth: 560 }}>
             <h3 style={{ fontSize: 13, fontWeight: 600, fontFamily: C.mono, color: C.text1, margin: "0 0 4px" }}>Import CSV / MT940</h3>
             <p style={{ fontSize: 11, fontFamily: C.mono, color: C.text3, margin: "0 0 16px" }}>Coller le contenu du fichier CSV ou MT940 ci-dessous.</p>
             <div style={{ display: "flex", flexDirection: "column" as const, gap: 12 }}>
@@ -471,7 +472,7 @@ export function TransactionsPage() {
       {/* Modal blocage */}
       {blockTarget && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
-          <div style={{ background: C.surface, border: `1px solid ${C.red}40`, borderRadius: 12, padding: 24, width: "100%", maxWidth: 380 }}>
+          <div role="dialog" aria-modal="true" aria-label={t.transactions.blockTitle} style={{ background: C.surface, border: `1px solid ${C.red}40`, borderRadius: 12, padding: 24, width: "100%", maxWidth: 380 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
               <ShieldAlert size={16} style={{ color: C.red }} />
               <h3 style={{ fontSize: 13, fontWeight: 600, fontFamily: C.mono, color: C.text1, margin: 0 }}>{t.transactions.blockTitle}</h3>
@@ -511,18 +512,18 @@ export function TransactionsPage() {
       {detailId && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}
           onClick={() => setDetailId(null)}>
-          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, width: "100%", maxWidth: 600, maxHeight: "90vh", overflow: "auto", padding: 24 }}
+          <div role="dialog" aria-modal="true" aria-label="Détail transaction" style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, width: "100%", maxWidth: 600, maxHeight: "90vh", overflow: "auto", padding: 24 }}
             onClick={(e: React.MouseEvent) => e.stopPropagation()}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
               <div>
                 <h2 style={{ fontSize: 15, fontWeight: 400, fontFamily: C.serif, color: C.text1, margin: "0 0 2px" }}>Détail transaction</h2>
                 {txDetail && <p style={{ fontSize: 11, fontFamily: C.mono, color: C.blue, margin: 0 }}>{txDetail.transactionId}</p>}
               </div>
-              <button onClick={() => setDetailId(null)} style={{ background: "none", border: "none", cursor: "pointer", color: C.text3, padding: 4 }}><X size={16} /></button>
+              <button onClick={() => setDetailId(null)} aria-label={t.common.close} style={{ background: "none", border: "none", cursor: "pointer", color: C.text3, padding: 4 }}><X size={16} /></button>
             </div>
 
             {!txDetail ? (
-              <div style={{ textAlign: "center", padding: "40px 0", fontSize: 11, fontFamily: C.mono, color: C.text4 }}>Chargement…</div>
+              <div style={{ textAlign: "center", padding: "40px 0", fontSize: 11, fontFamily: C.mono, color: C.text4 }}>{t.common.loading}</div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                 {/* Statut + badges */}
@@ -560,14 +561,14 @@ export function TransactionsPage() {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 24px" }}>
                   {([
                     ["Client ID",          String(txDetail.customerId)],
-                    ["Date transaction",   new Date(txDetail.transactionDate).toLocaleString("fr-MA")],
+                    ["Date transaction",   formatDateTime(txDetail.transactionDate)],
                     ["Contrepartie",       txDetail.counterparty ?? "—"],
                     ["Pays contrepartie",  txDetail.counterpartyCountry ?? "—"],
                     ["Banque contrepartie",txDetail.counterpartyBank ?? "—"],
                     ["Objet",              txDetail.purpose ?? "—"],
                     ["Wallet ID",          txDetail.walletId ? String(txDetail.walletId) : "—"],
                     ["Agent ID",           txDetail.agentId  ? String(txDetail.agentId)  : "—"],
-                    ["Créé le",            new Date(txDetail.createdAt).toLocaleString("fr-MA")],
+                    ["Créé le",            formatDateTime(txDetail.createdAt)],
                   ] as [string, string][]).map(([label, value]) => (
                     <div key={label}>
                       <div style={{ fontSize: 9, fontFamily: C.mono, color: C.text4, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 2 }}>{label}</div>

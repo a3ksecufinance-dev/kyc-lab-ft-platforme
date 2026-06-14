@@ -228,7 +228,7 @@ export function CasesPage() {
       {/* Modal création */}
       {showCreate && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
-          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 24, width: "100%", maxWidth: 500 }}>
+          <div role="dialog" aria-modal="true" aria-label={t.cases.openCase} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 24, width: "100%", maxWidth: 500 }}>
             <h3 style={{ fontSize: 13, fontWeight: 600, fontFamily: C.mono, color: C.text1, margin: "0 0 16px" }}>{t.cases.openCase}</h3>
 
             <div style={{ display: "flex", flexDirection: "column" as const, gap: 12 }}>

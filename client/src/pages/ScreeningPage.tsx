@@ -3,7 +3,7 @@ import { AppLayout }  from "../components/layout/AppLayout";
 import { StatCard }   from "../components/ui/StatCard";
 import { Badge }      from "../components/ui/Badge";
 import { trpc }       from "../lib/trpc";
-import { formatRelative } from "../lib/utils";
+import { formatRelative, formatNumber } from "../lib/utils";
 import {
   Search, ShieldCheck, ShieldAlert, AlertTriangle,
   RefreshCw, Plus, Trash2, Shield, Database, Clock,
@@ -135,7 +135,7 @@ function ReviewModal({ target, onClose, onConfirm, isPending }: {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 16 }}>
-      <div style={{ background: "var(--wr-sidebar-bg, #0d1117)", border: `1px solid ${C.border2}`, borderRadius: 12, width: "100%", maxWidth: 400 }}>
+      <div role="dialog" aria-modal="true" aria-label={`Révision — ${target.label}`} style={{ background: "var(--wr-sidebar-bg, #0d1117)", border: `1px solid ${C.border2}`, borderRadius: 12, width: "100%", maxWidth: 400 }}>
         <div style={{ padding: "16px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 8 }}>
           <AlertTriangle size={14} style={{ color: C.amber }} />
           <p style={{ fontSize: 13, fontWeight: 600, fontFamily: C.mono, color: C.text1, margin: 0 }}>
@@ -448,7 +448,7 @@ function SearchTab({ canReview }: { canReview: boolean }) {
           <span style={{ fontSize: 10, fontFamily: C.mono, color: C.text3 }}>{history.length} résultat(s)</span>
         }>
           {!history.length ? (
-            <p style={{ fontSize: 12, fontFamily: C.mono, color: C.text4, textAlign: "center", padding: "16px 0" }}>Aucun screening antérieur</p>
+            <p style={{ fontSize: 12, fontFamily: C.mono, color: C.text4, textAlign: "center", padding: "16px 0" }}>{t.screening.noPriorScreening}</p>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
               {history.map((s: {
@@ -462,7 +462,7 @@ function SearchTab({ canReview }: { canReview: boolean }) {
                 }}>
                   <div>
                     <p style={{ fontSize: 12, fontFamily: C.mono, color: C.text1, margin: "0 0 2px" }}>
-                      {s.matchedEntity ?? "Aucune correspondance"}
+                      {s.matchedEntity ?? t.screening.noMatchDetected}
                       {s.listSource && <span style={{ color: C.text3, marginLeft: 8 }}>{s.listSource}</span>}
                     </p>
                     <p style={{ fontSize: 10, fontFamily: C.mono, color: C.text3, margin: 0 }}>
@@ -776,7 +776,7 @@ function ListsTab({ canAdmin }: { canAdmin: boolean }) {
 
       {/* KPIs */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
-        <StatCard label="Entités totales"       value={data ? data.total.toLocaleString("fr-FR") : "—"} icon={Database} />
+        <StatCard label="Entités totales"       value={data ? formatNumber(data.total) : "—"} icon={Database} />
         <StatCard label={t.screening.activeLists} value={data ? `${activeProviders.length} / ${data.providers.length}` : "—"} icon={Shield} />
         <StatCard label="Dernière mise à jour"  value={data?.updatedAt ? formatRelative(new Date(data.updatedAt)) : "—"} icon={Clock} />
       </div>
@@ -820,7 +820,7 @@ function ListsTab({ canAdmin }: { canAdmin: boolean }) {
                       </span>
                       {p.count > 0 && (
                         <span style={{ fontSize: 12, fontFamily: C.mono, color: C.text1, fontWeight: 600 }}>
-                          {p.count.toLocaleString("fr-FR")} <span style={{ color: C.text3, fontWeight: 400, fontSize: 10 }}>entités</span>
+                          {formatNumber(p.count)} <span style={{ color: C.text3, fontWeight: 400, fontSize: 10 }}>entités</span>
                         </span>
                       )}
                       {p.ageHours !== null && (
@@ -854,7 +854,7 @@ function ListsTab({ canAdmin }: { canAdmin: boolean }) {
                   : <CheckCircle size={12} style={{ color: C.green }} />}
                 <span style={{ fontSize: 11, fontFamily: C.mono, color: C.text2 }}>{s.provider}</span>
                 <span style={{ fontSize: 11, fontFamily: C.mono, color: C.text1, fontWeight: 600, marginLeft: "auto" }}>
-                  {s.count.toLocaleString("fr-FR")}
+                  {formatNumber(s.count)}
                 </span>
                 {s.error && <span style={{ fontSize: 10, fontFamily: C.mono, color: C.amber }}>{s.error}</span>}
               </div>
@@ -868,7 +868,7 @@ function ListsTab({ canAdmin }: { canAdmin: boolean }) {
         <Card title="Diagnostic santé des listes">
           <div style={{ display: "flex", gap: 12, marginBottom: 14 }}>
             {([
-              { label: "Entités totales",  value: health.totalEntities.toLocaleString("fr-FR"), color: C.text1 },
+              { label: "Entités totales",  value: formatNumber(health.totalEntities), color: C.text1 },
               { label: "Listes obsolètes", value: health.staleCount,                            color: health.staleCount > 0 ? C.amber : C.green },
             ] as const).map(({ label, value, color }) => (
               <div key={label} style={{ flex: 1, background: C.hover, borderRadius: 8, padding: "10px 14px", border: `1px solid ${C.border}` }}>
@@ -885,7 +885,7 @@ function ListsTab({ canAdmin }: { canAdmin: boolean }) {
                   {r.lastUpdate ? `Mis à jour ${formatRelative(new Date(r.lastUpdate))}` : "Jamais chargé"}
                 </span>
                 <span style={{ fontSize: 11, fontFamily: C.mono, color: C.text2, textAlign: "right" }}>
-                  {r.count.toLocaleString("fr-FR")}
+                  {formatNumber(r.count)}
                 </span>
                 <span style={{ fontSize: 10, fontFamily: C.mono, color: r.ageHours !== null && r.ageHours > 24 ? C.amber : C.text4, textAlign: "right" }}>
                   {r.ageHours !== null ? (r.ageHours < 1 ? "< 1h" : `${r.ageHours}h`) : "—"}
@@ -974,7 +974,7 @@ function CustomListTab({ canEdit }: { canEdit: boolean }) {
         <div style={{ textAlign: "center", padding: "48px 0", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10 }}>
           <Shield size={28} style={{ color: C.border2, marginBottom: 10 }} />
           <p style={{ fontSize: 12, fontFamily: C.mono, color: C.text4 }}>
-            {search ? "Aucun résultat" : t.screening.noCustomEntries}
+            {search ? t.common.noResults : t.screening.noCustomEntries}
           </p>
           {!search && <p style={{ fontSize: 10, fontFamily: C.mono, color: C.border, marginTop: 4 }}>{t.screening.addEntryHint}</p>}
         </div>
@@ -1014,6 +1014,7 @@ function CustomListTab({ canEdit }: { canEdit: boolean }) {
               </div>
               {canEdit && (
                 <button onClick={() => removeMutation.mutate({ id: e.id })} disabled={removeMutation.isPending}
+                  aria-label={t.common.delete}
                   style={{ padding: "6px", borderRadius: 6, background: "none", border: "none", cursor: "pointer", color: C.text4, transition: "color 0.15s" }}
                   onMouseEnter={ev => ((ev.currentTarget as HTMLElement).style.color = C.red)}
                   onMouseLeave={ev => ((ev.currentTarget as HTMLElement).style.color = C.text4)}>
@@ -1028,7 +1029,7 @@ function CustomListTab({ canEdit }: { canEdit: boolean }) {
       {/* Modal ajout */}
       {showAdd && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 16 }}>
-          <div style={{ background: "var(--wr-sidebar-bg, #0d1117)", border: `1px solid ${C.border2}`, borderRadius: 12, width: "100%", maxWidth: 440 }}>
+          <div role="dialog" aria-modal="true" aria-label="Nouvelle entrée personnalisée" style={{ background: "var(--wr-sidebar-bg, #0d1117)", border: `1px solid ${C.border2}`, borderRadius: 12, width: "100%", maxWidth: 440 }}>
             <div style={{ padding: "16px 20px", borderBottom: `1px solid ${C.border}` }}>
               <p style={{ fontSize: 14, fontWeight: 600, fontFamily: C.mono, color: C.text1, margin: "0 0 3px" }}>Nouvelle entrée personnalisée</p>
               <p style={{ fontSize: 10, fontFamily: C.mono, color: C.text4, margin: 0 }}>Sera incluse dans tous les screenings futurs</p>

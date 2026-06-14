@@ -107,7 +107,7 @@ export function LicensePage() {
         </div>
 
         {info.isLoading ? (
-          <p style={{ color: "var(--wr-text-3)" }}>Chargement…</p>
+          <p style={{ color: "var(--wr-text-3)" }}>{t.common.loading}</p>
         ) : (
           <>
             {/* ── Statut principal ──────────────────────────────────────── */}

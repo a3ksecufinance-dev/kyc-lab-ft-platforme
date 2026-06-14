@@ -1,34 +1,48 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { format, formatDistanceToNow } from "date-fns";
-import { fr } from "date-fns/locale";
+import { fr, enUS } from "date-fns/locale";
+import type { Lang } from "./i18n";
+
+const LOCALES = { fr, en: enUS } as const;
+const INTL_LOCALES = { fr: "fr-FR", en: "en-US" } as const;
+
+// Global accessor — set by useI18n provider, avoids passing lang to every call
+let _currentLang: Lang = "fr";
+export function setCurrentLang(lang: Lang) { _currentLang = lang; }
+export function getCurrentLang(): Lang { return _currentLang; }
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatDate(date: Date | string | null): string {
-  if (!date) return "—";
-  return format(new Date(date), "dd/MM/yyyy", { locale: fr });
+export function formatDate(date: Date | string | number | null, lang?: Lang): string {
+  if (date === null || date === undefined) return "—";
+  const l = lang ?? _currentLang;
+  return format(new Date(date), l === "fr" ? "dd/MM/yyyy" : "MM/dd/yyyy", { locale: LOCALES[l] });
 }
 
-export function formatDateTime(date: Date | string | null): string {
-  if (!date) return "—";
-  return format(new Date(date), "dd/MM/yyyy HH:mm", { locale: fr });
+export function formatDateTime(date: Date | string | number | null, lang?: Lang): string {
+  if (date === null || date === undefined) return "—";
+  const l = lang ?? _currentLang;
+  return format(new Date(date), l === "fr" ? "dd/MM/yyyy HH:mm" : "MM/dd/yyyy HH:mm", { locale: LOCALES[l] });
 }
 
-export function formatRelative(date: Date | string | null): string {
-  if (!date) return "—";
-  return formatDistanceToNow(new Date(date), { addSuffix: true, locale: fr });
+export function formatRelative(date: Date | string | number | null, lang?: Lang): string {
+  if (date === null || date === undefined) return "—";
+  const l = lang ?? _currentLang;
+  return formatDistanceToNow(new Date(date), { addSuffix: true, locale: LOCALES[l] });
 }
 
-export function formatAmount(amount: string | number | null, currency = "EUR"): string {
+export function formatAmount(amount: string | number | null, currency = "EUR", lang?: Lang): string {
   if (amount === null || amount === undefined) return "—";
-  return new Intl.NumberFormat("fr-FR", { style: "currency", currency }).format(Number(amount));
+  const l = lang ?? _currentLang;
+  return new Intl.NumberFormat(INTL_LOCALES[l], { style: "currency", currency }).format(Number(amount));
 }
 
-export function formatNumber(n: number): string {
-  return new Intl.NumberFormat("fr-FR").format(n);
+export function formatNumber(n: number, lang?: Lang): string {
+  const l = lang ?? _currentLang;
+  return new Intl.NumberFormat(INTL_LOCALES[l]).format(n);
 }
 
 export const RISK_COLORS: Record<string, string> = {

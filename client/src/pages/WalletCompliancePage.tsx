@@ -13,6 +13,8 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { keepPreviousData } from "@tanstack/react-query";
 import { AppLayout } from "../components/layout/AppLayout";
+import { LoadingState } from "../components/ui/LoadingState";
+import { EmptyState } from "../components/ui/EmptyState";
 import { trpc } from "../lib/trpc";
 import { formatNumber, formatRelative, formatDate } from "../lib/utils";
 import {
@@ -22,6 +24,7 @@ import {
 } from "lucide-react";
 import { useInstitution } from "../context/InstitutionContext";
 import { useAuth } from "../hooks/useAuth";
+import { useI18n } from "../hooks/useI18n";
 import { hasRole } from "../lib/auth";
 
 const C = {
@@ -100,6 +103,7 @@ const INPUT_S: React.CSSProperties = {
 export function WalletCompliancePage() {
   const flags = useInstitution();
   const { user } = useAuth();
+  const { t } = useI18n();
   const isSupervisor = hasRole(user, "supervisor");
   const [, navigate] = useLocation();
 
@@ -228,7 +232,7 @@ export function WalletCompliancePage() {
         {activeTab === "dashboard" && (
           <div>
             {!kpi ? (
-              <p style={{ color: C.text3, fontFamily: C.mono, fontSize: 12 }}>Chargement…</p>
+              <LoadingState message={t.common.loading} />
             ) : (
               <>
                 {/* KPIs ligne 1 */}
@@ -331,9 +335,9 @@ export function WalletCompliancePage() {
               Wallets dont le client est classé MEDIUM / HIGH / CRITICAL ou présentant des anomalies.
             </p>
             {risksLoading ? (
-              <p style={{ color: C.text3, fontFamily: C.mono, fontSize: 12 }}>Chargement…</p>
+              <LoadingState message={t.common.loading} />
             ) : !risksData?.data.length ? (
-              <p style={{ color: C.text3, fontFamily: C.mono, fontSize: 12 }}>Aucun wallet à risque détecté.</p>
+              <EmptyState message={t.walletCompliance.noRiskWallets} compact />
             ) : (
               <>
                 <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
@@ -392,11 +396,11 @@ export function WalletCompliancePage() {
         {activeTab === "alerts" && (
           <div>
             {alertsLoading ? (
-              <p style={{ color: C.text3, fontFamily: C.mono, fontSize: 12 }}>Chargement…</p>
+              <LoadingState message={t.common.loading} />
             ) : !alertsData?.data.length ? (
               <div style={{ textAlign: "center" as const, padding: "48px 0" }}>
                 <CheckCircle size={28} style={{ color: C.green, margin: "0 auto 10px", display: "block" }} />
-                <p style={{ color: C.text3, fontFamily: C.mono, fontSize: 12 }}>Aucune alerte AML ouverte liée aux wallets.</p>
+                <p style={{ color: C.text3, fontFamily: C.mono, fontSize: 12 }}>{t.common.noResults}</p>
               </div>
             ) : (
               <>
@@ -455,11 +459,11 @@ export function WalletCompliancePage() {
         {activeTab === "suspicious" && (
           <div>
             {suspLoading ? (
-              <p style={{ color: C.text3, fontFamily: C.mono, fontSize: 12 }}>Chargement…</p>
+              <LoadingState message={t.common.loading} />
             ) : !suspData?.data.length ? (
               <div style={{ textAlign: "center" as const, padding: "48px 0" }}>
                 <CheckCircle size={28} style={{ color: C.green, margin: "0 auto 10px", display: "block" }} />
-                <p style={{ color: C.text3, fontFamily: C.mono, fontSize: 12 }}>Aucune transaction suspecte sur wallets.</p>
+                <p style={{ color: C.text3, fontFamily: C.mono, fontSize: 12 }}>{t.common.noResults}</p>
               </div>
             ) : (
               <>
@@ -519,11 +523,11 @@ export function WalletCompliancePage() {
         {activeTab === "investigations" && (
           <div>
             {invLoading ? (
-              <p style={{ color: C.text3, fontFamily: C.mono, fontSize: 12 }}>Chargement…</p>
+              <LoadingState message={t.common.loading} />
             ) : !invData?.data.length ? (
               <div style={{ textAlign: "center" as const, padding: "48px 0" }}>
                 <FolderOpen size={28} style={{ color: C.text3, margin: "0 auto 10px", display: "block", opacity: 0.4 }} />
-                <p style={{ color: C.text3, fontFamily: C.mono, fontSize: 12 }}>Aucun dossier d'investigation ouvert.</p>
+                <p style={{ color: C.text3, fontFamily: C.mono, fontSize: 12 }}>{t.walletCompliance.noInvestigations}</p>
                 {isSupervisor && (
                   <button onClick={() => setShowInvModal(true)}
                     style={{ marginTop: 12, fontSize: 11, fontFamily: C.mono, padding: "7px 16px", borderRadius: 7, border: "1px solid rgba(248,113,113,0.3)", background: "rgba(248,113,113,0.06)", color: C.red, cursor: "pointer" }}>
@@ -568,12 +572,13 @@ export function WalletCompliancePage() {
         {/* ─────────────────────────────────────────────────────────────────── */}
         {showInvModal && (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }}>
-            <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: 28, width: 480 }}>
+            <div role="dialog" aria-modal="true" aria-label="Ouvrir une investigation"
+              style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: 28, width: 480 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
                 <h3 style={{ fontSize: 14, fontWeight: 600, color: C.text1, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
                   <FolderOpen size={14} style={{ color: C.red }} /> Ouvrir une investigation
                 </h3>
-                <button onClick={() => setShowInvModal(false)} style={{ background: "none", border: "none", color: C.text3, cursor: "pointer" }}><X size={16} /></button>
+                <button onClick={() => setShowInvModal(false)} aria-label={t.common.close} style={{ background: "none", border: "none", color: C.text3, cursor: "pointer" }}><X size={16} /></button>
               </div>
 
               <div style={{ display: "flex", flexDirection: "column" as const, gap: 12 }}>

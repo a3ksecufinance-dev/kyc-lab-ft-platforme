@@ -542,6 +542,7 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
 // ─── Tab Audit ────────────────────────────────────────────────────────────────
 
 function AuditTab() {
+  const { t } = useI18n();
   const [page, setPage]           = useState(1);
   const [entityType, setEntityType] = useState("");
   const [action, setAction]       = useState("");
@@ -626,7 +627,7 @@ function AuditTab() {
           page={page}
           limit={50}
           onPageChange={setPage}
-          emptyMessage="Aucun log d'audit"
+          emptyMessage={t.common.noData}
         />
       </div>
     </>

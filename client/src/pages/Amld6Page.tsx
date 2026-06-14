@@ -2,6 +2,7 @@ import { useState } from "react";
 import { AppLayout }  from "../components/layout/AppLayout";
 import { StatCard }   from "../components/ui/StatCard";
 import { trpc }       from "../lib/trpc";
+import { formatNumber, formatDateTime, formatDate } from "../lib/utils";
 import { useI18n }    from "../hooks/useI18n";
 import { useAuth }    from "../hooks/useAuth";
 import { hasRole }    from "../lib/auth";
@@ -50,7 +51,7 @@ type KpiData = {
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-const fmtNum  = (n: number) => n.toLocaleString("fr-FR");
+const fmtNum  = (n: number) => formatNumber(n);
 const fmtEur  = (n: number) => new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
 const fmtPct  = (n: number) => `${n.toFixed(1)} %`;
 const fmtDays = (n: number) => `${n.toFixed(1)} j`;
@@ -236,10 +237,10 @@ export function Amld6Page() {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 16px", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8 }}>
               <span style={{ fontSize: 10, fontFamily: C.mono, color: C.text3 }}>{t.amld6.period}</span>
               <span style={{ fontSize: 11, fontFamily: C.mono, color: C.text2 }}>
-                {new Date(kpi.period.from).toLocaleDateString("fr-FR")} → {new Date(kpi.period.to).toLocaleDateString("fr-FR")}
+                {formatDate(kpi.period.from)} → {formatDate(kpi.period.to)}
               </span>
               <span style={{ fontSize: 10, fontFamily: C.mono, color: C.text4 }}>
-                {t.amld6.generatedOn} {new Date(kpi.generatedAt).toLocaleString("fr-FR")}
+                {t.amld6.generatedOn} {formatDateTime(kpi.generatedAt)}
               </span>
             </div>
 

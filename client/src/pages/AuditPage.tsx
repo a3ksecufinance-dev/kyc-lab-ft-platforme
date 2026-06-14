@@ -1,6 +1,8 @@
 import { useState, useCallback } from "react";
 import { AppLayout } from "../components/layout/AppLayout";
 import { trpc } from "../lib/trpc";
+import { useI18n } from "../hooks/useI18n";
+import { formatDateTime, formatNumber } from "../lib/utils";
 import {
   ScrollText, Download, ChevronDown, ChevronRight,
   Filter, RefreshCw, Shield, User, FileText,
@@ -46,11 +48,6 @@ const ENTITY_META: Record<string, { icon: React.ComponentType<{ size?: number; c
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function fmtDate(d: Date | string) {
-  const dt = typeof d === "string" ? new Date(d) : d;
-  return dt.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })
-    + " " + dt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-}
 
 function exportToCsv(rows: AuditRow[]) {
   const hdr = ["ID", "Date", "Utilisateur", "Email", "Action", "Type Entité", "ID Entité", "IP", "Détails"];
@@ -115,8 +112,9 @@ function StatPill({ label, value, color }: { label: string; value: number | stri
 // ─── Row detail expander ──────────────────────────────────────────────────────
 
 function RowDetail({ details }: { details: unknown }) {
+  const { t } = useI18n();
   if (!details || (typeof details === "object" && Object.keys(details as object).length === 0)) {
-    return <span style={{ fontSize: 10, color: "var(--wr-text-4)", fontStyle: "italic" }}>Aucun détail</span>;
+    return <span style={{ fontSize: 10, color: "var(--wr-text-4)", fontStyle: "italic" }}>{t.audit.noDetails}</span>;
   }
   const entries = Object.entries(details as Record<string, unknown>);
   return (
@@ -165,7 +163,7 @@ function AuditRowItem({ row }: { row: AuditRow }) {
         {/* Timestamp */}
         <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>
           <span style={{ fontSize: 10, fontFamily: "var(--wr-font-mono)", color: "var(--wr-text-3)" }}>
-            {fmtDate(row.createdAt)}
+            {formatDateTime(row.createdAt)}
           </span>
         </td>
 
@@ -248,6 +246,8 @@ const ENTITY_TYPES = [
 ];
 
 export function AuditPage() {
+  const { t } = useI18n();
+  const ta = t.audit;
   const [page,       setPage]       = useState(1);
   const [entityType, setEntityType] = useState("");
   const [actionQ,    setActionQ]    = useState("");
@@ -310,16 +310,16 @@ export function AuditPage() {
     : null;
 
   return (
-    <AppLayout title="Audit Trail">
+    <AppLayout title={ta.title}>
       {/* ── Stats bar ───────────────────────────────────────────────────────── */}
       <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
-        <StatPill label="Total événements"  value={(stats?.total  ?? 0).toLocaleString("fr-FR")} color="var(--wr-text-1)" />
-        <StatPill label="Dernières 24 h"    value={(stats?.last24h ?? 0).toLocaleString("fr-FR")} color="#4A9EFF" />
-        <StatPill label="Derniers 7 jours"  value={(stats?.last7d  ?? 0).toLocaleString("fr-FR")} color="#2DD4A0" />
+        <StatPill label="Total événements"  value={formatNumber(stats?.total  ?? 0)} color="var(--wr-text-1)" />
+        <StatPill label="Dernières 24 h"    value={formatNumber(stats?.last24h ?? 0)} color="#4A9EFF" />
+        <StatPill label="Derniers 7 jours"  value={formatNumber(stats?.last7d  ?? 0)} color="#2DD4A0" />
         {topEntity && (
           <StatPill
             label="Entité la plus active"
-            value={`${ENTITY_META[topEntity[0]]?.label ?? topEntity[0]} · ${(topEntity[1] as number).toLocaleString("fr-FR")}`}
+            value={`${ENTITY_META[topEntity[0]]?.label ?? topEntity[0]} · ${formatNumber(topEntity[1] as number)}`}
             color="#E8C84A"
           />
         )}
@@ -342,7 +342,7 @@ export function AuditPage() {
             <ScrollText size={14} style={{ color: "var(--wr-gold)" }} />
             <span style={{ fontSize: 13, fontWeight: 600, color: "var(--wr-text-1)",
               fontFamily: "var(--wr-font-serif)" }}>
-              Journal d'audit immuable
+              {ta.subtitle}
             </span>
             <span style={{
               fontSize: 9, fontFamily: "var(--wr-font-mono)", fontWeight: 700,
@@ -350,7 +350,7 @@ export function AuditPage() {
               background: "rgba(201,162,39,0.12)", color: "var(--wr-gold)",
               border: "1px solid rgba(201,162,39,0.22)", letterSpacing: "0.10em",
             }}>
-              {total.toLocaleString("fr-FR")} ENTRÉES
+              {formatNumber(total)} ENTRÉES
             </span>
           </div>
 
@@ -364,7 +364,7 @@ export function AuditPage() {
                 fontSize: 10, fontFamily: "var(--wr-font-mono)", color: "var(--wr-text-2)",
               }}
             >
-              <RefreshCw size={10} /> Actualiser
+              <RefreshCw size={10} /> {t.common.refresh}
             </button>
             <button
               onClick={handleExport}
@@ -393,7 +393,7 @@ export function AuditPage() {
           {/* Date from */}
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <label style={{ fontSize: 9, fontFamily: "var(--wr-font-mono)", color: "var(--wr-text-4)",
-              letterSpacing: "0.10em", textTransform: "uppercase" }}>Du</label>
+              letterSpacing: "0.10em", textTransform: "uppercase" }}>{t.common.dateFrom}</label>
             <input
               type="date"
               value={since}
@@ -404,7 +404,7 @@ export function AuditPage() {
           {/* Date until */}
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <label style={{ fontSize: 9, fontFamily: "var(--wr-font-mono)", color: "var(--wr-text-4)",
-              letterSpacing: "0.10em", textTransform: "uppercase" }}>Au</label>
+              letterSpacing: "0.10em", textTransform: "uppercase" }}>{t.common.dateTo}</label>
             <input
               type="date"
               value={until}
@@ -415,13 +415,13 @@ export function AuditPage() {
           {/* Entity type */}
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <label style={{ fontSize: 9, fontFamily: "var(--wr-font-mono)", color: "var(--wr-text-4)",
-              letterSpacing: "0.10em", textTransform: "uppercase" }}>Type entité</label>
+              letterSpacing: "0.10em", textTransform: "uppercase" }}>{ta.filterEntity}</label>
             <select
               value={entityType}
               onChange={e => setEntityType(e.target.value)}
               style={{ ...inputStyle, minWidth: 140 }}
             >
-              <option value="">Tous</option>
+              <option value="">{ta.allEntities}</option>
               {ENTITY_TYPES.map(et => (
                 <option key={et} value={et}>{ENTITY_META[et]?.label ?? et}</option>
               ))}
@@ -430,7 +430,7 @@ export function AuditPage() {
           {/* Action search */}
           <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1, minWidth: 180 }}>
             <label style={{ fontSize: 9, fontFamily: "var(--wr-font-mono)", color: "var(--wr-text-4)",
-              letterSpacing: "0.10em", textTransform: "uppercase" }}>Action</label>
+              letterSpacing: "0.10em", textTransform: "uppercase" }}>{ta.filterAction}</label>
             <div style={{ position: "relative" }}>
               <Search size={11} style={{
                 position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)",
@@ -448,10 +448,10 @@ export function AuditPage() {
           </div>
           {/* Buttons */}
           <button onClick={applyFilters} style={filterBtnStyle("#4A9EFF")}>
-            <Filter size={10} /> Filtrer
+            <Filter size={10} /> {t.common.filter}
           </button>
           <button onClick={resetFilters} style={filterBtnStyle("#94A3B8")}>
-            Réinitialiser
+            {t.common.reset}
           </button>
         </div>
 
@@ -461,26 +461,26 @@ export function AuditPage() {
             <thead>
               <tr style={{ borderBottom: "1px solid var(--wr-border)", background: "var(--wr-surface)" }}>
                 <th style={thStyle} />
-                <th style={thStyle}>Horodatage</th>
-                <th style={thStyle}>Utilisateur</th>
-                <th style={thStyle}>Action</th>
-                <th style={thStyle}>Entité</th>
-                <th style={thStyle}>ID Entité</th>
-                <th style={thStyle}>IP</th>
+                <th style={thStyle}>{ta.timestamp}</th>
+                <th style={thStyle}>{ta.user}</th>
+                <th style={thStyle}>{ta.action}</th>
+                <th style={thStyle}>{ta.entity}</th>
+                <th style={thStyle}>{ta.entityId}</th>
+                <th style={thStyle}>{ta.ip}</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr><td colSpan={7} style={{ textAlign: "center", padding: 40,
                   fontSize: 11, fontFamily: "var(--wr-font-mono)", color: "var(--wr-text-4)" }}>
-                  Chargement…
+                  {t.common.loading}
                 </td></tr>
               ) : rows.length === 0 ? (
                 <tr><td colSpan={7} style={{ textAlign: "center", padding: 40 }}>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
                     <ScrollText size={28} style={{ color: "var(--wr-text-4)", opacity: 0.4 }} />
                     <span style={{ fontSize: 11, fontFamily: "var(--wr-font-mono)", color: "var(--wr-text-4)" }}>
-                      Aucun événement correspondant aux filtres
+                      {ta.noEvents}
                     </span>
                   </div>
                 </td></tr>
@@ -499,11 +499,11 @@ export function AuditPage() {
             background: "var(--wr-surface)",
           }}>
             <span style={{ fontSize: 10, fontFamily: "var(--wr-font-mono)", color: "var(--wr-text-4)" }}>
-              Page {page} / {totalPages} · {total.toLocaleString("fr-FR")} entrées
+              {t.common.page} {page} / {totalPages} · {formatNumber(total)} {t.common.rows}
             </span>
             <div style={{ display: "flex", gap: 6 }}>
-              <PagBtn label="← Précédent" disabled={page <= 1}         onClick={() => setPage(p => p - 1)} />
-              <PagBtn label="Suivant →"   disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} />
+              <PagBtn label={`← ${t.common.previous}`} disabled={page <= 1}         onClick={() => setPage(p => p - 1)} />
+              <PagBtn label={`${t.common.next} →`}   disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} />
             </div>
           </div>
         )}
@@ -538,7 +538,7 @@ export function AuditPage() {
                       </span>
                       <span style={{ fontSize: 11, fontFamily: "var(--wr-font-mono)", fontWeight: 700,
                         color: "var(--wr-text-1)" }}>
-                        {(cnt as number).toLocaleString("fr-FR")}
+                        {formatNumber(cnt as number)}
                       </span>
                     </div>
                     <div style={{ height: 3, borderRadius: 2, background: "var(--wr-border)" }}>

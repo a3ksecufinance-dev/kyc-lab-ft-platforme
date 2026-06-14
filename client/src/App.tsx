@@ -31,6 +31,9 @@ import { AuditPage }          from "./pages/AuditPage";
 import { CorrespondentPage }  from "./pages/CorrespondentPage";
 import { ApprovalsPage }     from "./pages/ApprovalsPage";
 import { LicensePage }       from "./pages/LicensePage";
+import { NotificationsPage } from "./pages/NotificationsPage";
+import { ConfigPage }        from "./pages/ConfigPage";
+import { ConnectorsPage }    from "./pages/ConnectorsPage";
 
 function PrivateRoute({ component: Component, minRole }: {
   component: () => ReactElement;
@@ -79,7 +82,10 @@ export function App() {
       <Route path="/audit"         component={() => <PrivateRoute component={AuditPage} minRole="supervisor" />} />
       <Route path="/correspondent" component={() => <PrivateRoute component={CorrespondentPage} minRole="analyst" />} />
       <Route path="/approvals"    component={() => <PrivateRoute component={ApprovalsPage} minRole="compliance_officer" />} />
-      <Route path="/license"     component={() => <PrivateRoute component={LicensePage} minRole="admin" />} />
+      <Route path="/license"        component={() => <PrivateRoute component={LicensePage} minRole="admin" />} />
+      <Route path="/notifications"  component={() => <PrivateRoute component={NotificationsPage} />} />
+      <Route path="/config"         component={() => <PrivateRoute component={ConfigPage} minRole="admin" />} />
+      <Route path="/connectors"     component={() => <PrivateRoute component={ConnectorsPage} minRole="supervisor" />} />
 
       {/* Route publique — simulateur CBS (pas d'auth requise) */}
       <Route path="/cbs" component={CbsSimulatorPage} />

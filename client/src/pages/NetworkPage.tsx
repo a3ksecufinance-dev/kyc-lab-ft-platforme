@@ -775,14 +775,14 @@ export function NetworkPage() {
                             border:     `1px solid ${node.type === "customer" ? ((node.riskLevel === "CRITICAL" || node.riskLevel === "HIGH") ? "rgba(255,101,112,0.3)" : "rgba(74,158,255,0.25)") : "rgba(45,212,160,0.25)"}`,
                           }}>
                             <span>{node.label.slice(0, 15)}</span>
-                            {node.pepStatus && <span style={{ fontSize: 8, color: C.gold }}>PEP</span>}
-                            {node.isSuspicious && <span style={{ fontSize: 8, color: C.red }}>⚠</span>}
+                            {node.pepStatus && <span style={{ fontSize: 10, color: C.gold }}>PEP</span>}
+                            {node.isSuspicious && <span style={{ fontSize: 10, color: C.red }}>⚠</span>}
                           </span>
                           {j < rp.nodes.length - 1 && (
                             <span className="text-[var(--wr-text-4)] text-xs flex flex-col items-center">
                               →
                               {rp.edges[j] && (
-                                <span style={{ fontSize: 8, color: (rp.edges[j] as {suspicious?: boolean}).suspicious ? C.red : C.text4 }}>
+                                <span style={{ fontSize: 10, color: (rp.edges[j] as {suspicious?: boolean}).suspicious ? C.red : C.text4 }}>
                                   {fmtAmount((rp.edges[j] as {weight: number}).weight || 0)}
                                 </span>
                               )}
