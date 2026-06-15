@@ -112,6 +112,7 @@ const translations = {
       reset:        "Réinitialiser",
       critical:     "CRITIQUE",
       pluralS:      "S",
+      moduleNotActive: "Module non activé pour cette institution.",
     },
     // ── Risk levels ─────────────────────────────────────────────────────────
     risk: {
@@ -1239,6 +1240,7 @@ const translations = {
       reset:        "Reset",
       critical:     "CRITICAL",
       pluralS:      "S",
+      moduleNotActive: "Module not activated for this institution.",
     },
     risk: {
       low:      "LOW",

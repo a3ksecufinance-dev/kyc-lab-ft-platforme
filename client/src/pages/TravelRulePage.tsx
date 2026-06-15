@@ -4,6 +4,7 @@ import { trpc } from "../lib/trpc";
 import { useI18n } from "../hooks/useI18n";
 import { formatNumber, formatDateTime } from "../lib/utils";
 import { Send, Clock, CheckCircle2, XCircle, Globe } from "lucide-react";
+import { useInstitution } from "../context/InstitutionContext";
 
 const C = {
   surface: "var(--wr-card)",
@@ -42,6 +43,7 @@ function StatusBadge({ status }: { status: string }) {
 
 export function TravelRulePage() {
   const { t } = useI18n();
+  const flags = useInstitution();
   const [txIdInput, setTxIdInput] = useState("");
   const [txRefInput, setTxRefInput] = useState("");
   const [selectedRecord, setSelectedRecord] = useState<string | null>(null);
@@ -65,6 +67,17 @@ export function TravelRulePage() {
     const id = parseInt(txIdInput);
     if (!isNaN(id)) generate.mutate({ transactionDbId: id });
   };
+
+  if (!flags.wallets) {
+    return (
+      <AppLayout>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh", flexDirection: "column" as const, gap: 12 }}>
+          <Globe size={32} style={{ color: "var(--wr-text-3)", opacity: 0.4 }} />
+          <p style={{ color: "var(--wr-text-3)", fontSize: 13 }}>{t.common.moduleNotActive}</p>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>

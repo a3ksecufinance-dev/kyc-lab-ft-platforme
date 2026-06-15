@@ -1,5 +1,6 @@
 import { keepPreviousData } from "@tanstack/react-query";
 import { useState } from "react";
+import { useUrlParams } from "../hooks/useUrlParams";
 import { AppLayout } from "../components/layout/AppLayout";
 import { DataTable, type Column } from "../components/ui/DataTable";
 import { Badge } from "../components/ui/Badge";
@@ -39,9 +40,10 @@ export function AlertsPage() {
   const { t } = useI18n();
   const { user } = useAuth();
   const [, navigate] = useLocation();
-  const [page, setPage] = useState(1);
-  const [status, setStatus]   = useState<string>("");
-  const [priority, setPriority] = useState<string>("");
+  const urlParams = useUrlParams();
+  const page = urlParams.getNumber("page", 1);
+  const status = urlParams.get("status");
+  const priority = urlParams.get("priority");
   const [selected, setSelected] = useState<Alert | null>(null);
   const [resolveNote, setResolveNote] = useState("");
 
@@ -162,7 +164,7 @@ export function AlertsPage() {
       <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
         <select
           value={status}
-          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setStatus(e.target.value); setPage(1); }}
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { urlParams.set({ status: e.target.value || null, page: null }); }}
           style={{ background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "7px 11px", fontSize: 11, fontFamily: C.mono, color: C.text2, outline: "none" }}
         >
           <option value="">{t.alerts.allStatuses}</option>
@@ -174,7 +176,7 @@ export function AlertsPage() {
         </select>
         <select
           value={priority}
-          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setPriority(e.target.value); setPage(1); }}
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { urlParams.set({ priority: e.target.value || null, page: null }); }}
           style={{ background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "7px 11px", fontSize: 11, fontFamily: C.mono, color: C.text2, outline: "none" }}
         >
           <option value="">{t.alerts.allSeverities}</option>
@@ -194,7 +196,7 @@ export function AlertsPage() {
           total={data?.total}
           page={page}
           limit={20}
-          onPageChange={setPage}
+          onPageChange={(p) => urlParams.set({ page: p > 1 ? p : null })}
           emptyMessage={t.alerts.noAlerts}
         />
       </div>

@@ -36,8 +36,8 @@ const DEDUP_TTL_SECONDS = 86_400;
 function verifySignature(rawBody: Buffer, header: string | undefined): boolean {
   const secret = ENV.WEBHOOK_SECRET;
   if (!secret) {
-    log.warn("WEBHOOK_SECRET non configuré — signature non vérifiée");
-    return true;
+    log.error("WEBHOOK_SECRET non configuré — webhook rejeté");
+    return false;
   }
   if (!header) return false;
 
@@ -104,7 +104,7 @@ async function handleOrangeMoney(req: Request, res: Response): Promise<void> {
     res.status(400).json({ error: "JSON invalide" }); return;
   }
 
-  if (sigHeader && !verifySignature(rawBody, sigHeader)) {
+  if (!verifySignature(rawBody, sigHeader)) {
     log.warn({ ip: req.ip }, "[Orange] Signature invalide");
     res.status(401).json({ error: "Signature invalide" }); return;
   }
@@ -176,7 +176,7 @@ async function handleWave(req: Request, res: Response): Promise<void> {
     res.status(400).json({ error: "JSON invalide" }); return;
   }
 
-  if (sigHeader && !verifySignature(rawBody, sigHeader)) {
+  if (!verifySignature(rawBody, sigHeader)) {
     log.warn({ ip: req.ip }, "[Wave] Signature invalide");
     res.status(401).json({ error: "Signature invalide" }); return;
   }
@@ -246,7 +246,7 @@ async function handleCihMobile(req: Request, res: Response): Promise<void> {
     res.status(400).json({ error: "JSON invalide" }); return;
   }
 
-  if (sigHeader && !verifySignature(rawBody, sigHeader)) {
+  if (!verifySignature(rawBody, sigHeader)) {
     log.warn({ ip: req.ip }, "[CIH] Signature invalide");
     res.status(401).json({ error: "Signature invalide" }); return;
   }

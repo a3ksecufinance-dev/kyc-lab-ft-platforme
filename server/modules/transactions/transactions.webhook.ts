@@ -42,8 +42,8 @@ const DEDUP_TTL_SECONDS    = 86_400;          // 24h
 function verifyWebhookSignature(rawBody: Buffer, signature: string): boolean {
   const secret = ENV.WEBHOOK_SECRET;
   if (!secret) {
-    log.warn("WEBHOOK_SECRET non configuré — signature non vérifiée");
-    return true;  // En dev sans secret configuré, laisser passer
+    log.error("WEBHOOK_SECRET non configuré — webhook rejeté");
+    return false;
   }
 
   const expected = "sha256=" + createHmac("sha256", secret)

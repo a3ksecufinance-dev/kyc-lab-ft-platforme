@@ -8,6 +8,7 @@ import { I18nProvider, useI18n } from "./hooks/useI18n";
 import { ThemeProvider } from "./context/ThemeContext";
 import { InstitutionProvider } from "./context/InstitutionContext";
 import { startSessionTracker } from "./lib/session";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { App } from "./App";
 import "./globals.css";
 
@@ -48,11 +49,21 @@ function Root() {
     defaultOptions: {
       queries: {
         retry: (count: number, err: unknown) => {
+          if ((err as { data?: { code?: string; httpStatus?: number } })?.data?.code === "UNAUTHORIZED") return false;
           if ((err as { data?: { httpStatus?: number } })?.data?.httpStatus === 401) return false;
-          return count < 1;
+          return count < 3;
         },
         refetchOnWindowFocus: false,
         staleTime: 10_000,
+      },
+      mutations: {
+        onError: (err: unknown) => {
+          if ((err as { data?: { code?: string } })?.data?.code === "UNAUTHORIZED") {
+            localStorage.removeItem("token");
+            clearTokens();
+            window.location.href = "/login";
+          }
+        },
       },
     },
   }));
@@ -114,10 +125,12 @@ if (!root) throw new Error("Root element not found");
 
 createRoot(root).render(
   <StrictMode>
-    <ThemeProvider>
-      <I18nProvider>
-        <Root />
-      </I18nProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <I18nProvider>
+          <Root />
+        </I18nProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   </StrictMode>
 );

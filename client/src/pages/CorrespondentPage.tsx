@@ -22,6 +22,7 @@ import {
   RefreshCw, Search, X, Eye, Snowflake, Ban, FileText, Check,
   Filter, Clock, Globe, Activity,
 } from "lucide-react";
+import { useInstitution } from "../context/InstitutionContext";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -661,6 +662,7 @@ function BankRow({ bank, onSelect, onAssess }: {
 
 export function CorrespondentPage() {
   const { t } = useI18n();
+  const flags = useInstitution();
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({ search: "", country: "", riskLevel: "", status: "" });
   const [assessBankId, setAssessBankId] = useState<number | null>(null);
@@ -753,6 +755,17 @@ export function CorrespondentPage() {
     suspend:   { title: "Suspendre la banque", message: "La banque sera suspendue. Toutes les operations de correspondance seront bloquees jusqu'a reactivation.", label: "Suspendre", danger: true },
     terminate: { title: "Terminer la relation", message: "Cette action est definitive. La relation de correspondance sera terminee et ne pourra pas etre reactivee.", label: "Terminer la relation", danger: true },
   };
+
+  if (!flags.correspondentBanking) {
+    return (
+      <AppLayout>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh", flexDirection: "column" as const, gap: 12 }}>
+          <Building2 size={32} style={{ color: "var(--wr-text-3)", opacity: 0.4 }} />
+          <p style={{ color: "var(--wr-text-3)", fontSize: 13 }}>{t.common.moduleNotActive}</p>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>

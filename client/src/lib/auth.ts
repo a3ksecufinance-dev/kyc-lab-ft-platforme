@@ -56,6 +56,21 @@ export const ROLE_ORDER: Record<AuthUser["role"], number> = {
   analyst: 1, supervisor: 2, compliance_officer: 3, admin: 4,
 };
 
+export function getRefreshToken(): string | null {
+  return localStorage.getItem(REFRESH_KEY);
+}
+
+export function getTokenExpiryMs(token: string): number {
+  try {
+    const [, payload] = token.split(".");
+    if (!payload) return 0;
+    const decoded = JSON.parse(atob(payload)) as { exp?: number };
+    return decoded.exp ? decoded.exp * 1000 : 0;
+  } catch {
+    return 0;
+  }
+}
+
 export function hasRole(user: AuthUser | null, minRole: AuthUser["role"]): boolean {
   if (!user) return false;
   return ROLE_ORDER[user.role] >= ROLE_ORDER[minRole];

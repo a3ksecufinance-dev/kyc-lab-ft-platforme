@@ -94,15 +94,32 @@ async function totp(secret: string, window = 0): Promise<string> {
 
 // ─── Chiffrement du secret MFA ────────────────────────────────────────────────
 
-const ENC_KEY = ENV.MFA_ENCRYPTION_KEY || ENV.JWT_ACCESS_SECRET.slice(0, 32);
+// MIGRATION NOTE: Existing MFA secrets encrypted with the old key (padEnd)
+// will fail to decrypt. Users with MFA enabled will need to re-enroll.
+// This is acceptable for a security fix — the old derivation was insecure.
+
+const ENC_KEY_MATERIAL = ENV.MFA_ENCRYPTION_KEY || ENV.JWT_ACCESS_SECRET;
+const MFA_SALT = new TextEncoder().encode("watchreg-mfa-v1");
+
+async function deriveMfaKey(usage: "encrypt" | "decrypt"): Promise<CryptoKey> {
+  const baseKey = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(ENC_KEY_MATERIAL),
+    "PBKDF2",
+    false,
+    ["deriveKey"],
+  );
+  return crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt: MFA_SALT, iterations: 100_000, hash: "SHA-256" },
+    baseKey,
+    { name: "AES-GCM", length: 256 },
+    false,
+    [usage],
+  );
+}
 
 async function encryptSecret(secret: string): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(ENC_KEY.slice(0, 32).padEnd(32, "0")),
-    { name: "AES-GCM" },
-    false, ["encrypt"]
-  );
+  const key = await deriveMfaKey("encrypt");
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const enc = await crypto.subtle.encrypt(
     { name: "AES-GCM", iv },
@@ -119,12 +136,7 @@ async function decryptSecret(stored: string): Promise<string> {
   if (!ivB64 || !cipherB64) throw new Error("Format secret MFA invalide");
 
   const fromB64 = (s: string) => Uint8Array.from(atob(s), c => c.charCodeAt(0));
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(ENC_KEY.slice(0, 32).padEnd(32, "0")),
-    { name: "AES-GCM" },
-    false, ["decrypt"]
-  );
+  const key = await deriveMfaKey("decrypt");
   const dec = await crypto.subtle.decrypt(
     { name: "AES-GCM", iv: fromB64(ivB64) },
     key,

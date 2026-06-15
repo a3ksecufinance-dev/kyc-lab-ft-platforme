@@ -4,7 +4,7 @@ import { trpc } from "../lib/trpc";
 import { CLASSIC_BANK_FLAGS } from "../../../shared/institution.types";
 import type { InstitutionFeatureFlags } from "../../../shared/institution.types";
 
-const InstitutionContext = createContext<InstitutionFeatureFlags>(CLASSIC_BANK_FLAGS);
+const InstitutionContext = createContext<InstitutionFeatureFlags | null>(null);
 
 export function InstitutionProvider({ children }: { children: ReactNode }) {
   const { data } = trpc.institution.getConfig.useQuery(undefined, {
@@ -37,5 +37,7 @@ export function InstitutionProvider({ children }: { children: ReactNode }) {
 }
 
 export function useInstitution(): InstitutionFeatureFlags {
-  return useContext(InstitutionContext);
+  const ctx = useContext(InstitutionContext);
+  if (!ctx) throw new Error("useInstitution must be used within InstitutionProvider");
+  return ctx;
 }

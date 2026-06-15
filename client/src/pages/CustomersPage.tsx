@@ -1,6 +1,7 @@
 import { keepPreviousData } from "@tanstack/react-query";
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { useUrlParams } from "../hooks/useUrlParams";
 import { AppLayout } from "../components/layout/AppLayout";
 import { DataTable, type Column } from "../components/ui/DataTable";
 import { Badge } from "../components/ui/Badge";
@@ -270,10 +271,11 @@ export function CustomersPage() {
   const [, navigate] = useLocation();
   const { user } = useAuth();
   const canCreate = hasRole(user, "analyst");
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-  const [riskLevel, setRiskLevel] = useState<string>("");
-  const [kycStatus, setKycStatus] = useState<string>("");
+  const urlParams = useUrlParams();
+  const page = urlParams.getNumber("page", 1);
+  const search = urlParams.get("search");
+  const riskLevel = urlParams.get("riskLevel");
+  const kycStatus = urlParams.get("kycStatus");
   const [showCreate, setShowCreate] = useState(false);
   const [editTarget, setEditTarget] = useState<Customer | null>(null);
   const { t } = useI18n();
@@ -388,14 +390,14 @@ export function CustomersPage() {
           <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: C.text4 }} />
           <input
             value={search}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setSearch(e.target.value); setPage(1); }}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => { urlParams.set({ search: e.target.value || null, page: null }); }}
             placeholder={t.customers.searchPlaceholder}
             style={{ width: "100%", background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, paddingTop: 7, paddingBottom: 7, paddingLeft: 30, paddingRight: 11, fontSize: 11, fontFamily: C.mono, color: C.text2, outline: "none", boxSizing: "border-box" as const }}
           />
         </div>
         <select
           value={riskLevel}
-          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setRiskLevel(e.target.value); setPage(1); }}
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { urlParams.set({ riskLevel: e.target.value || null, page: null }); }}
           style={{ background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "7px 11px", fontSize: 11, fontFamily: C.mono, color: C.text2, outline: "none" }}
         >
           <option value="">{t.customers.allRisks}</option>
@@ -406,7 +408,7 @@ export function CustomersPage() {
         </select>
         <select
           value={kycStatus}
-          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setKycStatus(e.target.value); setPage(1); }}
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { urlParams.set({ kycStatus: e.target.value || null, page: null }); }}
           style={{ background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "7px 11px", fontSize: 11, fontFamily: C.mono, color: C.text2, outline: "none" }}
         >
           <option value="">{t.customers.allStatuses}</option>
@@ -426,7 +428,7 @@ export function CustomersPage() {
           total={data?.total}
           page={page}
           limit={20}
-          onPageChange={setPage}
+          onPageChange={(p) => urlParams.set({ page: p > 1 ? p : null })}
           onRowClick={(r) => navigate(`/customers/${r.id}`)}
           emptyMessage={t.common.noResults}
         />

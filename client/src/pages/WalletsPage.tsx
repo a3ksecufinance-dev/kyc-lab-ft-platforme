@@ -190,12 +190,13 @@ export function WalletsPage() {
   const suspendMutation = trpc.wallets.suspend.useMutation({
     onSuccess: () => {
       utils.wallets.list.invalidate();
+      utils.wallets.stats.invalidate();
       setSuspendTarget(null);
       setSuspendReason("");
     },
   });
   const unsuspendMutation = trpc.wallets.unsuspend.useMutation({
-    onSuccess: () => { utils.wallets.list.invalidate(); },
+    onSuccess: () => { utils.wallets.list.invalidate(); utils.wallets.stats.invalidate(); },
   });
   const importMutation = trpc.wallets.importTransactions.useMutation({
     onSuccess: (data) => {

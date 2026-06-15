@@ -1,5 +1,6 @@
 import { keepPreviousData } from "@tanstack/react-query";
 import { useState } from "react";
+import { useUrlParams } from "../hooks/useUrlParams";
 import { AppLayout } from "../components/layout/AppLayout";
 import { DataTable, type Column } from "../components/ui/DataTable";
 import { Badge } from "../components/ui/Badge";
@@ -46,13 +47,14 @@ export function TransactionsPage() {
   const { t } = useI18n();
   const { user } = useAuth();
   const flags = useInstitution();
-  const [page, setPage]         = useState(1);
-  const [status, setStatus]     = useState<string>("");
-  const [suspicious, setSuspicious] = useState<string>("");
-  const [txType, setTxType]     = useState<string>("");
-  const [search, setSearch]     = useState<string>("");
-  const [dateFrom, setDateFrom] = useState<string>("");
-  const [dateTo, setDateTo]     = useState<string>("");
+  const urlParams = useUrlParams();
+  const page = urlParams.getNumber("page", 1);
+  const status = urlParams.get("status");
+  const suspicious = urlParams.get("suspicious");
+  const txType = urlParams.get("txType");
+  const search = urlParams.get("search");
+  const dateFrom = urlParams.get("dateFrom");
+  const dateTo = urlParams.get("dateTo");
   const [blockTarget, setBlockTarget] = useState<Tx | null>(null);
   const [blockReason, setBlockReason] = useState("");
   const [detailId, setDetailId] = useState<number | null>(null);
@@ -236,12 +238,12 @@ export function TransactionsPage() {
           <input
             type="text"
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            onChange={(e) => { urlParams.set({ search: e.target.value || null, page: null }); }}
             placeholder={t.transactions.searchPlaceholder ?? "Contrepartie, réf…"}
             style={{ width: "100%", background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, paddingTop: 7, paddingBottom: 7, paddingLeft: 30, paddingRight: 28, fontSize: 11, fontFamily: C.mono, color: C.text2, outline: "none", boxSizing: "border-box" as const }}
           />
           {search && (
-            <button onClick={() => { setSearch(""); setPage(1); }} aria-label={t.common.close} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", color: C.text4, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+            <button onClick={() => { urlParams.set({ search: null, page: null }); }} aria-label={t.common.close} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", color: C.text4, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
               <X size={11} />
             </button>
           )}
@@ -250,7 +252,7 @@ export function TransactionsPage() {
         {/* Statut */}
         <select
           value={status}
-          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setStatus(e.target.value); setPage(1); }}
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { urlParams.set({ status: e.target.value || null, page: null }); }}
           style={{ background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "7px 11px", fontSize: 11, fontFamily: C.mono, color: C.text2, outline: "none" }}
         >
           <option value="">{t.common.all}</option>
@@ -263,7 +265,7 @@ export function TransactionsPage() {
         {/* Suspicion */}
         <select
           value={suspicious}
-          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setSuspicious(e.target.value); setPage(1); }}
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { urlParams.set({ suspicious: e.target.value || null, page: null }); }}
           style={{ background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "7px 11px", fontSize: 11, fontFamily: C.mono, color: C.text2, outline: "none" }}
         >
           <option value="">{t.common.all}</option>
@@ -274,7 +276,7 @@ export function TransactionsPage() {
         {/* Type de transaction (inclut types mobiles si flag actif) */}
         <select
           value={txType}
-          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setTxType(e.target.value); setPage(1); }}
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { urlParams.set({ txType: e.target.value || null, page: null }); }}
           style={{ background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "7px 11px", fontSize: 11, fontFamily: C.mono, color: C.text2, outline: "none" }}
         >
           <option value="">Tous types</option>
@@ -299,14 +301,14 @@ export function TransactionsPage() {
         <input
           type="date"
           value={dateFrom}
-          onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
+          onChange={(e) => { urlParams.set({ dateFrom: e.target.value || null, page: null }); }}
           style={{ background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "7px 11px", fontSize: 11, fontFamily: C.mono, color: C.text2, outline: "none" }}
           title={t.common.dateFrom ?? "Du"}
         />
         <input
           type="date"
           value={dateTo}
-          onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
+          onChange={(e) => { urlParams.set({ dateTo: e.target.value || null, page: null }); }}
           style={{ background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "7px 11px", fontSize: 11, fontFamily: C.mono, color: C.text2, outline: "none" }}
           title={t.common.dateTo ?? "Au"}
         />
@@ -314,7 +316,7 @@ export function TransactionsPage() {
         {/* Réinitialiser */}
         {(search || status || suspicious || txType || dateFrom || dateTo) && (
           <button
-            onClick={() => { setSearch(""); setStatus(""); setSuspicious(""); setTxType(""); setDateFrom(""); setDateTo(""); setPage(1); }}
+            onClick={() => { urlParams.set({ search: null, status: null, suspicious: null, txType: null, dateFrom: null, dateTo: null, page: null }); }}
             style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 7, fontSize: 11, fontFamily: C.mono, color: C.text2, cursor: "pointer" }}
           >
             <X size={11} /> {t.common.reset ?? "Réinitialiser"}
@@ -331,7 +333,7 @@ export function TransactionsPage() {
           total={data?.total}
           page={page}
           limit={20}
-          onPageChange={setPage}
+          onPageChange={(p) => urlParams.set({ page: p > 1 ? p : null })}
           emptyMessage={t.common.noResults}
         />
       </div>

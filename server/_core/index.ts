@@ -75,6 +75,9 @@ app.use((req, res, next): void => {
   next();
 });
 
+// CSRF: Not applicable — API uses Bearer token auth (not cookies).
+// Browsers cannot automatically attach Authorization headers cross-origin.
+
 // ─── Security headers ─────────────────────────────────────────────────────────
 
 app.use((_, res, next) => {
@@ -83,6 +86,17 @@ app.use((_, res, next) => {
   res.setHeader("X-XSS-Protection", "1; mode=block");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  res.setHeader("Content-Security-Policy", [
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "font-src 'self'",
+    "connect-src 'self'",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join("; "));
   if (ENV.NODE_ENV === "production") {
     res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   }
@@ -126,6 +140,19 @@ const uploadLimiter = rateLimit({
 app.use(globalLimiter);
 app.use("/trpc", apiLimiter);
 app.use("/api/documents/upload", uploadLimiter);
+
+// Rate limit sensitive auth operations
+const sensitiveAuthLimiter = rateLimit({
+  windowMs: 15 * 60_000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Trop de tentatives — réessayez dans 15 minutes" },
+});
+
+app.use("/trpc/auth.refresh", sensitiveAuthLimiter);
+app.use("/trpc/auth.requestReset", sensitiveAuthLimiter);
+app.use("/trpc/auth.confirmReset", sensitiveAuthLimiter);
 
 // ─── WEBHOOK CBS ─────────────────────────────────────────────────────────────
 //
@@ -281,6 +308,15 @@ app.post(
 
 // ─── Contact landing page (public — pas d'auth) ──────────────────────────────
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 app.post("/api/contact", async (req, res): Promise<void> => {
   const { firstName, lastName, email, company, type, phone } = req.body ?? {};
 
@@ -296,22 +332,22 @@ app.post("/api/contact", async (req, res): Promise<void> => {
   const { sendEmail } = await import("./mailer");
   await sendEmail({
     to: "a.bensleten@cyberstrat.ma",
-    subject: `[WatchReg] Nouvelle demande de démo — ${company}`,
+    subject: `[WatchReg] Nouvelle demande de démo — ${escapeHtml(company)}`,
     html: `
       <div style="font-family:Inter,sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;background:#f8faf8;border-radius:12px;">
         <div style="background:#1B5E20;padding:20px 24px;border-radius:8px;margin-bottom:24px;">
           <h2 style="color:#fff;margin:0;font-size:20px;">Nouvelle demande de démo — WatchReg</h2>
         </div>
         <table style="width:100%;border-collapse:collapse;">
-          <tr><td style="padding:8px 0;color:#555;font-size:14px;width:40%">Prénom</td><td style="padding:8px 0;font-size:14px;font-weight:600;color:#0d1b0d">${firstName}</td></tr>
-          <tr><td style="padding:8px 0;color:#555;font-size:14px;">Nom</td><td style="padding:8px 0;font-size:14px;font-weight:600;color:#0d1b0d">${lastName}</td></tr>
-          <tr><td style="padding:8px 0;color:#555;font-size:14px;">Email</td><td style="padding:8px 0;font-size:14px;font-weight:600;color:#1B5E20"><a href="mailto:${email}">${email}</a></td></tr>
-          <tr><td style="padding:8px 0;color:#555;font-size:14px;">Établissement</td><td style="padding:8px 0;font-size:14px;font-weight:600;color:#0d1b0d">${company}</td></tr>
-          <tr><td style="padding:8px 0;color:#555;font-size:14px;">Type</td><td style="padding:8px 0;font-size:14px;color:#0d1b0d">${type ?? "—"}</td></tr>
-          <tr><td style="padding:8px 0;color:#555;font-size:14px;">Téléphone</td><td style="padding:8px 0;font-size:14px;color:#0d1b0d">${phone ?? "—"}</td></tr>
+          <tr><td style="padding:8px 0;color:#555;font-size:14px;width:40%">Prénom</td><td style="padding:8px 0;font-size:14px;font-weight:600;color:#0d1b0d">${escapeHtml(firstName)}</td></tr>
+          <tr><td style="padding:8px 0;color:#555;font-size:14px;">Nom</td><td style="padding:8px 0;font-size:14px;font-weight:600;color:#0d1b0d">${escapeHtml(lastName)}</td></tr>
+          <tr><td style="padding:8px 0;color:#555;font-size:14px;">Email</td><td style="padding:8px 0;font-size:14px;font-weight:600;color:#1B5E20"><a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a></td></tr>
+          <tr><td style="padding:8px 0;color:#555;font-size:14px;">Établissement</td><td style="padding:8px 0;font-size:14px;font-weight:600;color:#0d1b0d">${escapeHtml(company)}</td></tr>
+          <tr><td style="padding:8px 0;color:#555;font-size:14px;">Type</td><td style="padding:8px 0;font-size:14px;color:#0d1b0d">${escapeHtml(type ?? "—")}</td></tr>
+          <tr><td style="padding:8px 0;color:#555;font-size:14px;">Téléphone</td><td style="padding:8px 0;font-size:14px;color:#0d1b0d">${escapeHtml(phone ?? "—")}</td></tr>
         </table>
         <div style="margin-top:24px;padding:16px;background:#E8F5E9;border-radius:8px;font-size:13px;color:#2E7D32;">
-          Répondre directement à <strong>${email}</strong> pour planifier la démo.
+          Répondre directement à <strong>${escapeHtml(email)}</strong> pour planifier la démo.
         </div>
       </div>
     `,

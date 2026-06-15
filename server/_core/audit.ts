@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { desc } from "drizzle-orm";
 import { db } from "./db";
 import { auditLogs } from "../../drizzle/schema";
 import { createLogger } from "./logger";
@@ -74,17 +76,30 @@ export type AuditAction =
   | "MFA_ADMIN_RESET"
   // ML
   | "ML_RETRAIN_TRIGGERED"
-  // Dual Control / Approvals (F6)
+  // Dual Control / Approvals (F6 + Phase F multi-level)
   | "APPROVAL_REQUESTED"
   | "APPROVAL_GRANTED"
   | "APPROVAL_REJECTED"
+  | "APPROVAL_ESCALATED"
+  | "APPROVAL_DELEGATED"
+  | "APPROVAL_STEP_COMPLETED"
+  | "APPROVAL_CHAIN_CONFIGURED"
   // Correspondent Banking (F1)
   | "CORRESPONDENT_CREATED"
   | "CORRESPONDENT_ASSESSED"
   | "CORRESPONDENT_APPROVED"
   | "CORRESPONDENT_SUSPENDED"
   // Licensing
-  | "LICENSE_ACTIVATED";
+  | "LICENSE_ACTIVATED"
+  // Agents (Phase E)
+  | "AGENT_CREATED"
+  | "AGENT_FLOAT_ADJUSTED"
+  | "AGENT_RISK_CALCULATED"
+  | "AGENT_SUSPENDED"
+  // System Config (Phase D)
+  | "SYSTEM_CONFIG_UPDATED"
+  // Notifications (Phase D)
+  | "NOTIFICATION_SENT";
 
 export type EntityType =
   | "user"
@@ -99,7 +114,12 @@ export type EntityType =
   | "aml_rule"
   | "system"
   | "approval"
-  | "correspondent_bank";
+  | "approval_chain"
+  | "delegation"
+  | "correspondent_bank"
+  | "notification"
+  | "system_config"
+  | "agent";
 
 export interface AuditEntry {
   userId?: number | null;
@@ -111,6 +131,39 @@ export interface AuditEntry {
   userAgent?: string | null;
 }
 
+// ─── Hash chain for tamper detection ─────────────────────────────────────────
+
+let lastHash: string = "GENESIS";
+
+function computeHash(entry: AuditEntry, previousHash: string): string {
+  const payload = JSON.stringify({
+    action: entry.action,
+    entityType: entry.entityType,
+    entityId: entry.entityId ?? null,
+    userId: entry.userId ?? null,
+    details: entry.details ?? null,
+    previousHash,
+    timestamp: Date.now(),
+  });
+  return createHash("sha256").update(payload).digest("hex");
+}
+
+export async function initAuditHashChain(): Promise<void> {
+  try {
+    const [last] = await db
+      .select({ details: auditLogs.details })
+      .from(auditLogs)
+      .orderBy(desc(auditLogs.id))
+      .limit(1);
+
+    if (last?.details && typeof last.details === "object" && "_hash" in (last.details as Record<string, unknown>)) {
+      lastHash = (last.details as Record<string, unknown>)._hash as string;
+    }
+  } catch (err) {
+    log.warn({ err }, "Could not initialize audit hash chain — starting from GENESIS");
+  }
+}
+
 // ─── Service ──────────────────────────────────────────────────────────────────
 
 /**
@@ -120,17 +173,25 @@ export interface AuditEntry {
  */
 export async function audit(entry: AuditEntry): Promise<void> {
   try {
+    const entryHash = computeHash(entry, lastHash);
+    const details = {
+      ...(entry.details && typeof entry.details === "object" ? entry.details as Record<string, unknown> : {}),
+      _hash: entryHash,
+      _prevHash: lastHash,
+    };
+
     await db.insert(auditLogs).values({
       userId: entry.userId ?? null,
       action: entry.action,
       entityType: entry.entityType,
       entityId: entry.entityId ? String(entry.entityId) : null,
-      details: entry.details ?? null,
+      details,
       ipAddress: entry.ipAddress ?? null,
       userAgent: entry.userAgent ?? null,
     });
+
+    lastHash = entryHash;
   } catch (err) {
-    // Log l'erreur mais ne bloque pas l'opération métier
     log.error({ err, entry }, "Échec écriture audit log — CRITIQUE : action non tracée");
   }
 }
