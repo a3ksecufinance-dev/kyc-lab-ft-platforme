@@ -779,6 +779,7 @@ export const agentAccounts = pgTable("agent_accounts", {
   lastActivityAt: timestamp("last_activity_at"),
   riskScore:      integer("risk_score").notNull().default(0),
   riskFlags:      jsonb("risk_flags"),
+  reactivatedAt:  timestamp("reactivated_at"),
   createdAt:      timestamp("created_at").defaultNow().notNull(),
   updatedAt:      timestamp("updated_at").defaultNow().notNull(),
 }, (t) => ({
@@ -851,6 +852,12 @@ export const approvalRequests = pgTable("approval_requests", {
   requesterNote:  text("requester_note"),
   reviewerNote:   text("reviewer_note"),
   expiresAt:      timestamp("expires_at"),                              // auto-expiration après 48h
+  // Phase F — Multi-level
+  chainId:        integer("chain_id"),                                   // FK logical — approval_chains.id
+  currentLevel:   integer("current_level").notNull().default(1),         // niveau actuel dans la chaîne
+  totalLevels:    integer("total_levels").notNull().default(1),          // nombre total de niveaux
+  escalatedAt:    timestamp("escalated_at"),                             // date d'escalade automatique
+  escalatedTo:    integer("escalated_to").references(() => users.id, { onDelete: "set null" }),
   createdAt:      timestamp("created_at").defaultNow().notNull(),
   reviewedAt:     timestamp("reviewed_at"),
 }, (t) => ({
@@ -858,10 +865,81 @@ export const approvalRequests = pgTable("approval_requests", {
   statusIdx:      index("approvals_status_idx").on(t.status),
   requesterIdx:   index("approvals_requester_idx").on(t.requestedBy),
   pendingIdx:     index("approvals_pending_idx").on(t.status, t.expiresAt),
+  chainIdx:       index("approvals_chain_idx").on(t.chainId),
 }));
 
 export type ApprovalRequest       = typeof approvalRequests.$inferSelect;
 export type InsertApprovalRequest = typeof approvalRequests.$inferInsert;
+
+// ─── Phase F — Approval Chains (multi-level) ────────────────────────────────
+// Configuration des chaînes d'approbation par type d'action.
+// Chaque chaîne définit les niveaux successifs (rôle minimum requis).
+
+export const approvalChains = pgTable("approval_chains", {
+  id:          serial("id").primaryKey(),
+  action:      approvalActionEnum("action").notNull(),
+  name:        varchar("name", { length: 200 }).notNull(),
+  description: text("description"),
+  levels:      jsonb("levels").notNull(),                                // [{ level: 1, minRole: "supervisor", label: "Validation superviseur" }, ...]
+  isActive:    boolean("is_active").notNull().default(true),
+  createdBy:   integer("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt:   timestamp("created_at").defaultNow().notNull(),
+  updatedAt:   timestamp("updated_at").defaultNow().notNull(),
+}, (t) => ({
+  actionIdx:   index("approval_chains_action_idx").on(t.action),
+  activeIdx:   index("approval_chains_active_idx").on(t.action, t.isActive),
+}));
+
+export type ApprovalChain       = typeof approvalChains.$inferSelect;
+export type InsertApprovalChain = typeof approvalChains.$inferInsert;
+
+// ─── Approval Steps (suivi par niveau) ──────────────────────────────────────
+// Chaque step correspond à une validation d'un niveau dans la chaîne.
+
+export const approvalStepStatusEnum = pgEnum("approval_step_status", [
+  "PENDING",
+  "APPROVED",
+  "REJECTED",
+  "SKIPPED",
+]);
+
+export const approvalSteps = pgTable("approval_steps", {
+  id:           serial("id").primaryKey(),
+  approvalId:   integer("approval_id").notNull().references(() => approvalRequests.id, { onDelete: "cascade" }),
+  level:        integer("level").notNull(),
+  minRole:      varchar("min_role", { length: 30 }).notNull(),           // rôle minimum pour ce niveau
+  label:        varchar("label", { length: 200 }),
+  status:       approvalStepStatusEnum("status").notNull().default("PENDING"),
+  reviewedBy:   integer("reviewed_by").references(() => users.id, { onDelete: "set null" }),
+  reviewerNote: text("reviewer_note"),
+  reviewedAt:   timestamp("reviewed_at"),
+  createdAt:    timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  approvalIdx:  index("approval_steps_approval_idx").on(t.approvalId),
+  levelIdx:     index("approval_steps_level_idx").on(t.approvalId, t.level),
+}));
+
+export type ApprovalStep       = typeof approvalSteps.$inferSelect;
+export type InsertApprovalStep = typeof approvalSteps.$inferInsert;
+
+// ─── Approval Delegations ───────────────────────────────────────────────────
+// Délégation du pouvoir d'approbation (congés, absence temporaire).
+
+export const approvalDelegations = pgTable("approval_delegations", {
+  id:           serial("id").primaryKey(),
+  delegatorId:  integer("delegator_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  delegateId:   integer("delegate_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  action:       approvalActionEnum("action"),                            // null = toutes les actions
+  validFrom:    timestamp("valid_from").notNull(),
+  validUntil:   timestamp("valid_until").notNull(),
+  reason:       text("reason"),
+  isActive:     boolean("is_active").notNull().default(true),
+  createdAt:    timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  delegatorIdx: index("delegations_delegator_idx").on(t.delegatorId),
+  delegateIdx:  index("delegations_delegate_idx").on(t.delegateId),
+  activeIdx:    index("delegations_active_idx").on(t.isActive, t.validUntil),
+}));
 
 // ─── F1 — Correspondent Banking Risk (FATF R.13) ──────────────────────────────
 // Évaluation du risque des banques correspondantes.
@@ -973,9 +1051,24 @@ export const casesRelations = relations(cases, ({ one, many }) => ({
   timeline: many(caseTimeline),
 }));
 
-export const approvalRequestsRelations = relations(approvalRequests, ({ one }) => ({
+export const approvalRequestsRelations = relations(approvalRequests, ({ one, many }) => ({
   requester: one(users, { fields: [approvalRequests.requestedBy], references: [users.id] }),
   reviewer:  one(users, { fields: [approvalRequests.reviewedBy],  references: [users.id] }),
+  steps:     many(approvalSteps),
+}));
+
+export const approvalStepsRelations = relations(approvalSteps, ({ one }) => ({
+  approval: one(approvalRequests, { fields: [approvalSteps.approvalId], references: [approvalRequests.id] }),
+  reviewer: one(users, { fields: [approvalSteps.reviewedBy], references: [users.id] }),
+}));
+
+export const approvalChainsRelations = relations(approvalChains, ({ one }) => ({
+  creator: one(users, { fields: [approvalChains.createdBy], references: [users.id] }),
+}));
+
+export const approvalDelegationsRelations = relations(approvalDelegations, ({ one }) => ({
+  delegator: one(users, { fields: [approvalDelegations.delegatorId], references: [users.id] }),
+  delegate:  one(users, { fields: [approvalDelegations.delegateId],  references: [users.id] }),
 }));
 
 export const correspondentBanksRelations = relations(correspondentBanks, ({ one, many }) => ({
@@ -1026,3 +1119,60 @@ export type InsertLicense = typeof licenses.$inferInsert;
 export const licensesRelations = relations(licenses, ({ one }) => ({
   activatedByUser: one(users, { fields: [licenses.activatedBy], references: [users.id] }),
 }));
+
+// ─── Notifications in-app (Phase D) ─────────────────────────────────────────
+
+export const notificationTypeEnum = pgEnum("notification_type", [
+  "ALERT_ASSIGNED",
+  "CASE_ESCALATED",
+  "SLA_BREACH",
+  "SCREENING_MATCH",
+  "APPROVAL_PENDING",
+  "APPROVAL_DECIDED",
+  "WALLET_FROZEN",
+  "CBS_DISCREPANCY",
+  "SYSTEM",
+]);
+
+export const notifications = pgTable("notifications", {
+  id:        serial("id").primaryKey(),
+  userId:    integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  type:      notificationTypeEnum("type").notNull(),
+  title:     varchar("title", { length: 300 }).notNull(),
+  message:   text("message"),
+  entityType: varchar("entity_type", { length: 50 }),
+  entityId:  varchar("entity_id", { length: 100 }),
+  isRead:    boolean("is_read").notNull().default(false),
+  readAt:    timestamp("read_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  userIdx:      index("notifications_user_idx").on(t.userId),
+  userUnreadIdx: index("notifications_user_unread_idx").on(t.userId, t.isRead),
+  createdAtIdx: index("notifications_created_at_idx").on(t.createdAt),
+}));
+
+export type Notification       = typeof notifications.$inferSelect;
+export type InsertNotification = typeof notifications.$inferInsert;
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  user: one(users, { fields: [notifications.userId], references: [users.id] }),
+}));
+
+// ─── Configuration système (Phase D) ────────────────────────────────────────
+
+export const systemConfig = pgTable("system_config", {
+  id:        serial("id").primaryKey(),
+  key:       varchar("key", { length: 100 }).notNull().unique(),
+  value:     jsonb("value").notNull(),
+  category:  varchar("category", { length: 50 }).notNull(),
+  label:     varchar("label", { length: 200 }).notNull(),
+  description: text("description"),
+  updatedBy: integer("updated_by").references(() => users.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => ({
+  keyIdx:      uniqueIndex("system_config_key_idx").on(t.key),
+  categoryIdx: index("system_config_category_idx").on(t.category),
+}));
+
+export type SystemConfig       = typeof systemConfig.$inferSelect;
+export type InsertSystemConfig = typeof systemConfig.$inferInsert;

@@ -1,5 +1,8 @@
 /**
  * Agents Router — actif uniquement si agentAccounts=true
+ *
+ * Phase E — scoring risque automatique, audit actions corrigées,
+ * recalcul batch, daily counters.
  */
 
 import { z } from "zod";
@@ -16,6 +19,9 @@ import {
   setAgentActive,
   getAgentStats,
   getAgentActivity,
+  calculateAgentRisk,
+  recalculateAllAgentRisks,
+  updateDailyCounters,
 } from "./agents.service";
 
 function requireAgents() {
@@ -66,9 +72,10 @@ export const agentsRouter = router({
       currency:      z.string().max(10).optional(),
       userId:        z.number().int().positive().optional(),
     }))
-    .mutation(({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       requireAgents();
-      return createAgent({
+      const auditLog = createAuditFromContext(ctx);
+      const result = await createAgent({
         name: input.name,
         ...(input.phone         !== undefined && { phone:         input.phone }),
         ...(input.region        !== undefined && { region:        input.region }),
@@ -77,6 +84,14 @@ export const agentsRouter = router({
         ...(input.currency      !== undefined && { currency:      input.currency }),
         ...(input.userId        !== undefined && { userId:        input.userId }),
       });
+
+      await auditLog({
+        action: "AGENT_CREATED", entityType: "agent",
+        entityId: String(result.id),
+        details: { agentId: result.agentId, name: result.name, region: result.region },
+      });
+
+      return result;
     }),
 
   adjustFloat: supervisorProc
@@ -86,11 +101,15 @@ export const agentsRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       requireAgents();
-      const log = createAuditFromContext(ctx);
+      const auditLog = createAuditFromContext(ctx);
       const result = await adjustFloat(input.agentId, input.delta);
-      await log({ action: "TRANSACTION_CREATED", entityType: "transaction",
+
+      await auditLog({
+        action: "AGENT_FLOAT_ADJUSTED", entityType: "agent",
         entityId: String(input.agentId),
-        details: { agentId: input.agentId, delta: input.delta, action: "FLOAT_ADJUSTED" } });
+        details: { delta: input.delta, newBalance: Number(result.floatBalance) },
+      });
+
       return result;
     }),
 
@@ -102,11 +121,15 @@ export const agentsRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       requireAgents();
-      const log = createAuditFromContext(ctx);
+      const auditLog = createAuditFromContext(ctx);
       const result = await updateAgentRisk(input.agentId, input.riskScore, input.riskFlags);
-      await log({ action: "CUSTOMER_RISK_LEVEL_CHANGED", entityType: "customer",
+
+      await auditLog({
+        action: "AGENT_RISK_CALCULATED", entityType: "agent",
         entityId: String(input.agentId),
-        details: { agentId: input.agentId, riskScore: input.riskScore } });
+        details: { riskScore: input.riskScore, manual: true },
+      });
+
       return result;
     }),
 
@@ -117,11 +140,15 @@ export const agentsRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       requireAgents();
-      const log = createAuditFromContext(ctx);
+      const auditLog = createAuditFromContext(ctx);
       const result = await setAgentActive(input.agentId, input.isActive);
-      await log({ action: "USER_DEACTIVATED", entityType: "user",
+
+      await auditLog({
+        action: "AGENT_SUSPENDED", entityType: "agent",
         entityId: String(input.agentId),
-        details: { agentId: input.agentId, isActive: input.isActive } });
+        details: { isActive: input.isActive },
+      });
+
       return result;
     }),
 
@@ -139,5 +166,46 @@ export const agentsRouter = router({
     .query(() => {
       requireAgents();
       return getAgentStats();
+    }),
+
+  // ── Phase E — Scoring risque automatique ──────────────────────────────────
+
+  calculateRisk: supervisorProc
+    .input(z.object({ agentId: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      requireAgents();
+      const auditLog = createAuditFromContext(ctx);
+      const result = await calculateAgentRisk(input.agentId);
+
+      await auditLog({
+        action: "AGENT_RISK_CALCULATED", entityType: "agent",
+        entityId: String(input.agentId),
+        details: { score: result.score, level: result.level, factors: result.factors },
+      });
+
+      return result;
+    }),
+
+  recalculateAllRisks: supervisorProc
+    .mutation(async ({ ctx }) => {
+      requireAgents();
+      const auditLog = createAuditFromContext(ctx);
+      const result = await recalculateAllAgentRisks();
+
+      await auditLog({
+        action: "AGENT_RISK_CALCULATED", entityType: "agent",
+        entityId: "batch",
+        details: result,
+      });
+
+      return result;
+    }),
+
+  refreshCounters: supervisorProc
+    .input(z.object({ agentId: z.number().int().positive() }))
+    .mutation(async ({ input }) => {
+      requireAgents();
+      await updateDailyCounters(input.agentId);
+      return { success: true };
     }),
 });

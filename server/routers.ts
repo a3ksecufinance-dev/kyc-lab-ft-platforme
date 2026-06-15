@@ -25,6 +25,9 @@ import { slaRouter }                  from "./modules/sla/sla.router";
 import { approvalsRouter }            from "./modules/approvals/approvals.router";
 import { correspondentRouter }        from "./modules/correspondent/correspondent.router";
 import { licenseRouter }              from "./modules/license/license.router";
+import { notificationsRouter }        from "./modules/notifications/notifications.router";
+import { configRouter }               from "./modules/config/config.router";
+import { connectorsRouter }           from "./modules/connectors/connectors.router";
 
 export const appRouter = router({
   auth:          authRouter,
@@ -52,6 +55,9 @@ export const appRouter = router({
   approvals:           approvalsRouter,
   correspondent:       correspondentRouter,
   license:             licenseRouter,
+  notifications:       notificationsRouter,
+  config:              configRouter,
+  connectors:          connectorsRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -57,6 +57,13 @@
       "when": 1776077955448,
       "tag": "0007_busy_hulk",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1781536671993,
+      "tag": "0008_quick_black_tom",
+      "breakpoints": true
     }
   ]
 }

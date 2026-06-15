@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { router, adminProc, supervisorProc } from "../../_core/trpc";
+import { router, adminProc, adminMfaProc, supervisorProc } from "../../_core/trpc";
 import { db } from "../../_core/db";
 import { users, auditLogs } from "../../../drizzle/schema";
 import { eq, desc, ilike, and, gte, lte, count, or } from "drizzle-orm";
@@ -79,7 +79,7 @@ export const adminRouter = router({
       return { ...user, backupCodesLeft: codesLeft };
     }),
 
-  adminMfaReset: adminProc
+  adminMfaReset: adminMfaProc
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ input, ctx }) => {
       const log = createAuditFromContext(ctx);
@@ -106,7 +106,7 @@ export const adminRouter = router({
       return { success: true };
     }),
 
-  createUser: adminProc
+  createUser: adminMfaProc
     .input(z.object({
       email:      z.string().email(),
       name:       z.string().min(2).max(200),
@@ -167,7 +167,7 @@ export const adminRouter = router({
       return updated;
     }),
 
-  resetPassword: adminProc
+  resetPassword: adminMfaProc
     .input(z.object({
       id:          z.number().int().positive(),
       newPassword: z.string().min(8),

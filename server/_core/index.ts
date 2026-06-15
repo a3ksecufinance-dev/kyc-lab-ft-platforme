@@ -384,6 +384,10 @@ async function start() {
   await validateStorageConfig();
 
   await redis.connect();
+
+  // Initialiser la hash chain audit depuis le dernier enregistrement
+  const { initAuditHashChain } = await import("./audit");
+  await initAuditHashChain();
   startSanctionsScheduler();
   startMlRetrainScheduler();
   startPkycScheduler();

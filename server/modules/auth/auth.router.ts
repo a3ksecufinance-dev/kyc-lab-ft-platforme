@@ -121,6 +121,32 @@ export const authRouter = router({
         tokens,
       };
     }),
+  /** Vérifier MFA pour step-up (opérations admin sensibles) */
+  mfaStepUp: protectedProc
+    .input(z.object({ code: z.string().length(6) }))
+    .mutation(async ({ ctx, input }) => {
+      const { verifyMfaLogin } = await import("./auth.mfa");
+
+      const { valid } = await verifyMfaLogin(ctx.user.id, input.code);
+      if (!valid) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Code MFA invalide" });
+      }
+
+      // Store verification timestamp in Redis (10 min TTL)
+      await redis.setex(`mfa_verified:${ctx.user.id}`, 600, String(Date.now()));
+
+      await audit({
+        userId: ctx.user.id,
+        action: "AUTH_MFA_STEP_UP",
+        entityType: "user",
+        entityId: String(ctx.user.id),
+        ipAddress: ctx.req.ip ?? null,
+        userAgent: ctx.req.headers["user-agent"] ?? null,
+      });
+
+      return { success: true };
+    }),
+
   /**
    * Renouveler les tokens
    */

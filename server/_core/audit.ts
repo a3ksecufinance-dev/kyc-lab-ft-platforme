@@ -19,6 +19,7 @@ export type AuditAction =
   | "AUTH_MFA_DISABLED"
   | "AUTH_MFA_BACKUP_REGENERATED"
   | "AUTH_MFA_VERIFY_FAILED"
+  | "AUTH_MFA_STEP_UP"
   // Customers
   | "CUSTOMER_CREATED"
   | "CUSTOMER_UPDATED"

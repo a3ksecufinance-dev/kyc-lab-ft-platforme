@@ -102,6 +102,40 @@ export const complianceProc = t.procedure.use(requireRole("compliance_officer"))
  */
 export const adminProc = t.procedure.use(requireRole("admin"));
 
+// ─── Middleware MFA step-up ──────────────────────────────────────────────────
+
+/**
+ * Middleware requiring recent MFA verification for sensitive operations.
+ * Checks that the user has verified MFA within the last 10 minutes.
+ * The timestamp is stored in Redis as `mfa_verified:<userId>`.
+ */
+function requireRecentMfa() {
+  return t.middleware(async ({ ctx, next }) => {
+    if (!ctx.user) {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: "Authentification requise" });
+    }
+
+    const { redis } = await import("./redis");
+    const key = `mfa_verified:${ctx.user.id}`;
+    const verified = await redis.get(key);
+
+    if (!verified) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Vérification MFA requise pour cette opération. Veuillez confirmer votre code MFA.",
+      });
+    }
+
+    return next({ ctx: { ...ctx, user: ctx.user } });
+  });
+}
+
+/**
+ * Procédure admin sensible — admin + MFA récent requis
+ * Utilisation : reset MFA, reset password, création utilisateur, modification rôle
+ */
+export const adminMfaProc = t.procedure.use(requireRole("admin")).use(requireRecentMfa());
+
 /**
  * Procédure avec permission granulaire
  * Usage : permissionProc("reports:transmit"), permissionProc("customers:export")
