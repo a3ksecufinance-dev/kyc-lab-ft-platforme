@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { createHmac } from "node:crypto";
 import type { Request, Response } from "express";
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
@@ -32,11 +33,15 @@ import { handleOrangeMoney, handleWave, handleCihMobile } from "./mobile-connect
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+function signBuffer(buf: Buffer): string {
+  return "sha256=" + createHmac("sha256", "test_secret").update(buf).digest("hex");
+}
+
 function mockReq(body: unknown, headers: Record<string, string> = {}): Request {
   const buf = Buffer.from(JSON.stringify(body));
   return {
     body: buf,
-    headers: { "content-type": "application/json", ...headers },
+    headers: { "content-type": "application/json", "x-webhook-signature": signBuffer(buf), ...headers },
     ip: "127.0.0.1",
     rawBody: buf,
   } as unknown as Request;
@@ -46,7 +51,7 @@ function mockReqRaw(raw: string, headers: Record<string, string> = {}): Request 
   const buf = Buffer.from(raw, "utf8");
   return {
     body: buf,
-    headers: { "content-type": "application/json", ...headers },
+    headers: { "content-type": "application/json", "x-webhook-signature": signBuffer(buf), ...headers },
     ip: "127.0.0.1",
     rawBody: buf,
   } as unknown as Request;
