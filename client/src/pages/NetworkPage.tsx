@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { AppLayout } from "../components/layout/AppLayout";
+import { Button } from "../components/ui/Button";
 import { trpc } from "../lib/trpc";
 import { useI18n } from "../hooks/useI18n";
 import {
@@ -410,15 +411,34 @@ function GraphCanvas({ graph, selected, onSelect }: {
       )}
 
       {/* Contrôles zoom */}
-      <div className="absolute top-3 right-3 flex flex-col gap-1">
+      <div className="absolute top-3 right-3 flex flex-col gap-1" style={{
+        background: "var(--wr-card)", border: "1px solid var(--wr-border2)",
+        borderRadius: 8, padding: 3,
+      }}>
         {[
-          { icon: ZoomIn,    action: () => setZoom((z: number) => Math.min(3, z * 1.3)) },
-          { icon: ZoomOut,   action: () => setZoom((z: number) => Math.max(0.3, z / 1.3)) },
-          { icon: RotateCcw, action: () => { setZoom(1); setPan({ x: 0, y: 0 }); } },
-        ].map(({ icon: Icon, action }, i) => (
-          <button key={i} onClick={action}
-            className="p-1.5 bg-[var(--wr-bg)] border border-[var(--wr-border2)] rounded text-[var(--wr-text-3)] hover:text-[var(--wr-text-1)]">
-            <Icon size={13} />
+          { icon: ZoomIn,    action: () => setZoom((z: number) => Math.min(3, z * 1.3)),      title: "Zoom +" },
+          { icon: ZoomOut,   action: () => setZoom((z: number) => Math.max(0.3, z / 1.3)),    title: "Zoom -" },
+          { icon: RotateCcw, action: () => { setZoom(1); setPan({ x: 0, y: 0 }); }, title: "Réinitialiser" },
+        ].map(({ icon: Icon, action, title }, i) => (
+          <button key={i} onClick={action} title={title}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: 30, height: 30, borderRadius: 6,
+              background: "transparent", border: "1px solid transparent",
+              color: "var(--wr-text-3)", cursor: "pointer",
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = "var(--wr-hover)";
+              e.currentTarget.style.borderColor = "var(--wr-border)";
+              e.currentTarget.style.color = "var(--wr-text-1)";
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = "transparent";
+              e.currentTarget.style.borderColor = "transparent";
+              e.currentTarget.style.color = "var(--wr-text-3)";
+            }}>
+            <Icon size={14} />
           </button>
         ))}
       </div>
@@ -556,11 +576,10 @@ export function NetworkPage() {
                 ))}
               </select>
             </div>
-            <button onClick={() => refetch()} disabled={!enabled || isFetching}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-mono bg-[var(--wr-blue)]/20 border border-[var(--wr-blue)]/30 text-[var(--wr-blue)] hover:bg-[var(--wr-blue)]/30 rounded-md disabled:opacity-40">
-              <RefreshCw size={12} className={isFetching ? "animate-spin" : ""} />
+            <Button onClick={() => refetch()} disabled={!enabled || isFetching}
+              variant="primary" size="md" icon={RefreshCw}>
               {isLoading ? t.common.loading : t.common.refresh}
-            </button>
+            </Button>
           </div>
 
           {/* Graphe + résumé */}
@@ -697,11 +716,10 @@ export function NetworkPage() {
                 </div>
                 <div className="flex gap-2 flex-wrap">
                   {cluster.customerIds.map((id: number) => (
-                    <button key={id}
-                      onClick={() => { setTab("graph"); setCustomerId(String(id)); }}
-                      className="text-[10px] font-mono text-[var(--wr-blue)] hover:underline bg-[var(--wr-blue)]/10 border border-[var(--wr-blue)]/20 px-2 py-1 rounded">
+                    <Button key={id} size="sm" variant="primary"
+                      onClick={() => { setTab("graph"); setCustomerId(String(id)); }}>
                       Client #{id}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>
