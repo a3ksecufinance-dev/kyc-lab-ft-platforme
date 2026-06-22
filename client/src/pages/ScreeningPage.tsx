@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { AppLayout }  from "../components/layout/AppLayout";
+import { Button }     from "../components/ui/Button";
 import { StatCard }   from "../components/ui/StatCard";
 import { Badge }      from "../components/ui/Badge";
 import { trpc }       from "../lib/trpc";
@@ -93,29 +94,6 @@ function Textarea({ label, required, ...props }: React.TextareaHTMLAttributes<HT
   );
 }
 
-function Btn({ variant = "primary", disabled, onClick, children, style }: {
-  variant?: "primary" | "danger" | "ghost" | "success";
-  disabled?: boolean; onClick?: () => void; children: React.ReactNode;
-  style?: React.CSSProperties;
-}) {
-  const styles: Record<string, React.CSSProperties> = {
-    primary: { background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.3)", color: C.gold },
-    danger:  { background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.3)", color: C.red },
-    ghost:   { background: "transparent", border: `1px solid ${C.border2}`, color: C.text2 },
-    success: { background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.3)", color: C.green },
-  };
-  return (
-    <button onClick={onClick} disabled={disabled} style={{
-      display: "inline-flex", alignItems: "center", gap: 6,
-      padding: "8px 14px", borderRadius: 8,
-      fontSize: 11, fontFamily: C.mono, cursor: disabled ? "not-allowed" : "pointer",
-      opacity: disabled ? 0.4 : 1, transition: "opacity 0.15s",
-      ...styles[variant], ...style,
-    }}>
-      {children}
-    </button>
-  );
-}
 
 function ReviewModal({ target, onClose, onConfirm, isPending }: {
   target: { id: number; label: string };
@@ -160,12 +138,12 @@ function ReviewModal({ target, onClose, onConfirm, isPending }: {
             value={reason} placeholder="Minimum 10 caractères…"
             onChange={e => setReason((e as React.ChangeEvent<HTMLTextAreaElement>).target.value)} />
           <div style={{ display: "flex", gap: 8 }}>
-            <Btn variant="ghost" onClick={onClose} style={{ flex: 1, justifyContent: "center" }}>{t.common.cancel}</Btn>
-            <Btn variant="primary" disabled={reason.length < 10 || isPending}
+            <Button variant="secondary" onClick={onClose} style={{ flex: 1 }}>{t.common.cancel}</Button>
+            <Button variant="gold" disabled={reason.length < 10 || isPending}
               onClick={() => onConfirm(decision, reason)}
-              style={{ flex: 1, justifyContent: "center" }}>
+              style={{ flex: 1 }}>
               {isPending ? t.common.loading : t.common.confirm}
-            </Btn>
+            </Button>
           </div>
         </div>
       </div>
@@ -281,15 +259,13 @@ function SearchTab({ canReview }: { canReview: boolean }) {
             onChange={e => setCustomerName((e as React.ChangeEvent<HTMLInputElement>).target.value)} />
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <Btn onClick={handleRun} disabled={!customerId || customerName.length < 2 || runMutation.isPending}>
-            <Search size={12} />
+          <Button variant="gold" icon={Search} onClick={handleRun} disabled={!customerId || customerName.length < 2 || runMutation.isPending}>
             {runMutation.isPending ? t.common.loading : t.screening.runScreening}
-          </Btn>
+          </Button>
           {customerId && parseInt(customerId) > 0 && (
-            <Btn variant="ghost" onClick={() => { setShowHistory(v => !v); refetchHistory(); }}>
-              <History size={12} />
+            <Button variant="secondary" icon={History} onClick={() => { setShowHistory(v => !v); refetchHistory(); }}>
               Historique
-            </Btn>
+            </Button>
           )}
         </div>
       </Card>
@@ -298,10 +274,10 @@ function SearchTab({ canReview }: { canReview: boolean }) {
       {result && (
         <Card title={t.screening.result} right={
           canReview && result.status !== "CLEAR" && (
-            <Btn variant="danger"
+            <Button variant="danger"
               onClick={() => setReviewTarget({ id: result.sanctionsResult.id, label: `Client #${customerId}` })}>
               Réviser
-            </Btn>
+            </Button>
           )
         }>
           {/* Statut global */}
@@ -535,19 +511,17 @@ function BatchTab({ canReview }: { canReview: boolean }) {
           ))}
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <Btn onClick={() => batchMutation.mutate({
+          <Button variant="gold" icon={Layers} onClick={() => batchMutation.mutate({
               onlyHighRisk: filters.onlyHighRisk,
               onlyPep:      filters.onlyPep,
               sinceLastScreen: filters.sinceLastScreen ? 30 : undefined,
             })} disabled={batchMutation.isPending || (!!jobId && !isDone)}>
-            <Layers size={12} />
             {batchMutation.isPending ? "Lancement…" : "Lancer le batch"}
-          </Btn>
+          </Button>
           {jobId && isDone && (
-            <Btn variant="ghost" onClick={() => { setJobId(null); batchMutation.reset(); utils.screening.getPending.invalidate(); }}>
-              <RefreshCw size={12} />
+            <Button variant="secondary" icon={RefreshCw} onClick={() => { setJobId(null); batchMutation.reset(); utils.screening.getPending.invalidate(); }}>
               Nouveau batch
-            </Btn>
+            </Button>
           )}
         </div>
       </Card>
@@ -709,10 +683,10 @@ function PendingTab() {
               <span style={{ fontSize: 13, fontWeight: 600, fontFamily: C.mono, color: s.matchScore > 0 ? scoreColor(s.matchScore) : C.text3 }}>
                 {s.matchScore > 0 ? `${s.matchScore}/100` : "—"}
               </span>
-              <button onClick={() => setReviewTarget({ id: s.id, label: `Client #${s.customerId}` })}
-                style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, fontFamily: C.mono, color: C.gold, background: "none", border: "none", cursor: "pointer" }}>
-                Réviser <ArrowUpRight size={10} />
-              </button>
+              <Button variant="gold" size="sm" icon={ArrowUpRight} iconPosition="right"
+                onClick={() => setReviewTarget({ id: s.id, label: `Client #${s.customerId}` })}>
+                Réviser
+              </Button>
             </div>
           ))}
         </div>
@@ -784,10 +758,9 @@ function ListsTab({ canAdmin }: { canAdmin: boolean }) {
       {/* Tableau des sources */}
       <Card title={t.screening.sanctionSources} right={
         canAdmin && (
-          <Btn onClick={() => refreshMutation.mutate()} disabled={refreshMutation.isPending} variant="ghost">
-            <RefreshCw size={11} style={{ animation: refreshMutation.isPending ? "spin 1s linear infinite" : "none" }} />
+          <Button onClick={() => refreshMutation.mutate()} disabled={refreshMutation.isPending} variant="secondary" icon={RefreshCw}>
             {refreshMutation.isPending ? t.common.loading : t.screening.forceRefresh}
-          </Btn>
+          </Button>
         )
       }>
         {isLoading ? (
@@ -961,9 +934,9 @@ function CustomListTab({ canEdit }: { canEdit: boolean }) {
           </span>
         </div>
         {canEdit && (
-          <Btn onClick={() => setShowAdd(true)}>
-            <Plus size={12} /> Ajouter une entrée
-          </Btn>
+          <Button variant="gold" icon={Plus} onClick={() => setShowAdd(true)}>
+            Ajouter une entrée
+          </Button>
         )}
       </div>
 
@@ -1013,13 +986,11 @@ function CustomListTab({ canEdit }: { canEdit: boolean }) {
                 </p>
               </div>
               {canEdit && (
-                <button onClick={() => removeMutation.mutate({ id: e.id })} disabled={removeMutation.isPending}
-                  aria-label={t.common.delete}
-                  style={{ padding: "6px", borderRadius: 6, background: "none", border: "none", cursor: "pointer", color: C.text4, transition: "color 0.15s" }}
-                  onMouseEnter={ev => ((ev.currentTarget as HTMLElement).style.color = C.red)}
-                  onMouseLeave={ev => ((ev.currentTarget as HTMLElement).style.color = C.text4)}>
-                  <Trash2 size={13} />
-                </button>
+                <Button variant="ghost" size="sm" icon={Trash2}
+                  onClick={() => removeMutation.mutate({ id: e.id })} disabled={removeMutation.isPending}
+                  aria-label={t.common.delete}>
+                  {null}
+                </Button>
               )}
             </div>
           ))}
@@ -1055,12 +1026,12 @@ function CustomListTab({ canEdit }: { canEdit: boolean }) {
               )}
             </div>
             <div style={{ padding: "0 20px 16px", display: "flex", gap: 8 }}>
-              <Btn variant="ghost" onClick={() => { setShowAdd(false); setForm({ name: "", aliases: "", country: "", reason: "" }); }} style={{ flex: 1, justifyContent: "center" }}>Annuler</Btn>
-              <Btn disabled={form.name.length < 2 || form.reason.length < 5 || addMutation.isPending}
+              <Button variant="secondary" onClick={() => { setShowAdd(false); setForm({ name: "", aliases: "", country: "", reason: "" }); }} style={{ flex: 1 }}>Annuler</Button>
+              <Button variant="gold" disabled={form.name.length < 2 || form.reason.length < 5 || addMutation.isPending}
                 onClick={() => addMutation.mutate({ name: form.name, aliases: form.aliases.split(",").map((s: string) => s.trim()).filter(Boolean), ...(form.country ? { country: form.country } : {}), reason: form.reason })}
-                style={{ flex: 1, justifyContent: "center" }}>
+                style={{ flex: 1 }}>
                 {addMutation.isPending ? "Ajout…" : "Ajouter"}
-              </Btn>
+              </Button>
             </div>
           </div>
         </div>

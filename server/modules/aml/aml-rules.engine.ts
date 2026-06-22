@@ -27,6 +27,8 @@ import {
   updateTransaction,
 } from "../transactions/transactions.repository";
 import { getAllExecutableRules, insertExecution } from "./aml-rules.repository";
+import { isCustomerExcluded } from "./good-guys.repository";
+import { shouldSilenceAlert } from "./silencing.repository";
 import type { AmlRule } from "../../../drizzle/schema";
 import type { Transaction, Customer } from "../../../drizzle/schema";
 import { nanoid } from "nanoid";
@@ -209,6 +211,14 @@ export async function runDynamicAmlRules(
   const t0 = Date.now();
 
   try {
+    // ── Good Guys List — exclure les clients de confiance ────────────────
+    const excluded = await isCustomerExcluded(tx.customerId);
+    if (excluded) {
+      log.info({ customerId: tx.customerId, txId: tx.transactionId }, "Client sur Good Guys List — AML dynamique ignoré");
+      await updateTransaction(tx.id, { status: "COMPLETED", riskScore: 0 });
+      return [];
+    }
+
     // Charger règles actives + testing
     const rules = await getAllExecutableRules();
     const executableRules = rules.filter(
@@ -282,13 +292,33 @@ export async function runDynamicAmlRules(
       })) as unknown as null,
     });
 
-    // Créer une alerte consolidée
+    // ── Silencing Rules — vérifier si l'alerte doit être supprimée ──────
+    const scenario = realTriggered.map((r) => r.rule.name).join(" + ");
     const alertType = realTriggered[0]?.rule.alertType ?? "THRESHOLD";
+    const silenceResult = await shouldSilenceAlert({
+      scenario,
+      alertType,
+      priority: maxPriority,
+      customerId: tx.customerId,
+      ruleId: realTriggered[0]?.rule.ruleId ?? undefined,
+      riskScore: totalScore,
+    });
+
+    if (silenceResult.silenced) {
+      log.info(
+        { txId: tx.transactionId, silencingRule: silenceResult.ruleName, scenario },
+        "Alerte supprimée par silencing rule"
+      );
+      await updateTransaction(tx.id, { status: "COMPLETED", riskScore: totalScore });
+      return triggered;
+    }
+
+    // Créer une alerte consolidée
     await insertAlert({
       alertId:     `ALT-${nanoid(8).toUpperCase()}`,
       customerId:  tx.customerId,
       transactionId: tx.id,
-      scenario:    realTriggered.map((r) => r.rule.name).join(" + "),
+      scenario,
       alertType:   alertType as "PEP" | "THRESHOLD" | "PATTERN" | "VELOCITY" | "SANCTIONS" | "FRAUD" | "NETWORK",
       priority:    maxPriority,
       status:      "OPEN",

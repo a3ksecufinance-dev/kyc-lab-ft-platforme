@@ -28,6 +28,8 @@ import { licenseRouter }              from "./modules/license/license.router";
 import { notificationsRouter }        from "./modules/notifications/notifications.router";
 import { configRouter }               from "./modules/config/config.router";
 import { connectorsRouter }           from "./modules/connectors/connectors.router";
+import { goodGuysRouter }             from "./modules/aml/good-guys.router";
+import { silencingRouter }            from "./modules/aml/silencing.router";
 
 export const appRouter = router({
   auth:          authRouter,
@@ -58,6 +60,8 @@ export const appRouter = router({
   notifications:       notificationsRouter,
   config:              configRouter,
   connectors:          connectorsRouter,
+  goodGuys:            goodGuysRouter,
+  silencing:           silencingRouter,
 });
 
 export type AppRouter = typeof appRouter;

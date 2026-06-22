@@ -6,6 +6,7 @@ import { Badge } from "../components/ui/Badge";
 import { trpc } from "../lib/trpc";
 import { formatDate, formatRelative, formatNumber } from "../lib/utils";
 import { FolderPlus, Clock, User, GitMerge } from "lucide-react";
+import { Button } from "../components/ui/Button";
 import { useI18n } from "../hooks/useI18n";
 import { useLocation } from "wouter";
 import { useAuth } from "../hooks/useAuth";
@@ -156,13 +157,9 @@ export function CasesPage() {
             {data ? t.cases.subtitle.replace("{count}", formatNumber(data.total)) : "—"}
           </p>
         </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", background: `${C.blue}14`, border: `1px solid ${C.blue}40`, borderRadius: 7, fontSize: 11, fontFamily: C.mono, color: C.blue, cursor: "pointer" }}
-        >
-          <FolderPlus size={13} />
+        <Button variant="primary" icon={FolderPlus} onClick={() => setShowCreate(true)}>
           {t.cases.openCase}
-        </button>
+        </Button>
       </div>
 
       {/* KPI stats */}
@@ -305,13 +302,11 @@ export function CasesPage() {
             )}
 
             <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
-              <button
-                onClick={() => setShowCreate(false)}
-                style={{ flex: 1, padding: "8px 0", fontSize: 12, fontFamily: C.mono, border: `1px solid ${C.border2}`, borderRadius: 7, color: C.text2, background: "transparent", cursor: "pointer" }}
-              >
+              <Button variant="secondary" onClick={() => setShowCreate(false)} style={{ flex: 1 }}>
                 {t.common.cancel}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="primary"
                 disabled={!form.customerId || !form.title || createMutation.isPending}
                 onClick={() => createMutation.mutate({
                   customerId:  parseInt(form.customerId),
@@ -320,10 +315,10 @@ export function CasesPage() {
                   ...(form.description ? { description: form.description } : {}),
                   ...(form.dueDate     ? { dueDate: new Date(form.dueDate).toISOString() } : {}),
                 })}
-                style={{ flex: 1, padding: "8px 0", fontSize: 12, fontFamily: C.mono, background: `${C.blue}14`, border: `1px solid ${C.blue}40`, borderRadius: 7, color: C.blue, cursor: "pointer", opacity: (!form.customerId || !form.title || createMutation.isPending) ? 0.4 : 1 }}
+                style={{ flex: 1 }}
               >
                 {createMutation.isPending ? t.common.loading : t.cases.openCase}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

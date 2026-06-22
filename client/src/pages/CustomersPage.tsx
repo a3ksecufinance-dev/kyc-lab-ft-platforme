@@ -11,6 +11,7 @@ import { hasRole } from "../lib/auth";
 import { useI18n } from "../hooks/useI18n";
 import { formatDate, formatNumber } from "../lib/utils";
 import { Search, Plus, Pencil, X } from "lucide-react";
+import { Button } from "../components/ui/Button";
 
 const C = {
   surface: "var(--wr-card)",
@@ -131,10 +132,11 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 20 }}>
-          <button onClick={onClose} style={{ padding: "8px 16px", background: "none", border: `1px solid ${C.border2}`, borderRadius: 7, fontSize: 12, fontFamily: C.mono, color: C.text3, cursor: "pointer" }}>
+          <Button variant="secondary" onClick={onClose}>
             Annuler
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="primary"
             disabled={mut.isPending || !form.firstName || !form.lastName}
             onClick={() => mut.mutate({
               firstName: form.firstName, lastName: form.lastName, customerType: form.customerType,
@@ -150,10 +152,9 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
               ...(form.sourceOfFunds    ? { sourceOfFunds: form.sourceOfFunds } : {}),
               ...(form.monthlyIncome    ? { monthlyIncome: form.monthlyIncome } : {}),
             })}
-            style={{ padding: "8px 18px", background: C.blue, border: "none", borderRadius: 7, fontSize: 12, fontFamily: C.mono, color: "#fff", cursor: "pointer", opacity: mut.isPending ? 0.6 : 1 }}
           >
             {mut.isPending ? "Création…" : "Créer le client"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -242,10 +243,11 @@ function EditModal({ customer, onClose }: { customer: Customer; onClose: () => v
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 20 }}>
-          <button onClick={onClose} style={{ padding: "8px 16px", background: "none", border: `1px solid ${C.border2}`, borderRadius: 7, fontSize: 12, fontFamily: C.mono, color: C.text3, cursor: "pointer" }}>
+          <Button variant="secondary" onClick={onClose}>
             Annuler
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="primary"
             disabled={mut.isPending}
             onClick={() => mut.mutate({
               id: customer.id,
@@ -255,10 +257,9 @@ function EditModal({ customer, onClose }: { customer: Customer; onClose: () => v
               pepStatus: form.pepStatus,
               ...(form.notes ? { notes: form.notes } : {}),
             })}
-            style={{ padding: "8px 18px", background: C.blue, border: "none", borderRadius: 7, fontSize: 12, fontFamily: C.mono, color: "#fff", cursor: "pointer", opacity: mut.isPending ? 0.6 : 1 }}
           >
             {mut.isPending ? "Enregistrement…" : "Enregistrer"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -357,12 +358,9 @@ export function CustomersPage() {
           </p>
         </div>
         {canCreate && (
-          <button
-            onClick={() => setShowCreate(true)}
-            style={{ display: "flex", alignItems: "center", gap: 7, padding: "8px 14px", background: C.blue, border: "none", borderRadius: 8, fontSize: 12, fontFamily: C.mono, color: "#fff", cursor: "pointer" }}
-          >
-            <Plus size={13} /> Nouveau client
-          </button>
+          <Button variant="primary" icon={Plus} onClick={() => setShowCreate(true)}>
+            Nouveau client
+          </Button>
         )}
       </div>
 

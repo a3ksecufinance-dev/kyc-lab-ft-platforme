@@ -6,6 +6,7 @@ import { Badge } from "../components/ui/Badge";
 import { trpc } from "../lib/trpc";
 import { formatDate, formatRelative, formatNumber } from "../lib/utils";
 import { FileText, FilePlus, Send, CheckCircle, XCircle, Radio, Download, BarChart3, ClipboardCheck, GitMerge } from "lucide-react";
+import { Button } from "../components/ui/Button";
 import { useAuth } from "../hooks/useAuth";
 import { hasRole } from "../lib/auth";
 import { useI18n } from "../hooks/useI18n";
@@ -396,12 +397,9 @@ export function ReportsPage() {
           </p>
         </div>
         {pageTab === "reports" && (
-          <button
-            onClick={() => setShowCreate(true)}
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", background: `${C.blue}14`, border: `1px solid ${C.blue}40`, borderRadius: 7, fontSize: 11, fontFamily: C.mono, color: C.blue, cursor: "pointer" }}
-          >
-            <FilePlus size={13} /> {t.reports.generateReport}
-          </button>
+          <Button variant="primary" icon={FilePlus} onClick={() => setShowCreate(true)}>
+            {t.reports.generateReport}
+          </Button>
         )}
       </div>
 
@@ -524,24 +522,25 @@ export function ReportsPage() {
               )}
             </div>
             <div style={{ padding: "12px 24px 20px", display: "flex", gap: 8, flexShrink: 0, borderTop: `1px solid ${C.border}` }}>
-              <button
+              <Button variant="secondary"
                 onClick={() => { setShowCreate(false); setSarForm(DEFAULT_SAR); setStrForm(DEFAULT_STR); }}
-                style={{ flex: 1, padding: "8px 0", fontSize: 12, fontFamily: C.mono, background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 7, color: C.text2, cursor: "pointer" }}
+                style={{ flex: 1 }}
               >
                 {t.common.cancel}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="primary"
                 disabled={
                   (createTab === "SAR" ? !sarValid : !strValid) ||
                   createSarMutation.isPending || createStrMutation.isPending
                 }
                 onClick={createTab === "SAR" ? handleCreateSar : handleCreateStr}
-                style={{ flex: 1, padding: "8px 0", fontSize: 12, fontFamily: C.mono, background: `${C.blue}14`, border: `1px solid ${C.blue}40`, borderRadius: 7, color: C.blue, cursor: "pointer", opacity: ((createTab === "SAR" ? !sarValid : !strValid) || createSarMutation.isPending || createStrMutation.isPending) ? 0.4 : 1 }}
+                style={{ flex: 1 }}
               >
                 {createSarMutation.isPending || createStrMutation.isPending
                   ? t.common.loading
                   : createTab === "SAR" ? t.reports.createSar : t.reports.createStr}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -609,13 +608,14 @@ export function ReportsPage() {
                     <label style={{ fontSize: 9, fontFamily: C.mono, textTransform: "uppercase", letterSpacing: "0.12em", color: C.text3, display: "block", marginBottom: 4 }}>Type de suspicion</label>
                     <input value={editSuspicionType} onChange={e => setEditSuspicionType(e.target.value)} placeholder="Ex: SMURFING, TERROR_FINANCING…" style={{ width: "100%", background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "7px 10px", fontSize: 12, fontFamily: C.mono, color: C.text1, outline: "none", boxSizing: "border-box" as const }} />
                   </div>
-                  <button
+                  <Button
+                    variant="warning"
+                    fullWidth
                     disabled={editTitle.length < 5 || updateContentMutation.isPending}
                     onClick={() => updateContentMutation.mutate({ id: selectedReport.id, ...(editTitle ? { title: editTitle } : {}), ...(editSuspicionType ? { suspicionType: editSuspicionType } : {}) })}
-                    style={{ padding: "7px 0", fontSize: 11, fontFamily: C.mono, background: `${C.amber}14`, border: `1px solid ${C.amber}40`, borderRadius: 6, color: C.amber, cursor: "pointer", opacity: (editTitle.length < 5 || updateContentMutation.isPending) ? 0.4 : 1 }}
                   >
                     {updateContentMutation.isPending ? "Enregistrement…" : "Enregistrer les modifications"}
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
@@ -757,7 +757,9 @@ export function ReportsPage() {
                         style={{ width: "100%", background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 6, padding: "7px 10px", fontSize: 12, fontFamily: C.mono, color: C.text1, outline: "none", boxSizing: "border-box" as const }}
                       />
                     </div>
-                    <button
+                    <Button
+                      variant="primary"
+                      fullWidth
                       disabled={updateAnrfMutation.isPending}
                       onClick={() => updateAnrfMutation.mutate({
                         id: selectedReport.id,
@@ -765,10 +767,9 @@ export function ReportsPage() {
                         ...(anrfForm.reference   ? { anrfReference:   anrfForm.reference   } : {}),
                         ...(anrfForm.status      ? { anrfStatus:      anrfForm.status as "DEPOSEE" | "ACCUSEE" | "CLASSEE" | "SUIVI" } : {}),
                       })}
-                      style={{ padding: "7px 0", fontSize: 11, fontFamily: C.mono, background: `${C.blue}14`, border: `1px solid ${C.blue}40`, borderRadius: 6, color: C.blue, cursor: "pointer", opacity: updateAnrfMutation.isPending ? 0.4 : 1 }}
                     >
                       {updateAnrfMutation.isPending ? "Enregistrement…" : "Enregistrer le suivi ANRF"}
-                    </button>
+                    </Button>
                     {updateAnrfMutation.error && (
                       <p style={{ fontSize: 11, fontFamily: C.mono, color: C.red, margin: 0 }}>{updateAnrfMutation.error.message}</p>
                     )}
@@ -777,12 +778,10 @@ export function ReportsPage() {
               </div>
             )}
 
-            <button
-              onClick={() => { setSelectedReport(null); setEditMode(false); setAnrfEdit(false); }}
-              style={{ width: "100%", padding: "7px 0", fontSize: 12, fontFamily: C.mono, color: C.text3, background: "none", border: `1px solid ${C.border2}`, borderRadius: 7, cursor: "pointer" }}
-            >
+            <Button variant="secondary" fullWidth
+              onClick={() => { setSelectedReport(null); setEditMode(false); setAnrfEdit(false); }}>
               Fermer
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -865,20 +864,16 @@ function Amld6Panel({ canApprove }: { canApprove: boolean }) {
         </p>
         {canApprove && (
           <div style={{ display: "flex", gap: 8 }}>
-            <button
+            <Button variant="secondary" icon={Download}
               onClick={() => exportCsvMutation.mutate(exportInput)}
-              disabled={exportCsvMutation.isPending}
-              style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 7, fontSize: 11, fontFamily: C.mono, color: C.text2, cursor: "pointer", opacity: exportCsvMutation.isPending ? 0.4 : 1 }}
-            >
-              <Download size={11} /> {exportCsvMutation.isPending ? "…" : "CSV"}
-            </button>
-            <button
+              disabled={exportCsvMutation.isPending}>
+              {exportCsvMutation.isPending ? "…" : "CSV"}
+            </Button>
+            <Button variant="primary" icon={Download}
               onClick={() => exportPdfMutation.mutate(exportInput)}
-              disabled={exportPdfMutation.isPending}
-              style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", background: `${C.blue}14`, border: `1px solid ${C.blue}40`, borderRadius: 7, fontSize: 11, fontFamily: C.mono, color: C.blue, cursor: "pointer", opacity: exportPdfMutation.isPending ? 0.4 : 1 }}
-            >
-              <Download size={11} /> {exportPdfMutation.isPending ? t.amld6.generating : "PDF"}
-            </button>
+              disabled={exportPdfMutation.isPending}>
+              {exportPdfMutation.isPending ? t.amld6.generating : "PDF"}
+            </Button>
           </div>
         )}
       </div>
@@ -1129,13 +1124,6 @@ function ActionModal({ target, onClose, onConfirm, isPending }: {
   const { action, report } = target;
   const canConfirm = action !== "reject" || rejectNote.length >= 10;
 
-  const confirmBtnStyle: React.CSSProperties =
-    action === "approve"
-      ? { flex: 1, padding: "8px 0", fontSize: 12, fontFamily: C.mono, background: `${C.green}14`, border: `1px solid ${C.green}40`, borderRadius: 7, color: C.green, cursor: "pointer" }
-      : action === "reject"
-      ? { flex: 1, padding: "8px 0", fontSize: 12, fontFamily: C.mono, background: `${C.red}14`, border: `1px solid ${C.red}40`, borderRadius: 7, color: C.red, cursor: "pointer" }
-      : { flex: 1, padding: "8px 0", fontSize: 12, fontFamily: C.mono, background: `${C.blue}14`, border: `1px solid ${C.blue}40`, borderRadius: 7, color: C.blue, cursor: "pointer" };
-
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
       <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 24, width: "100%", maxWidth: 400 }}>
@@ -1167,17 +1155,17 @@ function ActionModal({ target, onClose, onConfirm, isPending }: {
           </div>
         )}
         <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={onClose}
-            style={{ flex: 1, padding: "8px 0", fontSize: 12, fontFamily: C.mono, background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 7, color: C.text2, cursor: "pointer" }}>
+          <Button variant="secondary" onClick={onClose} style={{ flex: 1 }}>
             {t.common.cancel}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant={action === "approve" ? "success" : action === "reject" ? "danger" : "primary"}
             disabled={!canConfirm || isPending}
             onClick={onConfirm}
-            style={{ ...confirmBtnStyle, opacity: (!canConfirm || isPending) ? 0.4 : 1 }}
+            style={{ flex: 1 }}
           >
             {isPending ? "En cours..." : t.common.confirm}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -1243,9 +1231,9 @@ function TransmitModal({ report, onClose, onConfirm, isPending, result, error }:
           <p style={{ fontSize: 12, color: C.text3, marginBottom: 12 }}>
             Une demande d&apos;approbation a été créée (ID: {result.approvalId}). Un second compliance officer doit valider avant transmission.
           </p>
-          <button onClick={onClose} style={{ width: "100%", padding: "8px", background: `${C.amber}20`, border: `1px solid ${C.amber}40`, borderRadius: 6, color: C.amber, fontSize: 12, cursor: "pointer" }}>
+          <Button variant="warning" fullWidth onClick={onClose}>
             Fermer
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -1314,10 +1302,9 @@ function TransmitModal({ report, onClose, onConfirm, isPending, result, error }:
             </div>
           )}
 
-          <button onClick={onClose}
-            style={{ width: "100%", padding: "8px 0", fontSize: 12, fontFamily: C.mono, background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 7, color: C.text1, cursor: "pointer" }}>
+          <Button variant="secondary" fullWidth onClick={onClose}>
             Fermer
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -1413,17 +1400,17 @@ function TransmitModal({ report, onClose, onConfirm, isPending, result, error }:
         </div>
 
         <div style={{ padding: "0 24px 20px", display: "flex", gap: 8 }}>
-          <button onClick={onClose}
-            style={{ flex: 1, padding: "8px 0", fontSize: 12, fontFamily: C.mono, background: C.hover, border: `1px solid ${C.border2}`, borderRadius: 7, color: C.text2, cursor: "pointer" }}>
+          <Button variant="secondary" onClick={onClose} style={{ flex: 1 }}>
             {t.common.cancel}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="primary"
             disabled={!isValid || isPending}
             onClick={() => onConfirm(declarant)}
-            style={{ flex: 1, padding: "8px 0", fontSize: 12, fontFamily: C.mono, background: "var(--wr-purple, #c084fc)14", border: "1px solid var(--wr-purple, #c084fc)30", borderRadius: 7, color: "var(--wr-purple, #c084fc)", cursor: "pointer", opacity: (!isValid || isPending) ? 0.4 : 1 }}
+            style={{ flex: 1, background: "rgba(192,132,252,0.12)", borderColor: "rgba(192,132,252,0.30)", color: "var(--wr-purple, #c084fc)" }}
           >
             {isPending ? t.common.loading : t.reports.transmit}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

@@ -692,6 +692,68 @@ export const amlRuleFeedback = pgTable("aml_rule_feedback", {
 
 export type AmlRuleFeedback = typeof amlRuleFeedback.$inferSelect;
 
+// ─── Good Guys List — Exclusion AML ──────────────────────────────────────────
+
+export const goodGuysList = pgTable("good_guys_list", {
+  id:           serial("id").primaryKey(),
+  customerId:   integer("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+  reason:       text("reason").notNull(),
+  category:     varchar("category", { length: 30 }).notNull().default("TRUSTED"),
+  // Durée d'exclusion
+  validFrom:    timestamp("valid_from").defaultNow().notNull(),
+  validUntil:   timestamp("valid_until"),  // null = permanent
+  isActive:     boolean("is_active").notNull().default(true),
+  // Qui a ajouté/approuvé
+  addedBy:      integer("added_by").notNull().references(() => users.id, { onDelete: "restrict" }),
+  approvedBy:   integer("approved_by").references(() => users.id, { onDelete: "set null" }),
+  approvedAt:   timestamp("approved_at"),
+  // Audit
+  revokedAt:    timestamp("revoked_at"),
+  revokedBy:    integer("revoked_by").references(() => users.id, { onDelete: "set null" }),
+  revokeReason: text("revoke_reason"),
+  createdAt:    timestamp("created_at").defaultNow().notNull(),
+  updatedAt:    timestamp("updated_at").defaultNow().notNull(),
+}, (t) => ({
+  customerIdx:    index("good_guys_customer_idx").on(t.customerId),
+  activeIdx:      index("good_guys_active_idx").on(t.isActive, t.validUntil),
+  addedByIdx:     index("good_guys_added_by_idx").on(t.addedBy),
+}));
+
+export type GoodGuysEntry = typeof goodGuysList.$inferSelect;
+export type InsertGoodGuysEntry = typeof goodGuysList.$inferInsert;
+
+// ─── Silencing Rules — Suppression temporaire d'alertes ──────────────────────
+
+export const silencingRules = pgTable("silencing_rules", {
+  id:           serial("id").primaryKey(),
+  name:         varchar("name", { length: 200 }).notNull(),
+  description:  text("description"),
+  // Critères de matching (JSONB flexible)
+  // Ex: { "ruleId": "THRESHOLD_EXCEEDED", "customerId": 42 }
+  // Ex: { "alertType": "THRESHOLD", "priority": "LOW" }
+  // Ex: { "scenario": "ROUND_AMOUNT" }
+  matchers:     jsonb("matchers").notNull(),
+  // Durée
+  validFrom:    timestamp("valid_from").defaultNow().notNull(),
+  validUntil:   timestamp("valid_until").notNull(),
+  isActive:     boolean("is_active").notNull().default(true),
+  // Compteurs
+  matchCount:   integer("match_count").notNull().default(0),
+  maxMatches:   integer("max_matches"),  // null = illimité
+  // Audit
+  createdBy:    integer("created_by").notNull().references(() => users.id, { onDelete: "restrict" }),
+  revokedAt:    timestamp("revoked_at"),
+  revokedBy:    integer("revoked_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt:    timestamp("created_at").defaultNow().notNull(),
+  updatedAt:    timestamp("updated_at").defaultNow().notNull(),
+}, (t) => ({
+  activeIdx:    index("silencing_active_idx").on(t.isActive, t.validUntil),
+  createdByIdx: index("silencing_created_by_idx").on(t.createdBy),
+}));
+
+export type SilencingRule = typeof silencingRules.$inferSelect;
+export type InsertSilencingRule = typeof silencingRules.$inferInsert;
+
 // ─── pKYC — Snapshots de dérive comportementale ───────────────────────────────
 
 export const pkycSnapshots = pgTable("pkyc_snapshots", {

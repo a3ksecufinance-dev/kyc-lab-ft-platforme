@@ -7,6 +7,7 @@ import { Badge } from "../components/ui/Badge";
 import { trpc } from "../lib/trpc";
 import { formatRelative, formatNumber } from "../lib/utils";
 import { UserPlus, ExternalLink } from "lucide-react";
+import { Button } from "../components/ui/Button";
 import { useAuth } from "../hooks/useAuth";
 import { useI18n } from "../hooks/useI18n";
 import { useLocation } from "wouter";
@@ -245,14 +246,17 @@ export function AlertsPage() {
 
             {/* Assigner */}
             {user && !selected.assignedTo && (
-              <button
+              <Button
+                variant="primary"
+                size="md"
+                icon={UserPlus}
+                fullWidth
                 onClick={() => assignMutation.mutate({ id: selected.id, userId: user.id })}
                 disabled={assignMutation.isPending}
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%", padding: "8px 14px", marginBottom: 12, background: `${C.blue}14`, border: `1px solid ${C.blue}40`, borderRadius: 7, fontSize: 11, fontFamily: C.mono, color: C.blue, cursor: "pointer", boxSizing: "border-box" as const }}
+                style={{ marginBottom: 12 }}
               >
-                <UserPlus size={12} />
                 {assignMutation.isPending ? t.common.loading : t.alerts.assignToMe}
-              </button>
+              </Button>
             )}
 
             {/* Résoudre */}
@@ -269,24 +273,29 @@ export function AlertsPage() {
               />
               <div style={{ display: "flex", gap: 8 }}>
                 {(["CLOSED", "FALSE_POSITIVE", "ESCALATED"] as const).map((res) => (
-                  <button
+                  <Button
                     key={res}
+                    variant={res === "CLOSED" ? "secondary" : res === "FALSE_POSITIVE" ? "ghost" : "warning"}
+                    size="sm"
                     disabled={resolveNote.length < 10 || resolveMutation.isPending}
                     onClick={() => resolveMutation.mutate({ id: selected.id, resolution: res, note: resolveNote })}
-                    style={{ flex: 1, padding: "6px 8px", fontSize: 10, fontFamily: C.mono, border: `1px solid ${C.border2}`, borderRadius: 6, color: C.text3, background: "transparent", cursor: "pointer", opacity: (resolveNote.length < 10 || resolveMutation.isPending) ? 0.4 : 1 }}
+                    style={{ flex: 1 }}
                   >
                     {res === "CLOSED" ? t.alerts.closeAction : res === "FALSE_POSITIVE" ? t.alerts.falsePositiveAction : t.alerts.escalate}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>
 
-            <button
+            <Button
+              variant="ghost"
+              size="md"
+              fullWidth
               onClick={() => { setSelected(null); setResolveNote(""); }}
-              style={{ width: "100%", marginTop: 12, padding: "6px 0", fontSize: 12, fontFamily: C.mono, color: C.text4, background: "none", border: "none", cursor: "pointer" }}
+              style={{ marginTop: 12 }}
             >
               {t.common.cancel}
-            </button>
+            </Button>
           </div>
         </div>
       )}

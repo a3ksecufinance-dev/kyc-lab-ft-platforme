@@ -21,6 +21,8 @@ import {
   updateTransaction,
   insertAlert,
 } from "../transactions/transactions.repository";
+import { isCustomerExcluded } from "./good-guys.repository";
+import { shouldSilenceAlert } from "./silencing.repository";
 import { notifyCriticalAlert } from "../../_core/mailer";
 import { amlAlertsTotal, amlTransactionsAnalyzed } from "../../_core/metrics";
 import type { Transaction, Customer } from "../../../drizzle/schema";
@@ -419,6 +421,14 @@ export async function runAmlRules(
   customer: Customer
 ): Promise<AmlRuleResult[]> {
   try {
+    // ── Good Guys List — exclure les clients de confiance ────────────────
+    const excluded = await isCustomerExcluded(tx.customerId);
+    if (excluded) {
+      log.info({ customerId: tx.customerId, txId: tx.transactionId }, "Client sur Good Guys List — AML hardcoded ignoré");
+      await updateTransaction(tx.id, { status: "COMPLETED", riskScore: 0 });
+      return [];
+    }
+
     const results = await Promise.all([
       // Règles 1-8 (inchangées)
       Promise.resolve(ruleThresholdExceeded(tx)),
@@ -482,6 +492,24 @@ export async function runAmlRules(
             : "VELOCITY";
 
     const scenarioLabel = triggered.map((r) => r.rule).join(" + ");
+
+    // ── Silencing Rules — vérifier si l'alerte doit être supprimée ──────
+    const silenceResult = await shouldSilenceAlert({
+      scenario: scenarioLabel,
+      alertType,
+      priority: maxPriority,
+      customerId: tx.customerId,
+      riskScore: totalScore,
+    });
+
+    if (silenceResult.silenced) {
+      log.info(
+        { txId: tx.transactionId, silencingRule: silenceResult.ruleName, scenario: scenarioLabel },
+        "Alerte supprimée par silencing rule"
+      );
+      // Garder le flagging mais ne pas créer d'alerte
+      return results;
+    }
 
     const newAlert = await insertAlert({
       alertId:       `ALT-${nanoid(8).toUpperCase()}`,
