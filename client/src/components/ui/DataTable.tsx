@@ -143,45 +143,97 @@ export function DataTable<T>({
           <p style={{ fontSize: 11, fontFamily: C.mono, color: C.text3, margin: 0 }}>
             {((page - 1) * limit) + 1}–{Math.min(page * limit, total)} sur {total}
           </p>
-          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <button
-              onClick={() => onPageChange(page - 1)}
-              disabled={page <= 1}
-              style={{
-                padding: "5px 8px", borderRadius: 6,
-                background: "transparent",
-                border: `1px solid var(--wr-border)`,
-                color: page <= 1 ? C.text3 : C.text2,
-                cursor: page <= 1 ? "not-allowed" : "pointer",
-                opacity: page <= 1 ? 0.4 : 1,
-                transition: "all 0.15s",
-                display: "flex", alignItems: "center",
-              }}
-            >
+          <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+            {/* Prev */}
+            <PaginationBtn onClick={() => onPageChange(page - 1)} disabled={page <= 1}>
               <ChevronLeft size={13} />
-            </button>
-            <span style={{ padding: "4px 10px", fontSize: 11, fontFamily: C.mono, color: C.text1 }}>
-              {page} / {totalPages}
-            </span>
-            <button
-              onClick={() => onPageChange(page + 1)}
-              disabled={page >= totalPages}
-              style={{
-                padding: "5px 8px", borderRadius: 6,
-                background: "transparent",
-                border: `1px solid var(--wr-border)`,
-                color: page >= totalPages ? C.text3 : C.text2,
-                cursor: page >= totalPages ? "not-allowed" : "pointer",
-                opacity: page >= totalPages ? 0.4 : 1,
-                transition: "all 0.15s",
-                display: "flex", alignItems: "center",
-              }}
-            >
+            </PaginationBtn>
+            {/* Page numbers */}
+            {getPageNumbers(page, totalPages).map((p, i) =>
+              p === "..." ? (
+                <span key={`ellipsis-${i}`} style={{ padding: "0 4px", fontSize: 11, fontFamily: C.mono, color: C.text3 }}>
+                  ...
+                </span>
+              ) : (
+                <PaginationBtn
+                  key={p}
+                  onClick={() => onPageChange(p as number)}
+                  active={page === p}
+                >
+                  {p}
+                </PaginationBtn>
+              )
+            )}
+            {/* Next */}
+            <PaginationBtn onClick={() => onPageChange(page + 1)} disabled={page >= totalPages}>
               <ChevronRight size={13} />
-            </button>
+            </PaginationBtn>
           </div>
         </div>
       )}
     </div>
   );
+}
+
+/* ── Pagination helpers ──────────────────────────────────────────────────── */
+
+function PaginationBtn({ onClick, disabled, active, children }: {
+  onClick: () => void; disabled?: boolean; active?: boolean;
+  children: React.ReactNode;
+}) {
+  const C2 = {
+    text1: "var(--wr-text-1)",
+    text3: "var(--wr-text-3)",
+    mono:  "var(--wr-font-mono)",
+  };
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        minWidth: 30, height: 30,
+        padding: "0 6px",
+        borderRadius: 6,
+        display: "inline-flex", alignItems: "center", justifyContent: "center",
+        fontSize: 11, fontFamily: C2.mono, fontWeight: active ? 600 : 400,
+        background: active ? "rgba(74,158,255,0.12)" : "transparent",
+        border: active ? "1px solid rgba(74,158,255,0.3)" : "1px solid transparent",
+        color: active ? "var(--wr-blue)" : disabled ? C2.text3 : C2.text1,
+        cursor: disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.35 : 1,
+        transition: "all 0.15s",
+      }}
+      onMouseEnter={e => {
+        if (!disabled && !active) {
+          e.currentTarget.style.background = "var(--wr-hover)";
+          e.currentTarget.style.borderColor = "var(--wr-border)";
+        }
+      }}
+      onMouseLeave={e => {
+        if (!active) {
+          e.currentTarget.style.background = active ? "rgba(74,158,255,0.12)" : "transparent";
+          e.currentTarget.style.borderColor = active ? "rgba(74,158,255,0.3)" : "transparent";
+        }
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function getPageNumbers(current: number, total: number): (number | "...")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+
+  const pages: (number | "...")[] = [1];
+
+  if (current > 3) pages.push("...");
+
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  for (let i = start; i <= end; i++) pages.push(i);
+
+  if (current < total - 2) pages.push("...");
+
+  pages.push(total);
+  return pages;
 }

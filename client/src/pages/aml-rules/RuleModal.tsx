@@ -3,9 +3,10 @@ import type React from "react";
 import { Shield, Play, Copy, GitBranch, Zap, Code, FlaskConical } from "lucide-react";
 import { trpc } from "../../lib/trpc";
 import { useI18n } from "../../hooks/useI18n";
+import { Button } from "../../components/ui/Button";
 import {
   C, TEMPLATES, CATEGORY_LABELS, CATEGORY_STYLE,
-  inputCls, labelCls, btnBlue, btnGhost,
+  inputCls, labelCls,
   type Condition,
 } from "./types";
 import { conditionToJson } from "./utils";
@@ -203,12 +204,12 @@ export function RuleModal({
                   Conditions de déclenchement
                 </p>
                 {cond.type === "simple" && (
-                  <button
+                  <Button
                     onClick={() => setCond({ type: "compound", logic: "AND", rules: [cond] })}
-                    className={`${btnGhost} flex items-center gap-1`}
+                    variant="secondary" size="sm" icon={GitBranch}
                   >
-                    <GitBranch size={10} /> Ajouter groupe AND/OR
-                  </button>
+                    Ajouter groupe AND/OR
+                  </Button>
                 )}
               </div>
               <div className="bg-[var(--wr-card)] border border-[var(--wr-border)] rounded-lg p-4">
@@ -232,12 +233,12 @@ export function RuleModal({
                 <p className="text-[10px] font-mono text-[var(--wr-text-3)] uppercase tracking-widest">
                   Aperçu JSON envoyé à l'API
                 </p>
-                <button
+                <Button
                   onClick={() => navigator.clipboard.writeText(jsonPreview)}
-                  className={`${btnGhost} flex items-center gap-1`}
+                  variant="ghost" size="sm" icon={Copy}
                 >
-                  <Copy size={10} /> Copier
-                </button>
+                  Copier
+                </Button>
               </div>
               <pre className="bg-[var(--wr-card)] border border-[var(--wr-border)] rounded-lg p-4 text-[11px] font-mono text-[var(--wr-blue)] overflow-x-auto whitespace-pre-wrap">
                 {jsonPreview}
@@ -265,13 +266,13 @@ export function RuleModal({
                     className={inputCls} />
                 </div>
               </div>
-              <button
+              <Button
                 disabled={backtestMut.isPending}
                 onClick={() => backtestMut.mutate({ ruleId: editId!, daysPeriod: backtestDays, maxTx: backtestMaxTx, compareWithActive: true })}
-                className={`${btnBlue} flex items-center gap-1.5 disabled:opacity-40`}
+                variant="primary" size="md" icon={Play}
               >
-                <Play size={11} /> {backtestMut.isPending ? "Simulation en cours..." : "Lancer le backtest"}
-              </button>
+                {backtestMut.isPending ? "Simulation en cours..." : "Lancer le backtest"}
+              </Button>
 
               {backtestMut.isError && (
                 <p style={{ fontSize: 12, fontFamily: C.mono, color: C.red }}>{backtestMut.error.message}</p>
@@ -330,38 +331,44 @@ export function RuleModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-[var(--wr-border)] flex gap-2 flex-shrink-0">
+        <div className="px-6 py-4 border-t border-[var(--wr-border)] flex items-center gap-2 flex-shrink-0">
           {mutation.error && (
             <p className="text-xs font-mono text-red-400 mr-auto self-center">{mutation.error.message}</p>
           )}
-          <button onClick={onClose} className={btnGhost}>{t.common.cancel}</button>
-          {tab !== "backtest" && (
-            <button
-              disabled={!isValid || mutation.isPending}
-              onClick={() => {
-                const payload = {
-                  name:           name.trim(),
-                  description:    desc || undefined,
-                  category:       category as "THRESHOLD" | "FREQUENCY" | "PATTERN" | "GEOGRAPHY" | "COUNTERPARTY" | "VELOCITY" | "CUSTOMER",
-                  status:         status as "ACTIVE" | "INACTIVE" | "TESTING",
-                  baseScore:      score,
-                  priority:       priority as "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
-                  alertType:      alertType as "THRESHOLD" | "PATTERN" | "VELOCITY" | "SANCTIONS" | "FRAUD" | "PEP" | "NETWORK",
-                  conditions:     conditionToJson(cond),
-                  thresholdValue: threshold || undefined,
-                  windowMinutes:  window_ ? parseInt(window_) : undefined,
-                };
-                if (isEdit) {
-                  updateMut.mutate({ id: editId!, ...payload });
-                } else {
-                  createMut.mutate(payload);
-                }
-              }}
-              className={`${btnBlue} disabled:opacity-40`}
-            >
-              {mutation.isPending ? (isEdit ? "Enregistrement..." : "Création...") : (isEdit ? "Enregistrer" : t.amlRules.addRule)}
-            </button>
-          )}
+          <div className="ml-auto flex items-center gap-2">
+            <Button onClick={onClose} variant="ghost" size="md">
+              {t.common.cancel}
+            </Button>
+            {tab !== "backtest" && (
+              <Button
+                disabled={!isValid || mutation.isPending}
+                variant="primary"
+                size="md"
+                {...(isEdit ? {} : { icon: Shield })}
+                onClick={() => {
+                  const payload = {
+                    name:           name.trim(),
+                    description:    desc || undefined,
+                    category:       category as "THRESHOLD" | "FREQUENCY" | "PATTERN" | "GEOGRAPHY" | "COUNTERPARTY" | "VELOCITY" | "CUSTOMER",
+                    status:         status as "ACTIVE" | "INACTIVE" | "TESTING",
+                    baseScore:      score,
+                    priority:       priority as "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
+                    alertType:      alertType as "THRESHOLD" | "PATTERN" | "VELOCITY" | "SANCTIONS" | "FRAUD" | "PEP" | "NETWORK",
+                    conditions:     conditionToJson(cond),
+                    thresholdValue: threshold || undefined,
+                    windowMinutes:  window_ ? parseInt(window_) : undefined,
+                  };
+                  if (isEdit) {
+                    updateMut.mutate({ id: editId!, ...payload });
+                  } else {
+                    createMut.mutate(payload);
+                  }
+                }}
+              >
+                {mutation.isPending ? (isEdit ? "Enregistrement..." : "Création...") : (isEdit ? "Enregistrer" : t.amlRules.addRule)}
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -9,12 +9,48 @@ import {
 } from "recharts";
 import { trpc } from "../../lib/trpc";
 import { useI18n } from "../../hooks/useI18n";
+import { Button } from "../../components/ui/Button";
 import {
   C, CATEGORY_LABELS, CATEGORY_STYLE,
-  inputCls, btnGhost, btnRed,
+  inputCls,
   type AmlRule, type Condition,
 } from "./types";
 import { RuleModal } from "./RuleModal";
+
+function ActionButton({ onClick, title, icon: Icon, color = "var(--wr-text-3)", hoverColor, size = 14, disabled }: {
+  onClick: () => void; title: string; icon: React.ElementType;
+  color?: string; hoverColor?: string; size?: number; disabled?: boolean;
+}) {
+  return (
+    <button
+      onClick={e => { e.stopPropagation(); onClick(); }}
+      disabled={disabled}
+      title={title}
+      style={{
+        display: "inline-flex", alignItems: "center", justifyContent: "center",
+        width: 30, height: 30, borderRadius: 6,
+        background: "transparent", border: "1px solid transparent",
+        color, cursor: disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.4 : 1,
+        transition: "all 0.15s",
+      }}
+      onMouseEnter={e => {
+        if (!disabled) {
+          e.currentTarget.style.background = "var(--wr-hover)";
+          e.currentTarget.style.borderColor = "var(--wr-border)";
+          if (hoverColor) e.currentTarget.style.color = hoverColor;
+        }
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.background = "transparent";
+        e.currentTarget.style.borderColor = "transparent";
+        e.currentTarget.style.color = color;
+      }}
+    >
+      <Icon size={size} />
+    </button>
+  );
+}
 
 export function RuleCard({ rule, canEdit, canDelete }: { rule: AmlRule; canEdit: boolean; canDelete: boolean }) {
   const { t } = useI18n();
@@ -43,7 +79,6 @@ export function RuleCard({ rule, canEdit, canDelete }: { rule: AmlRule; canEdit:
     onSuccess: () => { setShowFeedback(false); setFeedbackNote(""); utils.amlRules.list.invalidate(); },
   });
 
-  // Préparer les données recharts depuis les executions
   const chartData = executions
     ? (() => {
         const byDay: Record<string, { date: string; triggered: number; total: number }> = {};
@@ -64,19 +99,29 @@ export function RuleCard({ rule, canEdit, canDelete }: { rule: AmlRule; canEdit:
     TESTING:  { color: C.amber,  background: "rgba(245,158,11,0.09)",  border: "1px solid rgba(245,158,11,0.22)"  },
   };
 
+  const scoreColor = rule.baseScore >= 75 ? C.red : rule.baseScore >= 50 ? C.amber : C.green;
+
   return (
-    <div className={`bg-[var(--wr-card)] border rounded-lg transition-all ${
-      open ? "border-[var(--wr-blue)]/30" : "border-[var(--wr-border)] hover:border-[var(--wr-border2)]"
-    }`}>
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-3">
+    <div
+      className={`bg-[var(--wr-card)] border rounded-lg transition-all ${
+        open ? "border-[var(--wr-blue)]/30 shadow-[0_0_0_1px_rgba(74,158,255,0.08)]" : "border-[var(--wr-border)] hover:border-[var(--wr-border2)]"
+      }`}
+    >
+      {/* Main row — clickable to expand */}
+      <div
+        className="p-4 cursor-pointer"
+        onClick={() => setOpen(!open)}
+        style={{ userSelect: "none" }}
+      >
+        <div className="flex items-center justify-between gap-4">
+          {/* Left: info */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-mono font-semibold text-[var(--wr-text-1)]">{rule.name}</span>
-              <span style={{ fontSize: 9, fontFamily: C.mono, padding: "2px 6px", borderRadius: 4, ...(CATEGORY_STYLE[rule.category] ?? {}) }}>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <span style={{ fontSize: 13, fontFamily: C.mono, fontWeight: 600, color: C.text1 }}>{rule.name}</span>
+              <span style={{ fontSize: 9, fontFamily: C.mono, padding: "2px 8px", borderRadius: 4, ...(CATEGORY_STYLE[rule.category] ?? {}) }}>
                 {CATEGORY_LABELS[rule.category] ?? rule.category}
               </span>
-              <span style={{ fontSize: 9, fontFamily: C.mono, padding: "2px 6px", borderRadius: 4, ...(STATUS_STYLE[rule.status] ?? {}) }}>
+              <span style={{ fontSize: 9, fontFamily: C.mono, padding: "2px 8px", borderRadius: 4, ...(STATUS_STYLE[rule.status] ?? {}) }}>
                 {STATUS_LABELS[rule.status]}
               </span>
               {rule.status === "ACTIVE" && (
@@ -84,71 +129,87 @@ export function RuleCard({ rule, canEdit, canDelete }: { rule: AmlRule; canEdit:
               )}
             </div>
             {rule.description && (
-              <p className="text-[10px] font-mono text-[var(--wr-text-3)] mt-1 line-clamp-1">{rule.description}</p>
+              <p style={{ fontSize: 11, fontFamily: C.mono, color: C.text3, margin: "4px 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {rule.description}
+              </p>
             )}
           </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <div className="text-center">
-              <div style={{ fontSize: 13, fontFamily: C.mono, fontWeight: 700,
-                color: rule.baseScore >= 75 ? C.red : rule.baseScore >= 50 ? C.amber : C.green,
-              }}>{rule.baseScore}</div>
-              <div className="text-[9px] font-mono text-[var(--wr-text-4)]">score</div>
-            </div>
+          {/* Center: score pill */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "4px 12px", borderRadius: 20,
+            background: `color-mix(in srgb, ${scoreColor} 8%, transparent)`,
+            border: `1px solid color-mix(in srgb, ${scoreColor} 20%, transparent)`,
+          }}>
+            <span style={{ fontSize: 14, fontFamily: C.mono, fontWeight: 700, color: scoreColor }}>
+              {rule.baseScore}
+            </span>
+            <span style={{ fontSize: 9, fontFamily: C.mono, color: scoreColor, opacity: 0.7 }}>
+              /100
+            </span>
+          </div>
 
+          {/* Right: action buttons */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 2,
+            padding: "2px 4px", borderRadius: 8,
+            background: "var(--wr-surface)", border: "1px solid var(--wr-border)",
+          }}>
             {canEdit && (
               <>
-                <button
+                <ActionButton
                   onClick={() => setShowEdit(true)}
-                  className="text-[var(--wr-text-4)] hover:text-[var(--wr-blue)] transition-colors"
                   title="Modifier la règle"
-                >
-                  <Pencil size={14} />
-                </button>
-                <button
+                  icon={Pencil}
+                  hoverColor="var(--wr-blue)"
+                />
+                <ActionButton
                   onClick={() => toggleMut.mutate({
                     id: rule.id,
                     status: rule.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
                   })}
-                  className="text-[var(--wr-text-4)] hover:text-[var(--wr-blue)] transition-colors"
                   title={rule.status === "ACTIVE" ? "Désactiver" : "Activer"}
-                >
-                  {rule.status === "ACTIVE"
-                    ? <ToggleRight size={18} style={{ color: C.green }} />
-                    : <ToggleLeft  size={18} />
-                  }
-                </button>
+                  icon={rule.status === "ACTIVE" ? ToggleRight : ToggleLeft}
+                  color={rule.status === "ACTIVE" ? C.green : "var(--wr-text-3)"}
+                  hoverColor="var(--wr-blue)"
+                  size={18}
+                />
               </>
             )}
-
-            <button
-              onClick={() => setShowFeedback(true)}
-              className="text-[var(--wr-text-4)] hover:text-amber-400 transition-colors"
+            <ActionButton
+              onClick={() => setShowFeedback(!showFeedback)}
               title="Signaler faux positif"
-            >
-              <ThumbsDown size={14} />
-            </button>
-
+              icon={ThumbsDown}
+              hoverColor="var(--wr-amber)"
+            />
             {canDelete && (
-              <button
+              <ActionButton
                 onClick={() => { if (confirm("Supprimer cette règle ?")) deleteMut.mutate({ id: rule.id }); }}
-                className="text-[var(--wr-text-4)] hover:text-red-400 transition-colors"
-              >
-                <Trash2 size={14} />
-              </button>
+                title="Supprimer"
+                icon={Trash2}
+                hoverColor="var(--wr-red)"
+              />
             )}
-
-            <button onClick={() => setOpen(!open)} className="text-[var(--wr-text-4)] hover:text-[var(--wr-text-1)] transition-colors">
-              {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            </button>
+            <div style={{ width: 1, height: 18, background: "var(--wr-border)", margin: "0 2px" }} />
+            <ActionButton
+              onClick={() => setOpen(!open)}
+              title={open ? "Réduire" : "Détails"}
+              icon={open ? ChevronDown : ChevronRight}
+              hoverColor="var(--wr-text-1)"
+            />
           </div>
         </div>
       </div>
 
-      {/* Feedback modal faux positif */}
+      {/* Feedback panel */}
       {showFeedback && (
-        <div style={{ margin: "0 16px 16px", padding: 12, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 8 }}>
-          <p style={{ fontSize: 10, fontFamily: C.mono, color: C.amber, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+        <div style={{
+          margin: "0 16px 16px", padding: 14,
+          background: "rgba(245,158,11,0.06)",
+          border: "1px solid rgba(245,158,11,0.18)", borderRadius: 10,
+        }}>
+          <p style={{ fontSize: 10, fontFamily: C.mono, color: C.amber, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10, fontWeight: 600 }}>
             Signaler un faux positif
           </p>
           <textarea
@@ -156,17 +217,20 @@ export function RuleCard({ rule, canEdit, canDelete }: { rule: AmlRule; canEdit:
             onChange={e => setFeedbackNote(e.target.value)}
             placeholder="Décrivez pourquoi cette règle génère trop de faux positifs..."
             rows={2}
-            className={`${inputCls} mb-2 text-[11px]`}
+            className={`${inputCls} mb-3 text-[11px]`}
+            onClick={e => e.stopPropagation()}
           />
-          <div className="flex gap-2">
-            <button onClick={() => setShowFeedback(false)} className={btnGhost}>{t.common.cancel}</button>
-            <button
+          <div className="flex gap-2 justify-end">
+            <Button onClick={() => setShowFeedback(false)} variant="ghost" size="sm">
+              {t.common.cancel}
+            </Button>
+            <Button
               onClick={() => feedbackMut.mutate({ ruleId: rule.id, note: feedbackNote })}
               disabled={feedbackNote.length < 10 || feedbackMut.isPending}
-              className={`${btnRed} disabled:opacity-40`}
+              variant="warning" size="sm"
             >
               {feedbackMut.isPending ? "Envoi..." : "Signaler"}
-            </button>
+            </Button>
           </div>
         </div>
       )}

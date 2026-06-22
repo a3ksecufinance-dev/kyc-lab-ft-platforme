@@ -1,6 +1,7 @@
 import { Plus, Trash2, GitBranch } from "lucide-react";
+import { Button } from "../../components/ui/Button";
 import {
-  C, FIELDS, OPERATORS, btnGhost,
+  C, FIELDS, OPERATORS,
   type Condition, type SimpleCondition,
 } from "./types";
 
@@ -67,13 +68,13 @@ export function ConditionBuilder({
           />
         ))}
         <div className="flex gap-2 pt-1">
-          <button onClick={addSimple} className={`${btnGhost} flex items-center gap-1`}>
-            <Plus size={10} /> Condition
-          </button>
+          <Button onClick={addSimple} variant="ghost" size="sm" icon={Plus}>
+            Condition
+          </Button>
           {depth < 2 && (
-            <button onClick={addGroup} className={`${btnGhost} flex items-center gap-1`}>
-              <GitBranch size={10} /> Groupe AND/OR
-            </button>
+            <Button onClick={addGroup} variant="ghost" size="sm" icon={GitBranch}>
+              Groupe AND/OR
+            </Button>
           )}
         </div>
       </div>
