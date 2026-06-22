@@ -9,7 +9,7 @@ import { db } from "../../_core/db";
 import {
   customers, transactions, alerts, cases,
 } from "../../../drizzle/schema";
-import { eq, desc, gte, and, count } from "drizzle-orm";
+import { eq, desc, gte, and, count, sql } from "drizzle-orm";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -177,35 +177,38 @@ export const dashboardRouter = router({
         buckets[key] = { date: key, alerts: 0, transactions: 0, suspicious: 0 };
       }
 
+      const alertDateExpr = sql<string>`DATE(${alerts.createdAt})`;
+      const txDateExpr    = sql<string>`DATE(${transactions.createdAt})`;
+
       const [alertsByDay, txByDay, suspiciousByDay] = await Promise.all([
         db
-          .select({ count: count(), createdAt: alerts.createdAt })
+          .select({ count: count(), day: alertDateExpr })
           .from(alerts)
           .where(gte(alerts.createdAt, since))
-          .groupBy(alerts.createdAt),
+          .groupBy(alertDateExpr),
         db
-          .select({ count: count(), createdAt: transactions.createdAt })
+          .select({ count: count(), day: txDateExpr })
           .from(transactions)
           .where(gte(transactions.createdAt, since))
-          .groupBy(transactions.createdAt),
+          .groupBy(txDateExpr),
         db
-          .select({ count: count(), createdAt: transactions.createdAt })
+          .select({ count: count(), day: txDateExpr })
           .from(transactions)
           .where(and(eq(transactions.isSuspicious, true), gte(transactions.createdAt, since)))
-          .groupBy(transactions.createdAt),
+          .groupBy(txDateExpr),
       ]);
 
       // Remplir les buckets
       for (const row of alertsByDay) {
-        const key = row.createdAt.toISOString().split("T")[0]!;
+        const key = String(row.day);
         if (buckets[key]) buckets[key]!.alerts += Number(row.count);
       }
       for (const row of txByDay) {
-        const key = row.createdAt.toISOString().split("T")[0]!;
+        const key = String(row.day);
         if (buckets[key]) buckets[key]!.transactions += Number(row.count);
       }
       for (const row of suspiciousByDay) {
-        const key = row.createdAt.toISOString().split("T")[0]!;
+        const key = String(row.day);
         if (buckets[key]) buckets[key]!.suspicious += Number(row.count);
       }
 

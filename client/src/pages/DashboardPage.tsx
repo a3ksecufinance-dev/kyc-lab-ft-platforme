@@ -42,7 +42,7 @@ function TrendChart({ days }: { days: number }) {
   const { data, isLoading } = trpc.dashboard.trends.useQuery({ days }, {
     refetchInterval: 60_000,
   });
-  const { lang } = useI18n();
+  const { lang, t } = useI18n();
 
   if (isLoading) return (
     <div style={{ height: 200, background: "var(--wr-hover)", borderRadius: 8, animation: "pulse 2s infinite" }} />
@@ -94,12 +94,12 @@ function TrendChart({ days }: { days: number }) {
         <Area
           type="monotone" dataKey="transactions"
           stroke={C.blue} strokeWidth={1.5}
-          fill="url(#gTx)" name="Transactions"
+          fill="url(#gTx)" name={t.dashboard.chartTransactions}
         />
         <Area
           type="monotone" dataKey="alerts"
           stroke={C.red} strokeWidth={1.5}
-          fill="url(#gAl)" name="Alertes"
+          fill="url(#gAl)" name={t.dashboard.chartAlerts}
         />
       </AreaChart>
     </ResponsiveContainer>
@@ -187,6 +187,7 @@ function DirectionPanel({ selectedYear, onYearChange }: {
   selectedYear: number;
   onYearChange: (y: number) => void;
 }) {
+  const { t } = useI18n();
   const yearStart = useMemo(() => new Date(selectedYear, 0, 1).toISOString(), [selectedYear]);
   const yearEnd   = useMemo(() => new Date(selectedYear, 11, 31, 23, 59, 59).toISOString(), [selectedYear]);
 
@@ -199,16 +200,16 @@ function DirectionPanel({ selectedYear, onYearChange }: {
 
   if (isLoading) return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 0" }}>
-      <p style={{ fontSize: 12, fontFamily: C.mono, color: C.text3 }}>Calcul des KPIs direction…</p>
+      <p style={{ fontSize: 12, fontFamily: C.mono, color: C.text3 }}>{t.dashboard.dirLoading}</p>
     </div>
   );
 
   if (error) return (
     <div style={{ background: `${C.amber}08`, border: `1px solid ${C.amber}25`, borderRadius: 10, padding: 24, textAlign: "center" }}>
       <Shield size={24} style={{ color: C.amber, marginBottom: 8 }} />
-      <p style={{ fontSize: 13, fontFamily: C.mono, color: C.amber, margin: "0 0 4px" }}>Accès restreint</p>
+      <p style={{ fontSize: 13, fontFamily: C.mono, color: C.amber, margin: "0 0 4px" }}>{t.dashboard.dirRestricted}</p>
       <p style={{ fontSize: 11, fontFamily: C.mono, color: C.text3, margin: 0 }}>
-        Ce tableau de bord est réservé aux Compliance Officers et administrateurs.
+        {t.dashboard.dirRestrictedDesc}
       </p>
     </div>
   );
@@ -228,67 +229,67 @@ function DirectionPanel({ selectedYear, onYearChange }: {
   const kpiCards = [
     {
       icon: CheckCircle,
-      label: "Couverture KYC",
+      label: t.dashboard.kpiKycCoverage,
       value: `${kycCoverage.toFixed(1)} %`,
-      sub: `${kpis.customers.kycApproved} / ${kpis.customers.total} clients`,
+      sub: t.dashboard.kpiKycCoverageSub.replace("{approved}", String(kpis.customers.kycApproved)).replace("{total}", String(kpis.customers.total)),
       color: kycCoverage >= 90 ? C.green : kycCoverage >= 70 ? C.amber : C.red,
-      target: "Cible BAM : ≥ 95%",
+      target: t.dashboard.kpiKycTarget,
     },
     {
       icon: Activity,
-      label: "Alertes / 1 000 tx",
+      label: t.dashboard.kpiAlertsPer1k,
       value: alertsPer1k.toFixed(1),
-      sub: `${kpis.alerts.total} alertes — ${kpis.transactions.total} tx`,
+      sub: t.dashboard.kpiAlertsPer1kSub.replace("{alerts}", String(kpis.alerts.total)).replace("{tx}", String(kpis.transactions.total)),
       color: alertsPer1k > 20 ? C.red : alertsPer1k > 10 ? C.amber : C.green,
-      target: "Cible : < 10 / 1 000",
+      target: t.dashboard.kpiAlertsPer1kTarget,
     },
     {
       icon: Target,
-      label: "Efficacité alertes",
+      label: t.dashboard.kpiEfficiency,
       value: `${truePosRate.toFixed(1)} %`,
-      sub: `${kpis.alerts.falsePositiveRate.toFixed(1)}% faux positifs`,
+      sub: t.dashboard.kpiEfficiencySub.replace("{fp}", kpis.alerts.falsePositiveRate.toFixed(1)),
       color: truePosRate >= 70 ? C.green : truePosRate >= 50 ? C.amber : C.red,
-      target: "Cible : ≥ 70% vrais positifs",
+      target: t.dashboard.kpiEfficiencyTarget,
     },
     {
       icon: FileText,
-      label: "STR déposées (YTD)",
+      label: t.dashboard.kpiStrYtd,
       value: strCount,
-      sub: `+ ${sarCount} SAR — ${kpis.declarations.submitted} soumis`,
+      sub: t.dashboard.kpiStrYtdSub.replace("{sar}", String(sarCount)).replace("{submitted}", String(kpis.declarations.submitted)),
       color: C.blue,
-      target: "Obligatoire ANRF / GoAML",
+      target: t.dashboard.kpiStrYtdTarget,
     },
     {
       icon: Clock,
-      label: "Délai moyen STR",
-      value: `${avgDays.toFixed(1)} j`,
-      sub: "Création → soumission ANRF",
+      label: t.dashboard.kpiAvgStr,
+      value: `${avgDays.toFixed(1)} ${t.dashboard.daysUnit}`,
+      sub: t.dashboard.kpiAvgStrSub,
       color: avgDays <= 5 ? C.green : avgDays <= 10 ? C.amber : C.red,
-      target: "Cible BAM : ≤ 5 jours",
+      target: t.dashboard.kpiAvgStrTarget,
     },
     {
       icon: AlertTriangle,
-      label: "Alertes CRITICAL",
+      label: t.dashboard.kpiCritical,
       value: overview?.alerts.byPriority?.["CRITICAL"] ?? 0,
-      sub: `${overview?.alerts.open ?? 0} alertes ouvertes total`,
+      sub: t.dashboard.kpiCriticalSub.replace("{open}", String(overview?.alerts.open ?? 0)),
       color: (overview?.alerts.byPriority?.["CRITICAL"] ?? 0) > 0 ? C.red : C.green,
-      target: "Traitement prioritaire requis",
+      target: t.dashboard.kpiCriticalTarget,
     },
     {
       icon: BarChart2,
-      label: "SLA breaches",
+      label: t.dashboard.kpiSla,
       value: slaBreaches,
-      sub: "Alertes > 5 jours ouvrés",
+      sub: t.dashboard.kpiSlaSub,
       color: slaBreaches > 0 ? C.red : C.green,
-      target: "Cible réglementaire : 0",
+      target: t.dashboard.kpiSlaTarget,
     },
     {
       icon: TrendingUp,
-      label: "Clients HIGH/CRITICAL",
+      label: t.dashboard.kpiHighRisk,
       value: highRisk,
-      sub: `sur ${kpis.customers.total} clients — ${kpis.customers.pepActive} PEP`,
+      sub: t.dashboard.kpiHighRiskSub.replace("{total}", String(kpis.customers.total)).replace("{pep}", String(kpis.customers.pepActive)),
       color: highRisk > 20 ? C.red : highRisk > 10 ? C.amber : C.text1,
-      target: "Surveillance renforcée EDD",
+      target: t.dashboard.kpiHighRiskTarget,
     },
   ];
 
@@ -299,10 +300,10 @@ function DirectionPanel({ selectedYear, onYearChange }: {
       <div style={{ background: `${C.gold}08`, border: `1px solid ${C.gold}25`, borderRadius: 10, padding: "14px 18px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div>
           <p style={{ fontSize: 11, fontFamily: C.mono, color: C.gold, margin: "0 0 2px", letterSpacing: "0.16em", textTransform: "uppercase" }}>
-            Tableau de bord Direction — Comité de Conformité
+            {t.dashboard.dirTitle}
           </p>
           <p style={{ fontSize: 11, fontFamily: C.mono, color: C.text3, margin: 0 }}>
-            Période : 1 janv. {selectedYear} → 31 déc. {selectedYear} · 8 KPIs cartographie conformité BAM/FATF
+            {t.dashboard.dirPeriod.replace(/\{year\}/g, String(selectedYear))}
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -357,13 +358,13 @@ function DirectionPanel({ selectedYear, onYearChange }: {
 
       {/* Tableau sanctions + PEP */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <Card title="Screening sanctions (YTD)">
+        <Card title={t.dashboard.screeningSanctions}>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {[
-              { label: "Total screenings", value: kpis.screening.total, color: C.text1 },
-              { label: "MATCH détectés",   value: kpis.screening.matchCount,  color: C.red },
-              { label: "En révision",       value: kpis.screening.reviewCount, color: C.amber },
-              { label: "CLEAR",             value: kpis.screening.clearCount,  color: C.green },
+              { label: t.dashboard.totalScreenings, value: kpis.screening.total, color: C.text1 },
+              { label: t.dashboard.matchDetected,   value: kpis.screening.matchCount,  color: C.red },
+              { label: t.dashboard.inReview,         value: kpis.screening.reviewCount, color: C.amber },
+              { label: t.dashboard.clearLabel,       value: kpis.screening.clearCount,  color: C.green },
             ].map(({ label, value: v, color }) => (
               <div key={label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <span style={{ fontSize: 11, fontFamily: C.mono, color: C.text3 }}>{label}</span>
@@ -373,13 +374,13 @@ function DirectionPanel({ selectedYear, onYearChange }: {
           </div>
         </Card>
 
-        <Card title="Dossiers investigation (YTD)">
+        <Card title={t.dashboard.caseInvestigation}>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {[
-              { label: "Ouverts",    value: kpis.cases.opened,    color: C.amber },
-              { label: "Clôturés",   value: kpis.cases.closed,    color: C.green },
-              { label: "Escaladés",  value: kpis.cases.escalated, color: C.red },
-              { label: "SAR/STR liés", value: sarCount + strCount, color: C.blue },
+              { label: t.dashboard.casesOpened,    value: kpis.cases.opened,    color: C.amber },
+              { label: t.dashboard.casesClosed,    value: kpis.cases.closed,    color: C.green },
+              { label: t.dashboard.casesEscalated, value: kpis.cases.escalated, color: C.red },
+              { label: t.dashboard.casesLinked,    value: sarCount + strCount,  color: C.blue },
             ].map(({ label, value: v, color }) => (
               <div key={label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <span style={{ fontSize: 11, fontFamily: C.mono, color: C.text3 }}>{label}</span>
@@ -484,8 +485,8 @@ export function DashboardPage() {
         {/* ── Tabs Opérationnel / Direction ────────────────────────────── */}
         <div style={{ display: "flex", borderBottom: `1px solid ${C.border}` }}>
           {([
-            { id: "ops"       as const, label: "Opérationnel",  icon: Activity },
-            { id: "direction" as const, label: "Direction — ComCo", icon: Shield },
+            { id: "ops"       as const, label: t.dashboard.tabOps,       icon: Activity },
+            { id: "direction" as const, label: t.dashboard.tabDirection, icon: Shield },
           ]).map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -516,7 +517,7 @@ export function DashboardPage() {
 
           {/* Période graphique */}
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 10, fontFamily: C.mono, color: C.text3, textTransform: "uppercase", letterSpacing: "0.1em" }}>Tendances</span>
+            <span style={{ fontSize: 10, fontFamily: C.mono, color: C.text3, textTransform: "uppercase", letterSpacing: "0.1em" }}>{t.dashboard.filterTrends}</span>
             <div style={{ display: "flex", gap: 3 }}>
               {([7, 14, 30, 90] as const).map(d => (
                 <FilterChip key={d} label={`${d}j`} active={trendDays === d} onClick={() => setTrendDays(d)} />
@@ -528,7 +529,7 @@ export function DashboardPage() {
 
           {/* Fenêtre activité récente */}
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 10, fontFamily: C.mono, color: C.text3, textTransform: "uppercase", letterSpacing: "0.1em" }}>Activité</span>
+            <span style={{ fontSize: 10, fontFamily: C.mono, color: C.text3, textTransform: "uppercase", letterSpacing: "0.1em" }}>{t.dashboard.filterActivity}</span>
             <div style={{ display: "flex", gap: 3 }}>
               {([{ h: 24, label: "24h" }, { h: 48, label: "48h" }, { h: 168, label: "7j" }]).map(({ h, label }) => (
                 <FilterChip key={h} label={label} active={activityHours === h} onClick={() => setActivityHours(h)} />
@@ -540,10 +541,10 @@ export function DashboardPage() {
 
           {/* Priorité alertes */}
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 10, fontFamily: C.mono, color: C.text3, textTransform: "uppercase", letterSpacing: "0.1em" }}>Priorité</span>
+            <span style={{ fontSize: 10, fontFamily: C.mono, color: C.text3, textTransform: "uppercase", letterSpacing: "0.1em" }}>{t.dashboard.filterPriority}</span>
             <div style={{ display: "flex", gap: 3 }}>
               {(["ALL", "CRITICAL", "HIGH", "MEDIUM", "LOW"] as const).map(p => (
-                <FilterChip key={p} label={p === "ALL" ? "Toutes" : p} active={alertPriority === p} onClick={() => setAlertPriority(p)} />
+                <FilterChip key={p} label={p === "ALL" ? t.dashboard.filterAll : p} active={alertPriority === p} onClick={() => setAlertPriority(p)} />
               ))}
             </div>
           </div>
@@ -569,7 +570,7 @@ export function DashboardPage() {
           <StatCard
             label={t.dashboard.openCases}
             value={isLoading ? "—" : formatNumber(overview?.cases.byStatus?.["OPEN"] ?? 0)}
-            sub={`${overview?.cases.byStatus?.["PENDING_APPROVAL"] ?? 0} en approbation`}
+            sub={`${overview?.cases.byStatus?.["PENDING_APPROVAL"] ?? 0} ${t.dashboard.pendingApproval}`}
             icon={FolderOpen}
             accent={(overview?.cases.byStatus?.["PENDING_APPROVAL"] ?? 0) > 0 ? "warning" : "default"}
           />
@@ -751,13 +752,13 @@ export function DashboardPage() {
           <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", marginTop: 16 }}>
             <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.border}` }}>
               <h3 style={{ fontSize: 11, fontFamily: C.mono, color: C.text3, letterSpacing: "0.16em", textTransform: "uppercase", margin: 0, fontWeight: 600 }}>
-                Top clients HIGH risk
+                {t.dashboard.topRiskTitle}
               </h3>
             </div>
             <table style={{ width: "100%", fontSize: 11, fontFamily: C.mono, borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ borderBottom: `1px solid ${C.border}` }}>
-                  {(["ID Client", "Nom", "Score risque", "Niveau", "KYC"] as const).map(h => (
+                  {([t.dashboard.colClientId, t.dashboard.colName, t.dashboard.colRiskScore, t.dashboard.colLevel, t.dashboard.colKyc]).map(h => (
                     <th key={h} style={{ textAlign: "left", padding: "8px 16px", fontSize: 9, fontFamily: C.mono, color: C.text3, letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 600 }}>{h}</th>
                   ))}
                 </tr>
