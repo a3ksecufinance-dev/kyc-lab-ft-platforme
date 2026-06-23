@@ -12,6 +12,7 @@ import { amlRulesRouter }     from "./modules/aml/aml-rules.router";
 import { jurisdictionsRouter } from "./modules/aml/jurisdictions.router";
 
 import { documentsRouter }    from "./modules/documents/documents.router";
+import { docExpiryRouter }   from "./modules/documents/doc-expiry.router";
 import { networkRouter }      from "./modules/network/network.router";
 import { pkycRouter }         from "./modules/customers/pkyc.router";
 import { institutionRouter }          from "./modules/institution/institution.router";
@@ -44,6 +45,7 @@ export const appRouter = router({
   amlRules:      amlRulesRouter,
   jurisdictions: jurisdictionsRouter,
   documents:     documentsRouter,
+  docExpiry:     docExpiryRouter,
   network:       networkRouter,
   pkyc:          pkycRouter,
   institution:         institutionRouter,

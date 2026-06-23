@@ -115,6 +115,11 @@ function requireRecentMfa() {
       throw new TRPCError({ code: "UNAUTHORIZED", message: "Authentification requise" });
     }
 
+    // Si l'utilisateur n'a pas activé MFA, ne pas bloquer l'opération
+    if (!ctx.user.mfaEnabled) {
+      return next({ ctx: { ...ctx, user: ctx.user } });
+    }
+
     const { redis } = await import("./redis");
     const key = `mfa_verified:${ctx.user.id}`;
     const verified = await redis.get(key);

@@ -151,6 +151,11 @@ const envSchema = z.object({
   PKYC_BASELINE_DAYS:    z.coerce.number().int().min(7).max(365).default(30),
   PKYC_WINDOW_DAYS:      z.coerce.number().int().min(1).max(30).default(7),
 
+  // Document expiry — vérification nuitière d'expiration des pièces KYC
+  DOC_EXPIRY_ENABLED:    boolEnv(true),
+  DOC_EXPIRY_CRON:       z.string().default("0 2 * * *"),   // 02:00 UTC chaque nuit
+  DOC_EXPIRY_WARN_DAYS:  z.coerce.number().int().min(1).max(180).default(30), // alerter 30j avant
+
   // Institution type — détermine les fonctionnalités activées au démarrage
   // CLASSIC_BANK = comportement actuel inchangé (défaut)
   // MICROFINANCE  = + wallets, KYC tiers, règles AML cash/agent
