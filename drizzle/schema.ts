@@ -253,6 +253,11 @@ export const customers = pgTable("customers", {
   sourceOfFunds: varchar("source_of_funds", { length: 200 }),
   monthlyIncome: numeric("monthly_income", { precision: 15, scale: 2 }),
   customerType: customerTypeEnum("customer_type").default("INDIVIDUAL").notNull(),
+  // ─── Identité CBS ────────────────────────────────────────────────────────
+  nicNumber:   varchar("nic_number",    { length: 50 }),   // CIN / numéro identité national
+  birthCity:   varchar("birth_city",    { length: 100 }),
+  birthCountry: varchar("birth_country", { length: 10 }),
+  cbsRef:      varchar("cbs_ref",       { length: 50 }),   // référence CBS (ID.slice(-8))
   kycStatus: kycStatusEnum("kyc_status").default("PENDING").notNull(),
   riskLevel: riskLevelEnum("risk_level").default("LOW").notNull(),
   riskScore: integer("risk_score").default(0).notNull(),

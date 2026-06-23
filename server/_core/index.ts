@@ -307,6 +307,11 @@ app.post(
   }
 );
 
+// ─── CBS Onboarding API ───────────────────────────────────────────────────────
+
+import { createCbsOnboardingRouter } from "../modules/connectors/cbs-onboarding.router";
+app.use("/api/cbs", createCbsOnboardingRouter());
+
 // ─── Contact landing page (public — pas d'auth) ──────────────────────────────
 
 function escapeHtml(s: string): string {

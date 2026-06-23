@@ -156,6 +156,10 @@ const envSchema = z.object({
   DOC_EXPIRY_CRON:       z.string().default("0 2 * * *"),   // 02:00 UTC chaque nuit
   DOC_EXPIRY_WARN_DAYS:  z.coerce.number().int().min(1).max(180).default(30), // alerter 30j avant
 
+  // CBS Onboarding API — endpoint REST reçu depuis le Core Banking System
+  CBS_ONBOARDING_API_KEY: z.string().default("cbs-staging-key-change-me"),
+  CBS_AUTH_DISABLED:      boolEnv(false), // true en développement local uniquement
+
   // Institution type — détermine les fonctionnalités activées au démarrage
   // CLASSIC_BANK = comportement actuel inchangé (défaut)
   // MICROFINANCE  = + wallets, KYC tiers, règles AML cash/agent
