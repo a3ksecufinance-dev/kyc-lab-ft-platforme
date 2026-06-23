@@ -58,8 +58,8 @@ const envSchema = z.object({
   // Liste BAM / ANRF (Autorité Nationale du Renseignement Financier — Maroc)
   BAM_SANCTIONS_URL:   z.string().url().optional().or(z.literal("").transform(() => undefined)),
   SCREENING_UPDATE_CRON:       z.string().default("0 2 * * *"),
-  SCREENING_MATCH_THRESHOLD:   z.coerce.number().int().min(0).max(100).default(80),
-  SCREENING_REVIEW_THRESHOLD:  z.coerce.number().int().min(0).max(100).default(50),
+  SCREENING_MATCH_THRESHOLD:   z.coerce.number().int().min(0).max(100).default(85),
+  SCREENING_REVIEW_THRESHOLD:  z.coerce.number().int().min(0).max(100).default(70),
   SCREENING_AUTO_UPDATE:       boolEnv(true),
   // Durée max sans mise à jour avant alerte (heures)
   SCREENING_STALE_THRESHOLD_HOURS: z.coerce.number().int().min(1).max(168).default(36),
