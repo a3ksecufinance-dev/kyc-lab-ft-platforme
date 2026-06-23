@@ -209,7 +209,7 @@ export async function processCbsOnboarding(
       alertId:    `CBS-SANC-${nanoid(8).toUpperCase()}`,
       customerId: customer.id,
       scenario:   "SANCTIONS_MATCH",
-      alertType:  "IDENTITY",
+      alertType:  "SANCTIONS",
       priority:   "CRITICAL",
       status:     "OPEN",
       riskScore:  100,
