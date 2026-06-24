@@ -197,6 +197,12 @@ async function createStaleAlert(provider: string, ageHours: number): Promise<voi
 //   OpenSanctions PEP CSV : ~200 MB → 180s
 
 async function fetchWithRetry(url: string, maxRetries = 2, timeoutMs = 90_000): Promise<string> {
+  // SCREENING_TLS_INSECURE=true : désactive la vérification TLS pour les listes
+  // sanctions (nécessaire quand le réseau utilise un proxy avec cert auto-signé)
+  if ((ENV as Record<string, unknown>)["SCREENING_TLS_INSECURE"] === true) {
+    process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = "0";
+  }
+
   let lastErr: unknown;
   for (let i = 0; i < maxRetries; i++) {
     try {
@@ -550,10 +556,12 @@ export async function fetchPepList(): Promise<SanctionEntity[]> {
     return entities;
   } catch (err) {
     log.error({ err, url }, "Échec chargement liste PEP");
-    // En développement : utiliser les données mock PEP pour permettre les tests
-    if (process.env["NODE_ENV"] !== "production") {
+    // Fallback mock PEP : actif en dev OU si PEP_MOCK_FALLBACK=true (staging sans accès réseau)
+    const useMock = process.env["NODE_ENV"] !== "production"
+      || (ENV as Record<string, unknown>)["PEP_MOCK_FALLBACK"] === true;
+    if (useMock) {
       const mock = getMockPepEntities();
-      log.warn({ count: mock.length }, "Liste PEP inaccessible — données mock PEP chargées (dev)");
+      log.warn({ count: mock.length }, "Liste PEP inaccessible — données mock PEP chargées");
       return mock;
     }
     return [];
