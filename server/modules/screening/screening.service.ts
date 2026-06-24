@@ -26,13 +26,19 @@ export async function getSanctionLists(): Promise<SanctionEntity[]> {
 export async function screenCustomer(
   customerId:   number,
   customerName: string,
+  opts: { excludePep?: boolean } = { excludePep: true },
 ): Promise<{
   sanctionsResult: Awaited<ReturnType<typeof insertScreeningResult>>;
   status:          "CLEAR" | "MATCH" | "REVIEW";
 }> {
   await requireCustomer(customerId);
 
-  const entities        = await getSanctionLists();
+  const allEntities     = await getSanctionLists();
+  // Par défaut : exclure les entités PEP du screening sanctions
+  // (le check PEP est fait séparément dans le pipeline onboarding UC-3)
+  const entities        = opts.excludePep !== false
+    ? allEntities.filter(e => e.listSource !== "PEP")
+    : allEntities;
   const matchThreshold  = ENV.SCREENING_MATCH_THRESHOLD;
   const reviewThreshold = ENV.SCREENING_REVIEW_THRESHOLD;
 
