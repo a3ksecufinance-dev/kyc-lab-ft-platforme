@@ -1,12 +1,11 @@
 /**
- * CBS Onboarding Router — endpoint REST pour l'intégration CBS
+ * CBS Router — endpoints REST pour l'intégration CBS
  *
- * POST /api/cbs/onboarding
- *   Corps : format API Reset CBS
- *   Auth  : X-CBS-Api-Key (header) ou CBS_API_KEY en staging/live
- *           CBS_AUTH_DISABLED=true en mode développement (désactive l'auth)
+ * POST /api/cbs/onboarding     — Entrée en relation (UC-1/2/3/4/5)
+ * POST /api/cbs/reactivation   — Réactivation client bloqué (UC-8)
+ * GET  /api/cbs/health         — Santé du service
  *
- * Retourne une décision synchrone en < 3s.
+ * Auth : X-CBS-Api-Key (header) — désactivable via CBS_AUTH_DISABLED=true (dev)
  */
 
 import type { Router, Request, Response } from "express";
@@ -15,21 +14,20 @@ import { createLogger }                    from "../../_core/logger";
 import { ENV }                             from "../../_core/env";
 import { processCbsOnboarding }            from "./cbs-onboarding.service";
 import type { CbsOnboardingPayload }       from "./cbs-onboarding.service";
+import { processCbsReactivation }          from "./cbs-reactivation.service";
+import type { CbsReactivationPayload }     from "./cbs-reactivation.service";
 import { nanoid }                          from "nanoid";
 
-const log = createLogger("cbs-onboarding-api");
+const log = createLogger("cbs-api");
 
 // ─── Auth CBS ─────────────────────────────────────────────────────────────────
 
 function verifyCbsAuth(req: Request, res: Response): boolean {
   if (ENV.CBS_AUTH_DISABLED) return true;
-
-  const apiKey = req.headers["x-cbs-api-key"] ?? req.headers["authorization"]?.replace("Bearer ", "");
+  const apiKey = req.headers["x-cbs-api-key"]
+    ?? req.headers["authorization"]?.replace("Bearer ", "");
   if (!apiKey || apiKey !== ENV.CBS_ONBOARDING_API_KEY) {
-    res.status(401).json({
-      success: false,
-      error:   "Clé API CBS invalide ou manquante (header X-CBS-Api-Key requis)",
-    });
+    res.status(401).json({ success: false, error: "Clé API CBS invalide ou manquante" });
     return false;
   }
   return true;
@@ -42,50 +40,42 @@ export function createCbsOnboardingRouter(): Router {
 
   /**
    * POST /api/cbs/onboarding
-   * Entrée en relation depuis le CBS — décision synchrone
+   * UC-1 Happy Path, UC-2 Sanctions, UC-3 PEP, UC-4 OCR, UC-5 Doc expiré
    */
   router.post("/onboarding", async (req: Request, res: Response) => {
     if (!verifyCbsAuth(req, res)) return;
 
     const cbsRef = `CBS-${nanoid(8).toUpperCase()}`;
     const body   = req.body as Partial<CbsOnboardingPayload>;
-
     log.info({ cbsRef, code: body.code, cin: body.CIN }, "Réception onboarding CBS");
 
     try {
       const result = await processCbsOnboarding(body as CbsOnboardingPayload, cbsRef);
+      log.info({ cbsRef, decision: result.decision, customerId: result.customerId, durationMs: result.durationMs }, "Réponse CBS envoyée");
 
-      const httpStatus = result.decision === "REJECTED" ? 200 : 200;
-
-      log.info({
+      res.json({
+        success:    result.decision !== "REJECTED",
         cbsRef,
         decision:   result.decision,
-        customerId: result.customerId,
-        durationMs: result.durationMs,
-      }, "Réponse CBS envoyée");
-
-      res.status(httpStatus).json({
-        success:     result.decision !== "REJECTED",
-        cbsRef,
-        decision:    result.decision,
-        reason:      result.reason,
-        reasonCode:  result.reasonCode,
+        reason:     result.reason,
+        reasonCode: result.reasonCode,
         customer: {
           id:        result.customerId,
           ref:       result.customerRef,
           riskLevel: result.riskLevel,
           riskScore: result.riskScore,
         },
-        screening: result.screening,
+        screening:  result.screening,
+        pep:        result.pep,
+        ocr:        result.ocr ? { performed: result.ocr.performed, coherent: result.ocr.coherent, confidence: result.ocr.confidence, mismatchCount: result.ocr.mismatches.length } : undefined,
         processedAt: result.processedAt,
         durationMs:  result.durationMs,
       });
 
     } catch (err) {
-      log.error({ cbsRef, err }, "Erreur traitement onboarding CBS");
+      log.error({ cbsRef, err }, "Erreur onboarding CBS");
       res.status(500).json({
-        success:    false,
-        cbsRef,
+        success: false, cbsRef,
         error:      err instanceof Error ? err.message : "Erreur interne",
         decision:   "IN_REVIEW",
         reasonCode: "REVIEW_INTERNAL_ERROR",
@@ -94,14 +84,65 @@ export function createCbsOnboardingRouter(): Router {
   });
 
   /**
+   * POST /api/cbs/reactivation
+   * UC-8 — Client bloqué revient avec nouveau document
+   */
+  router.post("/reactivation", async (req: Request, res: Response) => {
+    if (!verifyCbsAuth(req, res)) return;
+
+    const cbsRef = `CBS-REACT-${nanoid(8).toUpperCase()}`;
+    const body   = req.body as Partial<CbsReactivationPayload>;
+    log.info({ cbsRef, cin: body.CIN }, "Réception réactivation CBS");
+
+    if (!body.CIN || !body.newDocument?.expiryDate) {
+      res.status(400).json({
+        success: false,
+        error:   "CIN et newDocument.expiryDate sont obligatoires",
+      });
+      return;
+    }
+
+    try {
+      const result = await processCbsReactivation(body as CbsReactivationPayload, cbsRef);
+      log.info({ cbsRef, decision: result.decision, customerId: result.customerId, sarWarning: result.sarWarning }, "Réactivation CBS terminée");
+
+      res.json({
+        success:        result.decision !== "REJECTED",
+        cbsRef,
+        decision:       result.decision,
+        reason:         result.reason,
+        reasonCode:     result.reasonCode,
+        customer: {
+          id:             result.customerId,
+          ref:            result.customerRef,
+          previousStatus: result.previousStatus,
+          riskLevel:      result.riskLevel,
+          riskScore:      result.riskScore,
+        },
+        screening:      result.screening,
+        sarWarning:     result.sarWarning,
+        processedAt:    result.processedAt,
+        durationMs:     result.durationMs,
+      });
+
+    } catch (err) {
+      log.error({ cbsRef, err }, "Erreur réactivation CBS");
+      res.status(500).json({
+        success: false, cbsRef,
+        error:   err instanceof Error ? err.message : "Erreur interne",
+      });
+    }
+  });
+
+  /**
    * GET /api/cbs/health
-   * Vérification connectivité CBS ↔ KYC-AML
    */
   router.get("/health", (_req: Request, res: Response) => {
     res.json({
       status:    "ok",
-      service:   "KYC-AML CBS Onboarding API",
-      version:   "1.0",
+      service:   "KYC-AML CBS Integration API",
+      version:   "2.0",
+      endpoints: ["POST /onboarding", "POST /reactivation", "GET /health"],
       timestamp: new Date().toISOString(),
       mode:      ENV.CBS_AUTH_DISABLED ? "development" : "production",
     });

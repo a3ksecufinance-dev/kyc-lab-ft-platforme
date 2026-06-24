@@ -1,18 +1,20 @@
 /**
- * CBS Onboarding Service — UC-1, UC-2, UC-4, UC-5
+ * CBS Onboarding Service — UC-1, UC-2, UC-3, UC-4, UC-5
  *
  * Pipeline synchrone (< 5s) :
  *  1. Validation & normalisation du payload CBS
  *  2. Vérification doublon CIN
  *  3. Création client
- *  4. Screening sanctions + PEP (UC-1 / UC-2)
- *  5. OCR image document si fournie → cohérence CBS↔OCR (UC-4)
- *  6. Vérification expiration document (UC-5)
- *  7. Calcul score risque initial
- *  8. Décision finale → APPROVED / IN_REVIEW / REJECTED
+ *  4. Screening sanctions (UC-1 / UC-2)
+ *  5. Screening PEP séparé (UC-3)
+ *  6. OCR image document si fournie → cohérence CBS↔OCR (UC-4)
+ *  7. Vérification expiration document (UC-5)
+ *  8. Calcul score risque initial
+ *  9. Décision finale → APPROVED / IN_REVIEW / REJECTED
  *
  * UC-1 : Happy Path → APPROVED
  * UC-2 : Sanctions MATCH → REJECTED immédiat + alerte CRITICAL
+ * UC-3 : PEP détecté → IN_REVIEW + EDD + alerte HIGH
  * UC-4 : Discordance CBS↔OCR → IN_REVIEW + alerte FRAUD
  * UC-5 : Document expiré à l'ouverture → IN_REVIEW + alerte CRITICAL
  * UC-6 : Expiration en vie → scheduler doc-expiry (déjà implémenté)
@@ -24,8 +26,11 @@ import { db }           from "../../_core/db";
 import { createLogger } from "../../_core/logger";
 import { customers, documents, alerts } from "../../../drizzle/schema";
 import { insertCustomer }               from "../customers/customers.repository";
-import { screenCustomer }               from "../screening/screening.service";
+import { screenCustomer, getSanctionLists } from "../screening/screening.service";
+import { matchAgainstMultipleLists }    from "../screening/screening.matcher";
+import { insertScreeningResult }        from "../screening/screening.repository";
 import { runOcr, type OcrData }         from "../documents/ocr.service";
+import { ENV }                          from "../../_core/env";
 
 const log = createLogger("cbs-onboarding");
 
@@ -64,6 +69,12 @@ export interface CbsOnboardingResult {
     matchedEntity: string | null;
     listSource:    string | null;
   };
+  pep?: {
+    detected:      boolean;
+    matchScore:    number;
+    matchedEntity: string | null;
+    requiresEdd:   boolean;
+  };
   ocr?: {
     performed:    boolean;
     coherent:     boolean;
@@ -85,6 +96,7 @@ export interface OcrMismatch {
 type CbsReasonCode =
   | "APPROVED_CLEAR"
   | "REVIEW_SANCTIONS_PARTIAL"
+  | "REVIEW_PEP_DETECTED"
   | "REVIEW_DOCUMENT_EXPIRED"
   | "REVIEW_DOCUMENT_EXPIRING_SOON"
   | "REVIEW_DOCUMENT_MISMATCH"
@@ -349,7 +361,81 @@ export async function processCbsOnboarding(
     });
   }
 
-  // ── 5. OCR + cohérence CBS↔document (UC-4) ────────────────────────────────
+  // ── 5. Screening PEP séparé (UC-3) ────────────────────────────────────────
+  let pepDetected   = false;
+  let pepMatchScore = 0;
+  let pepEntity:    string | null = null;
+
+  try {
+    const allEntities = await getSanctionLists();
+    const pepEntities = allEntities.filter(e => e.listSource === "PEP");
+
+    if (pepEntities.length > 0) {
+      const pepThreshold = ENV.SCREENING_REVIEW_THRESHOLD; // même seuil que REVIEW
+      const { bestMatch } = matchAgainstMultipleLists(fullName, pepEntities, pepThreshold);
+
+      pepMatchScore = bestMatch.score;
+      pepDetected   = bestMatch.score >= pepThreshold;
+      pepEntity     = bestMatch.matchedEntity ?? null;
+
+      if (pepDetected) {
+        log.info({ customerId: customer.id, pepEntity, pepMatchScore }, "UC-3 : PEP détecté");
+
+        // Marquer le client comme PEP
+        await db.update(customers)
+          .set({ pepStatus: true, customerType: "PEP", updatedAt: now })
+          .where(eq(customers.id, customer.id));
+
+        // Enregistrer le résultat screening PEP
+        await insertScreeningResult({
+          customerId:      customer.id,
+          screeningType:   "PEP",
+          status:          pepMatchScore >= ENV.SCREENING_MATCH_THRESHOLD ? "MATCH" : "REVIEW",
+          matchScore:      pepMatchScore,
+          matchedEntity:   pepEntity,
+          listSource:      "PEP",
+          confidenceScore: pepMatchScore,
+          details: {
+            matchedEntity: pepEntity,
+            matchScore:    pepMatchScore,
+            threshold:     pepThreshold,
+            requiresEdd:   true,
+          } as unknown as null,
+          decision: "PENDING",
+        });
+
+        // Alerte PEP HIGH
+        await db.insert(alerts).values({
+          alertId:        `CBS-PEP-${nanoid(8).toUpperCase()}`,
+          customerId:     customer.id,
+          scenario:       "PEP_MATCH",
+          alertType:      "PEP",
+          priority:       "HIGH",
+          status:         "OPEN",
+          riskScore:      70,
+          reason:         `CBS onboarding — PEP détecté : ${pepEntity} ` +
+                          `(score ${pepMatchScore}) — EDD (Enhanced Due Diligence) obligatoire`,
+          enrichmentData: {
+            cbsRef, cin: payload.CIN,
+            matchedEntity: pepEntity,
+            matchScore:    pepMatchScore,
+            requiresEdd:   true,
+            eddChecklist: [
+              "Vérifier la source des fonds",
+              "Obtenir justificatifs patrimoine",
+              "Valider l'origine des revenus",
+              "Approbation supervisor obligatoire",
+            ],
+          },
+          createdAt: now, updatedAt: now,
+        });
+      }
+    }
+  } catch (pepErr) {
+    log.error({ customerId: customer.id, pepErr }, "UC-3 : screening PEP échoué — poursuite");
+  }
+
+  // ── 6. OCR + cohérence CBS↔document (UC-4) ────────────────────────────────
   let ocrResult: OcrData | null        = null;
   let ocrMismatches: OcrMismatch[]     = [];
   let ocrCoherent                      = true;
@@ -477,8 +563,9 @@ export async function processCbsOnboarding(
   let riskLevel: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" = "LOW";
 
   if (screeningResult.status === "REVIEW") riskScore += 30;
+  if (pepDetected)                         riskScore += 40;  // PEP = risque élevé par défaut
   if (payload.nationalite && payload.nationalite !== "MA") riskScore += 10;
-  if (hasBlockingMismatch)                riskScore += 35;
+  if (hasBlockingMismatch)                 riskScore += 35;
   if (docReasonCode === "REVIEW_DOCUMENT_EXPIRING_SOON") riskScore += 5;
   if (docReasonCode === "REVIEW_DOCUMENT_EXPIRED")       riskScore += 25;
 
@@ -499,6 +586,10 @@ export async function processCbsOnboarding(
     decision   = "IN_REVIEW";
     reasonCode = docReasonCode;
     reason     = docReason;
+  } else if (pepDetected) {
+    decision   = "IN_REVIEW";
+    reasonCode = "REVIEW_PEP_DETECTED";
+    reason     = `PEP détecté : ${pepEntity} (score ${pepMatchScore}) — EDD obligatoire avant approbation`;
   } else if (screeningResult.status === "REVIEW") {
     decision   = "IN_REVIEW";
     reasonCode = "REVIEW_SANCTIONS_PARTIAL";
@@ -541,6 +632,12 @@ export async function processCbsOnboarding(
     riskScore,
     riskLevel,
     start, now, cbsRef,
+    pep: {
+      detected:      pepDetected,
+      matchScore:    pepMatchScore,
+      matchedEntity: pepEntity,
+      requiresEdd:   pepDetected,
+    },
     ocr: ocrResult ? {
       performed:  true,
       coherent:   ocrCoherent,
@@ -577,6 +674,7 @@ function buildResult(args: {
   start:       number;
   now:         Date;
   cbsRef:      string;
+  pep?:        CbsOnboardingResult["pep"];
   ocr?:        CbsOnboardingResult["ocr"];
 }): CbsOnboardingResult {
   return {
@@ -588,6 +686,7 @@ function buildResult(args: {
     riskLevel:   args.riskLevel,
     riskScore:   args.riskScore,
     screening:   args.screening,
+    ...(args.pep ? { pep: args.pep } : {}),
     ...(args.ocr ? { ocr: args.ocr } : {}),
     processedAt: args.now.toISOString(),
     durationMs:  Date.now() - args.start,
