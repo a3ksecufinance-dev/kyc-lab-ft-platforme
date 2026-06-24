@@ -10,6 +10,8 @@ import {
   updateDocument, deleteDocument, getDocumentStats,
 } from "./documents.repository";
 import { createLogger } from "../../_core/logger";
+import { screenCustomer } from "../screening/screening.service";
+import { notifyCbs }      from "../connectors/cbs-notify.service";
 
 const log = createLogger("documents");
 
@@ -113,17 +115,59 @@ async function processDocumentAsync(
       ...(ekyc.extractedCountry   ? { issuingCountry: ekyc.extractedCountry   } : {}),
     });
 
-    // Mettre à jour le kycStatus du client si PASS
+    // ── Post-approbation : re-screening + mise à jour KYC ────────────────────
     if (ekyc.status === "PASS" && documentType !== "PROOF_OF_ADDRESS" && documentType !== "SELFIE") {
-      const stats = await getDocumentStats(
-        (await findDocumentById(docId))!.customerId
-      );
-      if (stats.ekycPass >= 1) {
-        await db.update(customers)
-          .set({ kycStatus: "APPROVED", updatedAt: new Date() })
-          .where(eq(customers.id, (await findDocumentById(docId))!.customerId));
-        log.info({ docId }, "KYC client mis à jour : APPROVED");
+      const doc     = await findDocumentById(docId);
+      const custId  = doc!.customerId;
+      const cust    = await db.select().from(customers).where(eq(customers.id, custId)).limit(1).then(r => r[0]!);
+      const now     = new Date();
+
+      // Re-screening sanctions (document approuvé = opportunité de re-vérifier)
+      try {
+        const fullName = `${cust.lastName} ${cust.firstName}`.trim();
+        const screening = await screenCustomer(custId, fullName);
+
+        if (screening.status === "MATCH") {
+          // Sanctions match découvert lors de la validation du document
+          await db.update(customers)
+            .set({ kycStatus: "REJECTED", sanctionStatus: "MATCH", updatedAt: now })
+            .where(eq(customers.id, custId));
+
+          await notifyCbs({
+            event: "KYC_REJECTED", customerId: custId,
+            customerRef: cust.customerId, cin: cust.nicNumber,
+            cbsRef: cust.cbsRef, riskLevel: cust.riskLevel,
+            reason: `Correspondance sanctions détectée lors de la validation du document : ${screening.sanctionsResult.matchedEntity}`,
+            timestamp: now.toISOString(),
+          });
+          log.warn({ custId, matched: screening.sanctionsResult.matchedEntity }, "Sanctions match post-upload document");
+          return;
+        }
+      } catch (screenErr) {
+        log.error({ screenErr, custId }, "Re-screening post-document échoué — poursuite");
       }
+
+      // Document valide + screening CLEAR → APPROVED
+      const previousStatus = cust.kycStatus;
+      const nextReview     = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
+
+      await db.update(customers)
+        .set({ kycStatus: "APPROVED", nextReviewDate: nextReview, lastReviewDate: now, updatedAt: now })
+        .where(eq(customers.id, custId));
+
+      // Notifier le CBS si le client était bloqué
+      if (previousStatus !== "APPROVED") {
+        await notifyCbs({
+          event: "KYC_APPROVED", customerId: custId,
+          customerRef: cust.customerId, cin: cust.nicNumber,
+          cbsRef: cust.cbsRef, riskLevel: cust.riskLevel,
+          reason: `Nouveau document validé (OCR+eKYC PASS) — client réactivé (était ${previousStatus})`,
+          timestamp: now.toISOString(),
+        });
+        log.info({ custId, previousStatus }, "Client réactivé après validation document");
+      }
+
+      log.info({ docId, custId }, "KYC client mis à jour : APPROVED");
     }
 
     log.info({ docId, ekycStatus: ekyc.status, score: ekyc.score }, "Document traité");

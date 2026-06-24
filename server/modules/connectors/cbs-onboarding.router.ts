@@ -17,6 +17,12 @@ import type { CbsOnboardingPayload }       from "./cbs-onboarding.service";
 import { processCbsReactivation }          from "./cbs-reactivation.service";
 import type { CbsReactivationPayload }     from "./cbs-reactivation.service";
 import { nanoid }                          from "nanoid";
+import { eq }                              from "drizzle-orm";
+import { db }                              from "../../_core/db";
+import { customers, documents }            from "../../../drizzle/schema";
+import { runOcr }                          from "../documents/ocr.service";
+import { screenCustomer }                  from "../screening/screening.service";
+import { notifyCbs }                       from "./cbs-notify.service";
 
 const log = createLogger("cbs-api");
 
@@ -135,14 +141,147 @@ export function createCbsOnboardingRouter(): Router {
   });
 
   /**
+   * POST /api/cbs/document
+   * CBS pousse un nouveau document pour un client existant (CIN identifié)
+   * Scénario : renouvellement CIN, nouveau passeport, etc.
+   */
+  router.post("/document", async (req: Request, res: Response) => {
+    if (!verifyCbsAuth(req, res)) return;
+
+    const cbsRef = `CBS-DOC-${nanoid(8).toUpperCase()}`;
+    const body   = req.body as {
+      CIN:         string;
+      document: {
+        type:         string;
+        expiryDate:   string;
+        number?:      string;
+        imageBase64?: string;
+        mimeType?:    string;
+      };
+    };
+
+    if (!body.CIN || !body.document?.expiryDate) {
+      res.status(400).json({ success: false, error: "CIN et document.expiryDate obligatoires" });
+      return;
+    }
+
+    const today = new Date().toISOString().split("T")[0]!;
+    if (body.document.expiryDate < today) {
+      res.status(400).json({ success: false, error: `Document déjà expiré (${body.document.expiryDate})` });
+      return;
+    }
+
+    try {
+      const now = new Date();
+
+      // Trouver le client par CIN
+      const cust = await db.select().from(customers)
+        .where(eq(customers.nicNumber, body.CIN.toUpperCase())).limit(1).then(r => r[0]);
+
+      if (!cust) {
+        res.status(404).json({ success: false, error: `Aucun client avec CIN ${body.CIN}` });
+        return;
+      }
+
+      log.info({ cbsRef, cin: body.CIN, custId: cust.id, docType: body.document.type }, "CBS document reçu");
+
+      // OCR si image fournie
+      let ocrData: Record<string, unknown> | null = null;
+      let docNumber = body.document.number ?? body.CIN;
+      let expiryDate = body.document.expiryDate;
+
+      if (body.document.imageBase64) {
+        try {
+          const buf = Buffer.from(body.document.imageBase64, "base64");
+          const ocr = await runOcr(buf, body.document.mimeType ?? "image/jpeg", body.document.type);
+          ocrData = ocr as unknown as Record<string, unknown>;
+          if (ocr.documentNumber) docNumber  = ocr.documentNumber;
+          if (ocr.expiryDate)    expiryDate  = ocr.expiryDate;
+          log.info({ custId: cust.id, confidence: ocr.confidence, hasMrz: !!ocr.mrz }, "OCR document CBS");
+        } catch (ocrErr) {
+          log.error({ ocrErr }, "OCR document CBS échoué — poursuite");
+        }
+      }
+
+      // Enregistrer le document
+      await db.insert(documents).values({
+        customerId:     cust.id,
+        documentType:   (body.document.type ?? "ID_CARD") as "ID_CARD" | "PASSPORT" | "DRIVING_LICENSE",
+        documentNumber: docNumber,
+        expiryDate,
+        status:         "APPROVED",
+        ekycStatus:     ocrData ? "PASS" : "PENDING",
+        ocrData:        ocrData as null,
+        ocrProcessedAt: ocrData ? now : null,
+        createdAt:      now,
+        updatedAt:      now,
+      });
+
+      // Re-screening sanctions
+      const fullName = `${cust.lastName} ${cust.firstName}`.trim();
+      const screening = await screenCustomer(cust.id, fullName);
+
+      let newKycStatus: "APPROVED" | "IN_REVIEW" | "REJECTED" = "APPROVED";
+      if (screening.status === "MATCH") newKycStatus = "REJECTED";
+      else if (screening.status === "REVIEW") newKycStatus = "IN_REVIEW";
+
+      const nextReview = newKycStatus === "APPROVED"
+        ? new Date(now.getFullYear() + 1, now.getMonth(), now.getDate()) : null;
+
+      await db.update(customers)
+        .set({
+          kycStatus:     newKycStatus,
+          sanctionStatus: screening.status === "CLEAR" ? "CLEAR" : screening.status,
+          ...(nextReview ? { nextReviewDate: nextReview, lastReviewDate: now } : {}),
+          updatedAt: now,
+        })
+        .where(eq(customers.id, cust.id));
+
+      // Notifier CBS du résultat
+      await notifyCbs({
+        event:       newKycStatus === "APPROVED" ? "KYC_APPROVED" : "KYC_IN_REVIEW",
+        customerId:  cust.id,
+        customerRef: cust.customerId,
+        cin:         cust.nicNumber,
+        cbsRef:      cust.cbsRef,
+        riskLevel:   cust.riskLevel,
+        reason:      `Nouveau document ${body.document.type} validé (exp: ${expiryDate}) — ${newKycStatus}`,
+        timestamp:   now.toISOString(),
+      });
+
+      log.info({ cbsRef, custId: cust.id, newKycStatus, screening: screening.status }, "Document CBS traité");
+
+      res.json({
+        success:    true,
+        cbsRef,
+        customerId: cust.id,
+        customerRef: cust.customerId,
+        kycStatus:  newKycStatus,
+        document: { type: body.document.type, expiryDate, number: docNumber },
+        screening:  { status: screening.status, matchScore: screening.sanctionsResult.matchScore },
+        processedAt: now.toISOString(),
+      });
+
+    } catch (err) {
+      log.error({ cbsRef, err }, "Erreur traitement document CBS");
+      res.status(500).json({ success: false, cbsRef, error: err instanceof Error ? err.message : "Erreur interne" });
+    }
+  });
+
+  /**
    * GET /api/cbs/health
    */
   router.get("/health", (_req: Request, res: Response) => {
     res.json({
       status:    "ok",
       service:   "KYC-AML CBS Integration API",
-      version:   "2.0",
-      endpoints: ["POST /onboarding", "POST /reactivation", "GET /health"],
+      version:   "3.0",
+      endpoints: [
+        "POST /onboarding   — Entrée en relation (UC-1/2/3/4/5)",
+        "POST /reactivation — Réactivation client bloqué (UC-8)",
+        "POST /document     — Nouveau document pour client existant",
+        "GET  /health       — Santé du service",
+      ],
       timestamp: new Date().toISOString(),
       mode:      ENV.CBS_AUTH_DISABLED ? "development" : "production",
     });

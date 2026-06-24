@@ -159,8 +159,13 @@ const envSchema = z.object({
   // CBS Onboarding API — endpoint REST reçu depuis le Core Banking System
   CBS_ONBOARDING_API_KEY:    z.string().default("cbs-staging-key-change-me"),
   CBS_AUTH_DISABLED:         boolEnv(false),  // true en développement local uniquement
+  CBS_WEBHOOK_URL:           z.string().url().optional().or(z.literal("").transform(() => undefined)),
+  CBS_NOTIFY_ENABLED:        boolEnv(false),  // true quand le CBS staging a un endpoint webhook
   SCREENING_TLS_INSECURE:    boolEnv(false),  // true si proxy réseau avec cert auto-signé
   PEP_MOCK_FALLBACK:         boolEnv(false),  // true pour utiliser mock PEP si liste inaccessible
+  // Oscillation documents — délais de grâce et escalade
+  DOC_EXPIRY_GRACE_DAYS:     z.coerce.number().int().min(0).max(90).default(15),  // jours après expiration avant IN_REVIEW
+  DOC_EXPIRY_BLOCK_DAYS:     z.coerce.number().int().min(0).max(180).default(30), // jours après expiration avant blocage CBS
 
   // Institution type — détermine les fonctionnalités activées au démarrage
   // CLASSIC_BANK = comportement actuel inchangé (défaut)
