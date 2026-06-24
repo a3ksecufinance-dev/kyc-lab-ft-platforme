@@ -553,10 +553,22 @@ export async function fetchPepList(): Promise<SanctionEntity[]> {
     }
 
     log.info({ count: entities.length, url }, "Liste PEP (OpenSanctions) chargée");
+
+    // Si la liste est vide (proxy bloquant, réponse HTML…) → fallback mock
+    if (entities.length === 0) {
+      const useMock = process.env["NODE_ENV"] !== "production"
+        || (ENV as Record<string, unknown>)["PEP_MOCK_FALLBACK"] === true;
+      if (useMock) {
+        const mock = getMockPepEntities();
+        log.warn({ count: mock.length }, "Liste PEP vide après fetch — données mock PEP chargées");
+        return mock;
+      }
+    }
+
     return entities;
   } catch (err) {
     log.error({ err, url }, "Échec chargement liste PEP");
-    // Fallback mock PEP : actif en dev OU si PEP_MOCK_FALLBACK=true (staging sans accès réseau)
+    // Fallback mock PEP : actif en dev OU si PEP_MOCK_FALLBACK=true
     const useMock = process.env["NODE_ENV"] !== "production"
       || (ENV as Record<string, unknown>)["PEP_MOCK_FALLBACK"] === true;
     if (useMock) {
