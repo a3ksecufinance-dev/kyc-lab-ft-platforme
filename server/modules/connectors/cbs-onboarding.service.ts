@@ -1,21 +1,21 @@
 /**
- * CBS Onboarding Service — UC-1 & UC-2
+ * CBS Onboarding Service — UC-1, UC-2, UC-4, UC-5
  *
- * Reçoit une demande d'entrée en relation depuis le CBS (format API Reset),
- * exécute le pipeline KYC synchrone et retourne une décision immédiate.
- *
- * Pipeline synchrone (< 3s) :
+ * Pipeline synchrone (< 5s) :
  *  1. Validation & normalisation du payload CBS
- *  2. Vérification doublon (même CIN déjà en base)
- *  3. Création client (kycStatus=PENDING)
- *  4. Screening sanctions + PEP temps réel
- *  5. Vérification document expiré (si expiryDate fourni)
- *  6. Calcul score risque initial
- *  7. Décision finale → APPROVED / IN_REVIEW / REJECTED
- *  8. Audit log
+ *  2. Vérification doublon CIN
+ *  3. Création client
+ *  4. Screening sanctions + PEP (UC-1 / UC-2)
+ *  5. OCR image document si fournie → cohérence CBS↔OCR (UC-4)
+ *  6. Vérification expiration document (UC-5)
+ *  7. Calcul score risque initial
+ *  8. Décision finale → APPROVED / IN_REVIEW / REJECTED
  *
- * UC-1 : Happy Path → APPROVED (< 3s)
- * UC-2 : Sanctions MATCH → REJECTED immédiat
+ * UC-1 : Happy Path → APPROVED
+ * UC-2 : Sanctions MATCH → REJECTED immédiat + alerte CRITICAL
+ * UC-4 : Discordance CBS↔OCR → IN_REVIEW + alerte FRAUD
+ * UC-5 : Document expiré à l'ouverture → IN_REVIEW + alerte CRITICAL
+ * UC-6 : Expiration en vie → scheduler doc-expiry (déjà implémenté)
  */
 
 import { nanoid }       from "nanoid";
@@ -25,57 +25,61 @@ import { createLogger } from "../../_core/logger";
 import { customers, documents, alerts } from "../../../drizzle/schema";
 import { insertCustomer }               from "../customers/customers.repository";
 import { screenCustomer }               from "../screening/screening.service";
-import { insertDocument }               from "../documents/documents.repository";
-import { runDocExpiryCheck }            from "../documents/doc-expiry.service";
+import { runOcr, type OcrData }         from "../documents/ocr.service";
 
 const log = createLogger("cbs-onboarding");
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface CbsOnboardingPayload {
-  ID:              string;    // registration.slice(-8) — référence CBS
-  code:            string;    // "entree" | "matcash"
+  ID:              string;      // registration.slice(-8)
+  code:            string;      // "entree" | "matcash"
   nom:             string;
   prenom:          string;
-  date_naissance:  string;    // format CBS : "DD/MM/YYYY" ou "YYYY-MM-DD"
+  date_naissance:  string;      // "DD/MM/YYYY" ou "YYYY-MM-DD"
   CIN:             string;
   nationalite?:    string;
   ville_naissance?: string;
   pays_naissance?:  string;
-  // Document optionnel (si CBS envoie l'image)
   document?: {
-    type:        "ID_CARD" | "PASSPORT" | "DRIVING_LICENSE";
-    expiryDate?: string;    // "YYYY-MM-DD"
-    number?:     string;
+    type:         "ID_CARD" | "PASSPORT" | "DRIVING_LICENSE";
+    expiryDate?:  string;       // "YYYY-MM-DD"
+    number?:      string;
+    imageBase64?: string;       // image du document encodée base64 (UC-4)
+    mimeType?:    string;       // "image/jpeg" | "image/png" | "application/pdf"
   };
 }
 
 export interface CbsOnboardingResult {
-  // Statut décision
-  decision:       "APPROVED" | "IN_REVIEW" | "REJECTED";
-  reason:         string;
-  reasonCode:     CbsReasonCode;
-
-  // Références créées
-  customerId:     number;
-  customerRef:    string;    // KYC-XXXXXXXX
-
-  // Risque
-  riskLevel:      "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
-  riskScore:      number;
-
-  // Screening
+  decision:    "APPROVED" | "IN_REVIEW" | "REJECTED";
+  reason:      string;
+  reasonCode:  CbsReasonCode;
+  customerId:  number;
+  customerRef: string;
+  riskLevel:   "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  riskScore:   number;
   screening: {
-    status:         "CLEAR" | "MATCH" | "REVIEW";
-    matchScore:     number;
-    matchedEntity:  string | null;
-    listSource:     string | null;
+    status:        "CLEAR" | "MATCH" | "REVIEW";
+    matchScore:    number;
+    matchedEntity: string | null;
+    listSource:    string | null;
   };
+  ocr?: {
+    performed:    boolean;
+    coherent:     boolean;
+    mismatches:   OcrMismatch[];
+    confidence:   number;
+  };
+  processedAt: string;
+  durationMs:  number;
+  cbsRef:      string;
+}
 
-  // Métadonnées
-  processedAt:    string;
-  durationMs:     number;
-  cbsRef:         string;
+export interface OcrMismatch {
+  field:    string;
+  cbsValue: string;
+  ocrValue: string;
+  severity: "BLOCKING" | "WARNING";
 }
 
 type CbsReasonCode =
@@ -83,34 +87,144 @@ type CbsReasonCode =
   | "REVIEW_SANCTIONS_PARTIAL"
   | "REVIEW_DOCUMENT_EXPIRED"
   | "REVIEW_DOCUMENT_EXPIRING_SOON"
+  | "REVIEW_DOCUMENT_MISMATCH"
   | "REVIEW_DUPLICATE_CIN"
   | "REJECTED_SANCTIONS_MATCH"
   | "REJECTED_INVALID_PAYLOAD";
 
-// ─── Normalisation date ───────────────────────────────────────────────────────
+// ─── Helpers dates ────────────────────────────────────────────────────────────
 
 function normalizeDateOfBirth(raw: string): string | undefined {
   if (!raw) return undefined;
-  // Format DD/MM/YYYY → YYYY-MM-DD
-  const ddmmyyyy = /^(\d{2})\/(\d{2})\/(\d{4})$/;
-  const m = ddmmyyyy.exec(raw.trim());
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(raw.trim());
   if (m) return `${m[3]}-${m[2]}-${m[1]}`;
-  // Format YYYY-MM-DD déjà correct
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw.trim())) return raw.trim();
   return undefined;
 }
 
 function isDocumentExpired(expiryDate: string): boolean {
-  const today = new Date().toISOString().split("T")[0]!;
-  return expiryDate < today;
+  return expiryDate < new Date().toISOString().split("T")[0]!;
 }
 
 function isDocumentExpiringSoon(expiryDate: string, warnDays = 30): boolean {
+  const today   = new Date().toISOString().split("T")[0]!;
   const warnDate = new Date();
   warnDate.setDate(warnDate.getDate() + warnDays);
   const warnStr = warnDate.toISOString().split("T")[0]!;
-  const today   = new Date().toISOString().split("T")[0]!;
   return expiryDate >= today && expiryDate <= warnStr;
+}
+
+// ─── UC-4 : Vérification cohérence CBS ↔ OCR ─────────────────────────────────
+
+/**
+ * Calcule la similarité entre deux chaînes (Levenshtein normalisé, 0-100).
+ * Utilisé pour comparer les champs texte avec tolérance aux erreurs OCR.
+ */
+function stringSimilarity(a: string, b: string): number {
+  const s1 = a.toUpperCase().trim();
+  const s2 = b.toUpperCase().trim();
+  if (s1 === s2) return 100;
+  if (!s1 || !s2) return 0;
+
+  const maxLen = Math.max(s1.length, s2.length);
+  const dp: number[][] = Array.from({ length: s1.length + 1 }, (_, i) =>
+    Array.from({ length: s2.length + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
+  );
+
+  for (let i = 1; i <= s1.length; i++) {
+    for (let j = 1; j <= s2.length; j++) {
+      dp[i]![j] = s1[i - 1] === s2[j - 1]
+        ? dp[i - 1]![j - 1]!
+        : 1 + Math.min(dp[i - 1]![j]!, dp[i]![j - 1]!, dp[i - 1]![j - 1]!);
+    }
+  }
+
+  const distance = dp[s1.length]![s2.length]!;
+  return Math.round((1 - distance / maxLen) * 100);
+}
+
+/**
+ * Compare les données CBS avec les données OCR et retourne la liste des
+ * discordances avec leur sévérité.
+ *
+ * Seuils :
+ *   Nom/Prénom  : similitude < 70 % → BLOCKING
+ *   Date naiss. : écart > 365 jours → BLOCKING (tolérance format OCR)
+ *   Numéro CIN  : différent → BLOCKING
+ */
+function checkCoherence(
+  payload: CbsOnboardingPayload,
+  ocr:     OcrData,
+  cbsDob:  string | undefined,
+): OcrMismatch[] {
+  const mismatches: OcrMismatch[] = [];
+
+  // ── Nom ────────────────────────────────────────────────────────────────────
+  if (ocr.lastName) {
+    const sim = stringSimilarity(payload.nom, ocr.lastName);
+    if (sim < 70) {
+      mismatches.push({
+        field:    "nom",
+        cbsValue: payload.nom,
+        ocrValue: ocr.lastName,
+        severity: "BLOCKING",
+      });
+    }
+  }
+
+  // ── Prénom ─────────────────────────────────────────────────────────────────
+  if (ocr.firstName && payload.prenom) {
+    const sim = stringSimilarity(payload.prenom, ocr.firstName);
+    if (sim < 70) {
+      mismatches.push({
+        field:    "prenom",
+        cbsValue: payload.prenom,
+        ocrValue: ocr.firstName,
+        severity: "BLOCKING",
+      });
+    }
+  }
+
+  // ── Date de naissance ──────────────────────────────────────────────────────
+  if (ocr.dateOfBirth && cbsDob) {
+    const ocrDate = new Date(ocr.dateOfBirth);
+    const cbsDate = new Date(cbsDob);
+    if (!isNaN(ocrDate.getTime()) && !isNaN(cbsDate.getTime())) {
+      const diffDays = Math.abs(ocrDate.getTime() - cbsDate.getTime()) / 86_400_000;
+      if (diffDays > 365) {
+        mismatches.push({
+          field:    "date_naissance",
+          cbsValue: cbsDob,
+          ocrValue: ocr.dateOfBirth,
+          severity: "BLOCKING",
+        });
+      } else if (diffDays > 1) {
+        // Tolérance 1 jour pour les formats
+        mismatches.push({
+          field:    "date_naissance",
+          cbsValue: cbsDob,
+          ocrValue: ocr.dateOfBirth,
+          severity: "WARNING",
+        });
+      }
+    }
+  }
+
+  // ── Numéro CIN ────────────────────────────────────────────────────────────
+  if (ocr.documentNumber && payload.CIN) {
+    const ocrCin  = ocr.documentNumber.replace(/\s/g, "").toUpperCase();
+    const cbsCin  = payload.CIN.replace(/\s/g, "").toUpperCase();
+    if (ocrCin !== cbsCin) {
+      mismatches.push({
+        field:    "CIN",
+        cbsValue: cbsCin,
+        ocrValue: ocrCin,
+        severity: "BLOCKING",
+      });
+    }
+  }
+
+  return mismatches;
 }
 
 // ─── Pipeline principal ───────────────────────────────────────────────────────
@@ -124,39 +238,35 @@ export async function processCbsOnboarding(
 
   log.info({ cbsRef, cin: payload.CIN, code: payload.code }, "CBS onboarding reçu");
 
-  // ── 1. Validation basique ──────────────────────────────────────────────────
+  // ── 1. Validation ──────────────────────────────────────────────────────────
   if (!payload.nom || !payload.CIN || !payload.date_naissance) {
-    log.warn({ cbsRef }, "Payload CBS invalide — champs obligatoires manquants");
-    // On crée quand même un client minimal pour traçabilité
-    const fallback = await createMinimalCustomer(payload, cbsRef, now);
+    const fallback = await createMinimalCustomer(payload, now);
     return buildResult({
-      decision:    "REJECTED",
-      reasonCode:  "REJECTED_INVALID_PAYLOAD",
-      reason:      "Payload CBS invalide : nom, CIN ou date_naissance manquant",
-      customer:    fallback,
-      screening:   { status: "CLEAR", matchScore: 0, matchedEntity: null, listSource: null },
-      riskScore:   0,
-      riskLevel:   "LOW",
-      start, now, cbsRef,
+      decision:   "REJECTED",
+      reasonCode: "REJECTED_INVALID_PAYLOAD",
+      reason:     "Payload CBS invalide : nom, CIN ou date_naissance manquant",
+      customer:   fallback,
+      screening:  { status: "CLEAR", matchScore: 0, matchedEntity: null, listSource: null },
+      riskScore: 0, riskLevel: "LOW", start, now, cbsRef,
     });
   }
 
-  // ── 2. Vérification doublon CIN ────────────────────────────────────────────
-  const existingByCin = await db.select({ id: customers.id, customerId: customers.customerId })
+  // ── 2. Doublon CIN ─────────────────────────────────────────────────────────
+  const existingByCin = await db
+    .select({ id: customers.id, customerId: customers.customerId })
     .from(customers)
     .where(eq(customers.nicNumber, payload.CIN.toUpperCase()))
     .limit(1);
 
   if (existingByCin.length > 0) {
-    const existing = existingByCin[0]!;
-    log.warn({ cbsRef, cin: payload.CIN, existingId: existing.id }, "CIN déjà en base");
-    // Retourner une référence vers l'existant plutôt que créer un doublon
+    const ex = existingByCin[0]!;
+    log.warn({ cbsRef, cin: payload.CIN, existingId: ex.id }, "CIN déjà en base");
     const customer = await db.select().from(customers)
-      .where(eq(customers.id, existing.id)).limit(1).then(r => r[0]!);
+      .where(eq(customers.id, ex.id)).limit(1).then(r => r[0]!);
     return buildResult({
       decision:   "IN_REVIEW",
       reasonCode: "REVIEW_DUPLICATE_CIN",
-      reason:     `Client avec CIN ${payload.CIN} déjà enregistré (${existing.customerId}) — vérification requise`,
+      reason:     `Client avec CIN ${payload.CIN} déjà enregistré (${ex.customerId}) — vérification requise`,
       customer,
       screening:  { status: "CLEAR", matchScore: 0, matchedEntity: null, listSource: null },
       riskScore:  customer.riskScore ?? 0,
@@ -170,19 +280,20 @@ export async function processCbsOnboarding(
   const dateOfBirth = normalizeDateOfBirth(payload.date_naissance);
 
   const customer = await insertCustomer({
-    customerId:       customerRef,
-    firstName:        payload.prenom || "",
-    lastName:         payload.nom.toUpperCase(),
-    dateOfBirth:      dateOfBirth ?? null,
-    nationality:      payload.nationalite ?? "MA",
-    customerType:     "INDIVIDUAL",
-    kycStatus:        "PENDING",
-    riskLevel:        "LOW",
-    riskScore:        0,
-    pepStatus:        false,
-    nicNumber:        payload.CIN.toUpperCase(),
-    birthCity:        payload.ville_naissance ?? null,
-    birthCountry:     payload.pays_naissance  ?? null,
+    customerId:  customerRef,
+    firstName:   payload.prenom || "",
+    lastName:    payload.nom.toUpperCase(),
+    dateOfBirth: dateOfBirth ?? null,
+    nationality: payload.nationalite ?? "MA",
+    customerType: "INDIVIDUAL",
+    kycStatus:   "PENDING",
+    riskLevel:   "LOW",
+    riskScore:   0,
+    pepStatus:   false,
+    nicNumber:   payload.CIN.toUpperCase(),
+    birthCity:   payload.ville_naissance ?? null,
+    birthCountry: payload.pays_naissance  ?? null,
+    cbsRef:      payload.ID,
   });
 
   log.info({ customerId: customer.id, customerRef }, "Client créé");
@@ -197,42 +308,36 @@ export async function processCbsOnboarding(
     score: screeningResult.sanctionsResult.matchScore,
   }, "Screening terminé");
 
-  // UC-2 : MATCH sanctions → rejet immédiat
+  // UC-2 : MATCH → rejet immédiat
   if (screeningResult.status === "MATCH") {
-    // Passer le client en REJECTED
     await db.update(customers)
       .set({ kycStatus: "REJECTED", sanctionStatus: "MATCH", updatedAt: now })
       .where(eq(customers.id, customer.id));
 
-    // Créer alerte CRITICAL
     await db.insert(alerts).values({
-      alertId:    `CBS-SANC-${nanoid(8).toUpperCase()}`,
-      customerId: customer.id,
-      scenario:   "SANCTIONS_MATCH",
-      alertType:  "SANCTIONS",
-      priority:   "CRITICAL",
-      status:     "OPEN",
-      riskScore:  100,
-      reason:     `CBS onboarding rejeté — Correspondance sanctions détectée : ` +
-                  `${screeningResult.sanctionsResult.matchedEntity} ` +
-                  `(${screeningResult.sanctionsResult.listSource}, ` +
-                  `score ${screeningResult.sanctionsResult.matchScore})`,
+      alertId:        `CBS-SANC-${nanoid(8).toUpperCase()}`,
+      customerId:     customer.id,
+      scenario:       "SANCTIONS_MATCH",
+      alertType:      "SANCTIONS",
+      priority:       "CRITICAL",
+      status:         "OPEN",
+      riskScore:      100,
+      reason:         `CBS onboarding rejeté — Correspondance sanctions : ` +
+                      `${screeningResult.sanctionsResult.matchedEntity} ` +
+                      `(${screeningResult.sanctionsResult.listSource}, score ${screeningResult.sanctionsResult.matchScore})`,
       enrichmentData: {
-        cbsRef,
-        cin: payload.CIN,
+        cbsRef, cin: payload.CIN,
         matchedEntity: screeningResult.sanctionsResult.matchedEntity,
         listSource:    screeningResult.sanctionsResult.listSource,
         matchScore:    screeningResult.sanctionsResult.matchScore,
       },
-      createdAt: now,
-      updatedAt: now,
+      createdAt: now, updatedAt: now,
     });
 
     return buildResult({
       decision:   "REJECTED",
       reasonCode: "REJECTED_SANCTIONS_MATCH",
-      reason:     `Correspondance sanctions : ${screeningResult.sanctionsResult.matchedEntity} ` +
-                  `(${screeningResult.sanctionsResult.listSource})`,
+      reason:     `Correspondance sanctions : ${screeningResult.sanctionsResult.matchedEntity} (${screeningResult.sanctionsResult.listSource})`,
       customer:   { ...customer, kycStatus: "REJECTED" as const },
       screening: {
         status:        screeningResult.status,
@@ -240,89 +345,174 @@ export async function processCbsOnboarding(
         matchedEntity: screeningResult.sanctionsResult.matchedEntity,
         listSource:    screeningResult.sanctionsResult.listSource,
       },
-      riskScore: 100,
-      riskLevel: "CRITICAL",
-      start, now, cbsRef,
+      riskScore: 100, riskLevel: "CRITICAL", start, now, cbsRef,
     });
   }
 
-  // ── 5. Vérification document (si fourni par CBS) ───────────────────────────
-  let docReasonCode: CbsReasonCode | null = null;
-  let docReason:     string               = "";
+  // ── 5. OCR + cohérence CBS↔document (UC-4) ────────────────────────────────
+  let ocrResult: OcrData | null        = null;
+  let ocrMismatches: OcrMismatch[]     = [];
+  let ocrCoherent                      = true;
+  let hasBlockingMismatch              = false;
 
-  if (payload.document?.expiryDate) {
+  if (payload.document?.imageBase64) {
+    log.info({ customerId: customer.id }, "UC-4 : OCR document CBS en cours");
+    try {
+      const imgBuffer = Buffer.from(payload.document.imageBase64, "base64");
+      const mimeType  = payload.document.mimeType ?? "image/jpeg";
+      ocrResult       = await runOcr(imgBuffer, mimeType, payload.document.type ?? "ID_CARD");
+
+      log.info({ customerId: customer.id, confidence: ocrResult.confidence, hasMrz: !!ocrResult.mrz }, "OCR terminé");
+
+      // Comparer CBS vs OCR uniquement si OCR a extrait des données exploitables
+      if (ocrResult.confidence >= 40 || ocrResult.mrz) {
+        ocrMismatches = checkCoherence(payload, ocrResult, dateOfBirth);
+        hasBlockingMismatch = ocrMismatches.some(m => m.severity === "BLOCKING");
+        ocrCoherent = ocrMismatches.length === 0;
+
+        if (ocrMismatches.length > 0) {
+          log.warn({ customerId: customer.id, mismatches: ocrMismatches }, "UC-4 : discordances CBS↔OCR détectées");
+        }
+      }
+
+      // Enregistrer le document avec les données OCR
+      const docExpiry = payload.document.expiryDate ?? ocrResult.expiryDate;
+      await db.insert(documents).values({
+        customerId:     customer.id,
+        documentType:   payload.document.type ?? "ID_CARD",
+        documentNumber: payload.document.number ?? ocrResult.documentNumber ?? payload.CIN,
+        expiryDate:     docExpiry ?? null,
+        status:         docExpiry && isDocumentExpired(docExpiry) ? "EXPIRED" : "APPROVED",
+        ocrData:        ocrResult as unknown as null,
+        ocrRawText:     ocrResult.rawText,
+        ocrConfidence:  ocrResult.confidence,
+        ocrProcessedAt: now,
+        mrzData:        ocrResult.mrz as unknown as null ?? null,
+        ekycStatus:     "PENDING",
+        createdAt:      now,
+        updatedAt:      now,
+      });
+
+    } catch (ocrErr) {
+      log.error({ customerId: customer.id, ocrErr }, "UC-4 : OCR échoué — poursuite sans vérification");
+    }
+  } else if (payload.document?.expiryDate || payload.document?.number) {
+    // Document sans image → on enregistre juste les métadonnées
     const expiry = payload.document.expiryDate;
-
-    // Créer l'entrée document en DB
     await db.insert(documents).values({
-      customerId:   customer.id,
-      documentType: payload.document.type ?? "ID_CARD",
+      customerId:     customer.id,
+      documentType:   payload.document.type ?? "ID_CARD",
       documentNumber: payload.document.number ?? payload.CIN,
-      expiryDate:   expiry,
-      status:       isDocumentExpired(expiry) ? "EXPIRED" : "APPROVED",
-      ekycStatus:   "PENDING",
-      createdAt:    now,
-      updatedAt:    now,
+      expiryDate:     expiry ?? null,
+      status:         expiry && isDocumentExpired(expiry) ? "EXPIRED" : "APPROVED",
+      ekycStatus:     "PENDING",
+      createdAt:      now,
+      updatedAt:      now,
     });
+  }
 
-    if (isDocumentExpired(expiry)) {
+  // ── 6. Vérification expiration document (UC-5) ────────────────────────────
+  const docExpiry = payload.document?.expiryDate ?? ocrResult?.expiryDate;
+  let docReasonCode: CbsReasonCode | null = null;
+  let docReason                           = "";
+
+  if (docExpiry) {
+    if (isDocumentExpired(docExpiry)) {
+      // UC-5 : document expiré → IN_REVIEW + alerte CRITICAL
       docReasonCode = "REVIEW_DOCUMENT_EXPIRED";
-      docReason     = `Document ${payload.document.type} expiré le ${expiry}`;
-    } else if (isDocumentExpiringSoon(expiry)) {
+      const daysOver = Math.ceil((now.getTime() - new Date(docExpiry).getTime()) / 86_400_000);
+      docReason = `Document ${payload.document?.type ?? "ID_CARD"} expiré depuis ${daysOver} jour(s) (${docExpiry})`;
+
+      await db.update(customers)
+        .set({ kycStatus: "IN_REVIEW", updatedAt: now })
+        .where(eq(customers.id, customer.id));
+
+      await db.insert(alerts).values({
+        alertId:        `CBS-DOCEXP-${nanoid(8).toUpperCase()}`,
+        customerId:     customer.id,
+        scenario:       "DOCUMENT_EXPIRY",
+        alertType:      "SANCTIONS",
+        priority:       "CRITICAL",
+        status:         "OPEN",
+        riskScore:      85,
+        reason:         `Onboarding CBS bloqué — ${docReason} — Client ${payload.nom} ${payload.prenom} (CIN: ${payload.CIN})`,
+        enrichmentData: { cbsRef, docExpiry, daysOver, cin: payload.CIN },
+        createdAt:      now,
+        updatedAt:      now,
+      });
+
+      log.warn({ customerId: customer.id, docExpiry, daysOver }, "UC-5 : document expiré à l'onboarding");
+
+    } else if (isDocumentExpiringSoon(docExpiry)) {
       docReasonCode = "REVIEW_DOCUMENT_EXPIRING_SOON";
-      docReason     = `Document ${payload.document.type} expire le ${expiry} (bientôt)`;
+      const daysLeft = Math.ceil((new Date(docExpiry).getTime() - now.getTime()) / 86_400_000);
+      docReason = `Document expire dans ${daysLeft} jour(s) (${docExpiry})`;
     }
   }
 
-  // ── 6. Calcul score risque initial ─────────────────────────────────────────
+  // ── UC-4 : alerte discordance CBS↔OCR ─────────────────────────────────────
+  if (hasBlockingMismatch) {
+    await db.insert(alerts).values({
+      alertId:        `CBS-MISM-${nanoid(8).toUpperCase()}`,
+      customerId:     customer.id,
+      scenario:       "DOCUMENT_MISMATCH",
+      alertType:      "FRAUD",
+      priority:       "HIGH",
+      status:         "OPEN",
+      riskScore:      75,
+      reason:         `Discordance CBS↔OCR — ${ocrMismatches.length} champ(s) non concordant(s) : ` +
+                      ocrMismatches.filter(m => m.severity === "BLOCKING")
+                        .map(m => `${m.field} (CBS:"${m.cbsValue}" / OCR:"${m.ocrValue}")`)
+                        .join(", "),
+      enrichmentData: { cbsRef, mismatches: ocrMismatches, ocrConfidence: ocrResult?.confidence },
+      createdAt:      now,
+      updatedAt:      now,
+    });
+
+    log.warn({ customerId: customer.id, mismatches: ocrMismatches }, "UC-4 : alerte discordance créée");
+  }
+
+  // ── 7. Score risque initial ────────────────────────────────────────────────
   let riskScore = 0;
   let riskLevel: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" = "LOW";
 
-  // Screening REVIEW → risque médium
   if (screeningResult.status === "REVIEW") riskScore += 30;
-  // Nationalité étrangère
   if (payload.nationalite && payload.nationalite !== "MA") riskScore += 10;
-  // Document expirant bientôt
+  if (hasBlockingMismatch)                riskScore += 35;
   if (docReasonCode === "REVIEW_DOCUMENT_EXPIRING_SOON") riskScore += 5;
-  // Document expiré
-  if (docReasonCode === "REVIEW_DOCUMENT_EXPIRED") riskScore += 20;
+  if (docReasonCode === "REVIEW_DOCUMENT_EXPIRED")       riskScore += 25;
 
   if      (riskScore >= 70) riskLevel = "CRITICAL";
   else if (riskScore >= 50) riskLevel = "HIGH";
   else if (riskScore >= 20) riskLevel = "MEDIUM";
 
-  // ── 7. Décision finale ─────────────────────────────────────────────────────
+  // ── 8. Décision finale ────────────────────────────────────────────────────
   let decision:   "APPROVED" | "IN_REVIEW" | "REJECTED" = "APPROVED";
   let reasonCode: CbsReasonCode = "APPROVED_CLEAR";
   let reason                    = "Screening CLEAR — client approuvé";
 
-  if (screeningResult.status === "REVIEW") {
+  if (hasBlockingMismatch) {
     decision   = "IN_REVIEW";
-    reasonCode = "REVIEW_SANCTIONS_PARTIAL";
-    reason     = `Correspondance partielle screening (score ${screeningResult.sanctionsResult.matchScore}) — révision manuelle requise`;
+    reasonCode = "REVIEW_DOCUMENT_MISMATCH";
+    reason     = `Discordance données CBS↔document : ${ocrMismatches.filter(m => m.severity === "BLOCKING").map(m => m.field).join(", ")}`;
   } else if (docReasonCode === "REVIEW_DOCUMENT_EXPIRED") {
     decision   = "IN_REVIEW";
     reasonCode = docReasonCode;
     reason     = docReason;
-  } else if (docReasonCode === "REVIEW_DOCUMENT_EXPIRING_SOON") {
-    // Document expirant bientôt → APPROVED mais avec alerte
-    decision   = "APPROVED";
-    reasonCode = "APPROVED_CLEAR";
-    reason     = `Screening CLEAR — approuvé (${docReason})`;
+  } else if (screeningResult.status === "REVIEW") {
+    decision   = "IN_REVIEW";
+    reasonCode = "REVIEW_SANCTIONS_PARTIAL";
+    reason     = `Correspondance partielle screening (score ${screeningResult.sanctionsResult.matchScore}) — révision requise`;
   }
 
-  // Mettre à jour le client avec la décision
-  const finalKycStatus = decision === "APPROVED" ? "APPROVED"
-    : decision === "REJECTED" ? "REJECTED"
-    : "IN_REVIEW";
-
+  // Finaliser le statut client
+  const finalKycStatus = decision === "APPROVED" ? "APPROVED" : "IN_REVIEW";
   const nextReviewDate = decision === "APPROVED"
-    ? new Date(now.getFullYear() + 1, now.getMonth(), now.getDate())
-    : null;
+    ? new Date(now.getFullYear() + 1, now.getMonth(), now.getDate()) : null;
 
   await db.update(customers)
     .set({
-      kycStatus:    finalKycStatus,
+      kycStatus:     finalKycStatus,
       riskScore,
       riskLevel,
       sanctionStatus: screeningResult.status === "CLEAR" ? "CLEAR" : screeningResult.status,
@@ -332,11 +522,8 @@ export async function processCbsOnboarding(
     .where(eq(customers.id, customer.id));
 
   log.info({
-    customerId: customer.id,
-    decision,
-    reasonCode,
-    riskLevel,
-    riskScore,
+    customerId: customer.id, decision, reasonCode, riskLevel, riskScore,
+    ocrPerformed: !!ocrResult, hasBlockingMismatch,
     durationMs: Date.now() - start,
   }, "CBS onboarding terminé");
 
@@ -353,44 +540,44 @@ export async function processCbsOnboarding(
     },
     riskScore,
     riskLevel,
-    start,
-    now,
-    cbsRef,
+    start, now, cbsRef,
+    ocr: ocrResult ? {
+      performed:  true,
+      coherent:   ocrCoherent,
+      mismatches: ocrMismatches,
+      confidence: ocrResult.confidence,
+    } : undefined,
   });
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-async function createMinimalCustomer(
-  payload: CbsOnboardingPayload,
-  cbsRef:  string,
-  now:     Date,
-) {
-  const ref = `KYC-ERR-${nanoid(6).toUpperCase()}`;
+async function createMinimalCustomer(payload: CbsOnboardingPayload, now: Date) {
   return insertCustomer({
-    customerId:  ref,
-    firstName:   payload.prenom   || "INCONNU",
-    lastName:    payload.nom      || "INCONNU",
-    kycStatus:   "REJECTED",
-    riskLevel:   "LOW",
-    riskScore:   0,
-    pepStatus:   false,
+    customerId:   `KYC-ERR-${nanoid(6).toUpperCase()}`,
+    firstName:    payload.prenom || "INCONNU",
+    lastName:     payload.nom    || "INCONNU",
+    kycStatus:    "REJECTED",
+    riskLevel:    "LOW",
+    riskScore:    0,
+    pepStatus:    false,
     customerType: "INDIVIDUAL",
-    nicNumber:   payload.CIN      || null,
+    nicNumber:    payload.CIN || null,
   });
 }
 
 function buildResult(args: {
-  decision:   "APPROVED" | "IN_REVIEW" | "REJECTED";
-  reasonCode: CbsReasonCode;
-  reason:     string;
-  customer:   { id: number; customerId: string; riskLevel: string; riskScore: number };
-  screening:  { status: "CLEAR" | "MATCH" | "REVIEW"; matchScore: number; matchedEntity: string | null; listSource: string | null };
-  riskScore:  number;
-  riskLevel:  "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
-  start:      number;
-  now:        Date;
-  cbsRef:     string;
+  decision:    "APPROVED" | "IN_REVIEW" | "REJECTED";
+  reasonCode:  CbsReasonCode;
+  reason:      string;
+  customer:    { id: number; customerId: string; riskLevel: string; riskScore: number };
+  screening:   { status: "CLEAR" | "MATCH" | "REVIEW"; matchScore: number; matchedEntity: string | null; listSource: string | null };
+  riskScore:   number;
+  riskLevel:   "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  start:       number;
+  now:         Date;
+  cbsRef:      string;
+  ocr?:        CbsOnboardingResult["ocr"];
 }): CbsOnboardingResult {
   return {
     decision:    args.decision,
@@ -401,6 +588,7 @@ function buildResult(args: {
     riskLevel:   args.riskLevel,
     riskScore:   args.riskScore,
     screening:   args.screening,
+    ...(args.ocr ? { ocr: args.ocr } : {}),
     processedAt: args.now.toISOString(),
     durationMs:  Date.now() - args.start,
     cbsRef:      args.cbsRef,
