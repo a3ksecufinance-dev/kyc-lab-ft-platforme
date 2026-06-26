@@ -363,8 +363,9 @@ export function Sidebar({ alertCount, openCasesCount, pendingKycCount }: Sidebar
                         padding: collapsed ? "9px 0" : "7px 10px",
                         borderRadius: 7,
                         marginBottom: 1,
-                        fontSize: 13,                    /* ↑ était 12 */
-                        fontWeight: active ? 600 : 400,  /* ↑ bolder active */
+                        fontSize: 13,
+                        fontWeight: active ? 600 : 400,
+                        fontFamily: "var(--wr-font-sans)",
                         cursor: "pointer",
                         textDecoration: "none",
                         position: "relative",

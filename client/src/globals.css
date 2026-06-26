@@ -80,9 +80,9 @@ html.dark {
   --wr-sidebar:                  #050C14;
   --wr-sidebar-border:           rgba(20,184,166,0.08);
   --wr-sidebar-border2:          rgba(255,255,255,0.04);
-  --wr-sidebar-text-1:           #C8E0F0;
-  --wr-sidebar-text-2:           #4E7090;
-  --wr-sidebar-text-3:           #2A4560;
+  --wr-sidebar-text-1:           #D4EAF8;   /* texte actif/hover — blanc-bleu clair */
+  --wr-sidebar-text-2:           #8AAECC;   /* hover neutre — gris-bleu lisible */
+  --wr-sidebar-text-3:           #5C88A8;   /* défaut items — visible, pas fatigant */
   --wr-sidebar-surface:          #07101A;
   --wr-sidebar-active-bg:        rgba(20,184,166,0.12);
   --wr-sidebar-active-glow:      rgba(20,184,166,0.07);
@@ -187,9 +187,9 @@ html:not(.dark) {
   --wr-sidebar:                  #0C1E28;
   --wr-sidebar-border:           rgba(20,184,166,0.10);
   --wr-sidebar-border2:          rgba(255,255,255,0.05);
-  --wr-sidebar-text-1:           #C8E8E6;
-  --wr-sidebar-text-2:           #5A8888;
-  --wr-sidebar-text-3:           #2A5560;
+  --wr-sidebar-text-1:           #D4EAF8;   /* actif */
+  --wr-sidebar-text-2:           #8AAECC;   /* hover */
+  --wr-sidebar-text-3:           #6090B0;   /* défaut — clair, lisible */
   --wr-sidebar-surface:          #081820;
   --wr-sidebar-active-bg:        rgba(20,184,166,0.14);
   --wr-sidebar-active-glow:      rgba(20,184,166,0.08);
@@ -214,6 +214,13 @@ html:not(.dark) {
 /* ─── Base ────────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
 html { font-size: 14px; }
+
+/* Reset liens — supprime le bleu navigateur et le soulignement rouge (visités) */
+a, a:visited, a:hover, a:active, a:focus {
+  text-decoration: none !important;
+  color: inherit;
+  outline: none;
+}
 
 body {
   margin: 0;
