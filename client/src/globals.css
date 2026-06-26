@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 /* ═══════════════════════════════════════════════════════════════════════════
    WATCHREG DESIGN SYSTEM — RegTech Professional  v2.5
@@ -14,205 +14,201 @@
 /* ─── Dark mode (primary — default for RegTech) ───────────────────────────── */
 :root,
 html.dark {
-  /* ── Surfaces (layered depth) */
-  --wr-bg:         #04091A;
-  --wr-page:       #060D1E;
-  --wr-surface:    #0A1628;
-  --wr-card:       #0D1E35;
-  --wr-panel:      #111F34;
-  --wr-hover:      #162438;
-  --wr-hover2:     #1C2D44;
-  --wr-inset:      #071020;
+  /* ── Surfaces — légèrement plus claires, moins "puit noir" */
+  --wr-bg:         #060B12;
+  --wr-page:       #080E18;
+  --wr-surface:    #0C1520;
+  --wr-card:       #101C2A;
+  --wr-panel:      #142030;
+  --wr-hover:      #182638;
+  --wr-hover2:     #1E2E42;
+  --wr-inset:      #08111C;
 
-  /* ── Borders (scale 100 → 300) */
-  --wr-border:     rgba(255,255,255,0.055);   /* alias: --wr-border-100 */
-  --wr-border2:    rgba(255,255,255,0.095);   /* alias: --wr-border-200 */
-  --wr-border3:    rgba(255,255,255,0.14);    /* alias: --wr-border-300 */
-  /* Scale aliases — nouveaux composants doivent utiliser ces noms */
-  --wr-border-100: rgba(255,255,255,0.055);
-  --wr-border-200: rgba(255,255,255,0.095);
-  --wr-border-300: rgba(255,255,255,0.14);
-  /* Hover aliases */
-  --wr-hover-100:  #162438;
-  --wr-hover-200:  #1C2D44;
+  /* ── Borders */
+  --wr-border:     rgba(255,255,255,0.07);
+  --wr-border2:    rgba(255,255,255,0.11);
+  --wr-border3:    rgba(255,255,255,0.16);
+  --wr-border-100: rgba(255,255,255,0.07);
+  --wr-border-200: rgba(255,255,255,0.11);
+  --wr-border-300: rgba(255,255,255,0.16);
+  --wr-hover-100:  #182638;
+  --wr-hover-200:  #1E2E42;
 
-  /* ── Text hierarchy — contrastes WCAG AA garantis sur --wr-card (#0D1E35)
-       text-1 : #E4EEF8  → ratio ~12:1 ✓ AAA
-       text-2 : #7E9AB8  → ratio ~4.8:1 ✓ AA
-       text-3 : #6B88A6  → ratio ~3.5:1 ✓ AA (large text / bold)  ← amélioré
-       text-4 : #3D5878  → ratio ~1.8:1   (placeholder only, non-interactif) ← amélioré */
-  --wr-text-1:   #E4EEF8;
-  --wr-text-2:   #7E9AB8;
-  --wr-text-3:   #6B88A6;   /* ↑ était #425E7A — contraste insuffisant */
-  --wr-text-4:   #3D5878;   /* ↑ était #243548 — placeholders trop sombres */
+  /* ── Texte — légèrement plus chaud (moins froid que pur bleu-blanc) */
+  --wr-text-1:   #E2EDF6;
+  --wr-text-2:   #7A98B4;
+  --wr-text-3:   #527090;
+  --wr-text-4:   #334F6A;
 
-  /* ── Brand gold (identité visuelle, sidebar, logo — PAS les interactions) */
+  /* ── Teal — nouvelle couleur brand (remplace gold/orange) */
   --wr-navy:       #5BA4FF;
-  --wr-gold:       #C9A227;
-  --wr-gold-bright:#E8C84A;
-  --wr-gold-dim:   rgba(201,162,39,0.45);
+  --wr-gold:       #0D9488;   /* rétrocompat — maintenant teal */
+  --wr-gold-bright:#14B8A6;
+  --wr-gold-dim:   rgba(13,148,136,0.45);
 
-  /* ── Accent interactif — BLEU (focus, hover, inputs, liens, sélection) */
-  --wr-accent:        #4A9EFF;
-  --wr-accent-bright: #6BB8FF;
-  --wr-accent-muted:  rgba(74,158,255,0.09);
-  --wr-accent-border: rgba(74,158,255,0.28);
-  --wr-accent-glow:   rgba(74,158,255,0.15);
+  /* ── Accent interactif — TEAL (focus, hover, inputs, CTA, brand) */
+  --wr-accent:        #14B8A6;
+  --wr-accent-bright: #2DD4C2;
+  --wr-accent-muted:  rgba(20,184,166,0.10);
+  --wr-accent-border: rgba(20,184,166,0.30);
+  --wr-accent-glow:   rgba(20,184,166,0.18);
 
-  /* ── Accent CTA — GOLD (boutons primaires, éléments critiques, alertes brand) */
-  --wr-cta-accent:        #C9A227;
-  --wr-cta-accent-bright: #E8C84A;
-  --wr-cta-accent-muted:  rgba(201,162,39,0.09);
-  --wr-cta-accent-border: rgba(201,162,39,0.28);
-  --wr-cta-accent-glow:   rgba(201,162,39,0.15);
+  /* ── CTA accent — même teal pour la cohérence */
+  --wr-cta-accent:        #14B8A6;
+  --wr-cta-accent-bright: #2DD4C2;
+  --wr-cta-accent-muted:  rgba(20,184,166,0.10);
+  --wr-cta-accent-border: rgba(20,184,166,0.30);
+  --wr-cta-accent-glow:   rgba(20,184,166,0.18);
 
-  /* ── Accent neutre — états neutres, affordances secondaires discrètes */
-  --wr-neutral-accent:        #2A3A55;
-  --wr-neutral-accent-muted:  rgba(42,58,85,0.40);
-  --wr-neutral-accent-border: rgba(42,58,85,0.60);
+  /* ── Accent neutre */
+  --wr-neutral-accent:        #1E3245;
+  --wr-neutral-accent-muted:  rgba(30,50,69,0.50);
+  --wr-neutral-accent-border: rgba(30,50,69,0.70);
 
-  /* ── Semantic */
+  /* ── Semantic — inchangés (rouge/vert/amber sont sémantiques) */
   --wr-blue:   #4A9EFF;
   --wr-green:  #2DD4A0;
   --wr-amber:  #F59E0B;
   --wr-red:    #FF6570;
 
-  /* ── Fonts */
-  --wr-font-serif: 'Playfair Display', Georgia, serif;
-  --wr-font-sans:  'Inter', system-ui, sans-serif;
+  /* ── Fonts — Plus Jakarta Sans remplace Playfair Display */
+  --wr-font-serif: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  --wr-font-sans:  'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
   --wr-font-mono:  'JetBrains Mono', 'Courier New', monospace;
 
-  /* ── Sidebar (deepest layer — brand gold conservé ici intentionnellement) */
-  --wr-sidebar:                  #030812;
-  --wr-sidebar-border:           rgba(201,162,39,0.07);
+  /* ── Sidebar — teal remplace gold */
+  --wr-sidebar:                  #050C14;
+  --wr-sidebar-border:           rgba(20,184,166,0.08);
   --wr-sidebar-border2:          rgba(255,255,255,0.04);
-  --wr-sidebar-text-1:           #C8DCF0;
-  --wr-sidebar-text-2:           #5A7898;
-  --wr-sidebar-text-3:           #2F4560;
-  --wr-sidebar-surface:          #060F1C;
-  --wr-sidebar-active-bg:        rgba(201,162,39,0.09);
-  --wr-sidebar-active-glow:      rgba(201,162,39,0.06);
+  --wr-sidebar-text-1:           #C8E0F0;
+  --wr-sidebar-text-2:           #4E7090;
+  --wr-sidebar-text-3:           #2A4560;
+  --wr-sidebar-surface:          #07101A;
+  --wr-sidebar-active-bg:        rgba(20,184,166,0.12);
+  --wr-sidebar-active-glow:      rgba(20,184,166,0.07);
 
-  /* ── Radii */
-  --wr-r-xs: 4px;
-  --wr-r-sm: 6px;
-  --wr-r-md: 8px;
-  --wr-r-lg: 12px;
-  --wr-r-xl: 16px;
+  /* ── Radii — légèrement plus arrondis = plus moderne */
+  --wr-r-xs: 5px;
+  --wr-r-sm: 7px;
+  --wr-r-md: 10px;
+  --wr-r-lg: 14px;
+  --wr-r-xl: 18px;
 
-  /* ── Shadows — glow neutre bleu (plus sobre que gold) */
-  --wr-shadow-xs:    0 1px 2px rgba(0,0,0,0.35);
-  --wr-shadow-sm:    0 2px 6px rgba(0,0,0,0.45), 0 1px 2px rgba(0,0,0,0.3);
-  --wr-shadow-md:    0 6px 20px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.35);
-  --wr-shadow-lg:    0 16px 48px rgba(0,0,0,0.65), 0 4px 16px rgba(0,0,0,0.40);
-  --wr-shadow-glow:  0 0 0 1px rgba(74,158,255,0.15), 0 6px 24px rgba(0,0,0,0.5);
-  --wr-shadow-glow-gold: 0 0 0 1px rgba(201,162,39,0.15), 0 6px 24px rgba(0,0,0,0.5);
-  --wr-shadow-inset: inset 0 1px 0 rgba(255,255,255,0.04);
+  /* ── Shadows */
+  --wr-shadow-xs:    0 1px 3px rgba(0,0,0,0.30);
+  --wr-shadow-sm:    0 2px 8px rgba(0,0,0,0.40), 0 1px 2px rgba(0,0,0,0.25);
+  --wr-shadow-md:    0 6px 20px rgba(0,0,0,0.50), 0 2px 8px rgba(0,0,0,0.30);
+  --wr-shadow-lg:    0 16px 48px rgba(0,0,0,0.60), 0 4px 16px rgba(0,0,0,0.35);
+  --wr-shadow-glow:  0 0 0 1px rgba(20,184,166,0.18), 0 6px 24px rgba(0,0,0,0.45);
+  --wr-shadow-glow-gold: 0 0 0 1px rgba(20,184,166,0.18), 0 6px 24px rgba(0,0,0,0.45);
+  --wr-shadow-inset: inset 0 1px 0 rgba(255,255,255,0.05);
 
   /* ── Topbar */
-  --wr-topbar-bg:     #070F1E;
-  --wr-topbar-border: rgba(255,255,255,0.055);
+  --wr-topbar-bg:     #070F1A;
+  --wr-topbar-border: rgba(255,255,255,0.07);
 
-  /* ── Border gold (rétrocompat — utiliser --wr-cta-accent-border pour les nouveaux composants) */
-  --wr-border-gold: rgba(201,162,39,0.20);
+  /* ── Rétrocompat */
+  --wr-border-gold: rgba(20,184,166,0.22);
 }
 
-/* ─── Page background dot-grid — dark mode ───────────────────────────────── */
+/* ─── Page background dot-grid — dark mode — teinte teal subtile ─────────── */
 html.dark body,
 :root body {
   background-image:
-    radial-gradient(circle, rgba(255,255,255,0.022) 1px, transparent 1px),
-    radial-gradient(ellipse 70% 50% at 80% 0%, rgba(20,50,100,0.18) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 60% at 10% 100%, rgba(10,30,70,0.20) 0%, transparent 70%);
-  background-size: 28px 28px, 100% 100%, 100% 100%;
+    radial-gradient(circle, rgba(255,255,255,0.018) 1px, transparent 1px),
+    radial-gradient(ellipse 65% 45% at 85% 0%, rgba(13,148,136,0.08) 0%, transparent 65%),
+    radial-gradient(ellipse 50% 55% at 5% 100%, rgba(20,184,166,0.06) 0%, transparent 70%);
+  background-size: 26px 26px, 100% 100%, 100% 100%;
   background-attachment: fixed;
 }
 
 /* ─── Page background — light mode ──────────────────────────────────────── */
 html:not(.dark) body {
   background-image:
-    radial-gradient(circle, rgba(26,43,75,0.04) 1px, transparent 1px),
-    radial-gradient(ellipse 60% 40% at 80% 0%, rgba(26,43,75,0.05) 0%, transparent 60%);
-  background-size: 28px 28px, 100% 100%;
+    radial-gradient(circle, rgba(13,148,136,0.04) 1px, transparent 1px),
+    radial-gradient(ellipse 60% 40% at 85% 0%, rgba(13,148,136,0.06) 0%, transparent 60%);
+  background-size: 26px 26px, 100% 100%;
   background-attachment: fixed;
 }
 
 /* ─── Light mode override ─────────────────────────────────────────────────── */
 html:not(.dark) {
-  --wr-bg:         #F0F4FA;
-  --wr-page:       #EEF2F9;
+  --wr-bg:         #F2F6FA;
+  --wr-page:       #EDF2F8;
   --wr-surface:    #FFFFFF;
   --wr-card:       #FFFFFF;
   --wr-panel:      #F8FAFD;
-  --wr-hover:      #EDF1F8;
-  --wr-hover2:     #E3E9F4;
-  --wr-inset:      #F5F7FC;
+  --wr-hover:      #EBF4F3;
+  --wr-hover2:     #DDF0EE;
+  --wr-inset:      #F4F8FC;
 
-  --wr-border:     #DDE4EF;
-  --wr-border2:    #C8D3E6;
-  --wr-border3:    #B8C6DC;
-  --wr-border-100: #DDE4EF;
-  --wr-border-200: #C8D3E6;
-  --wr-border-300: #B8C6DC;
-  --wr-hover-100:  #EDF1F8;
-  --wr-hover-200:  #E3E9F4;
-  --wr-border-gold: rgba(183,121,31,0.20);
+  --wr-border:     #D8E8E6;
+  --wr-border2:    #C0D8D6;
+  --wr-border3:    #A8C8C5;
+  --wr-border-100: #D8E8E6;
+  --wr-border-200: #C0D8D6;
+  --wr-border-300: #A8C8C5;
+  --wr-hover-100:  #EBF4F3;
+  --wr-hover-200:  #DDF0EE;
+  --wr-border-gold: rgba(13,148,136,0.22);
 
-  /* text-3 et text-4 améliorés pour accessibilité AA sur fond blanc */
-  --wr-text-1:   #1A2B4B;
-  --wr-text-2:   #3D5470;
-  --wr-text-3:   #5A728F;   /* ↑ était #6B82A0 — améliore ratio sur fond clair */
-  --wr-text-4:   #8099B6;   /* ↑ était #9BAFC8 — placeholders plus lisibles */
+  --wr-text-1:   #0F2027;
+  --wr-text-2:   #2D5060;
+  --wr-text-3:   #4A7080;
+  --wr-text-4:   #7A9AAA;
 
-  --wr-navy:       #1A2B4B;
-  --wr-gold:       #A56B10;
-  --wr-gold-bright:#C98C20;
-  --wr-gold-dim:   rgba(165,107,16,0.5);
+  --wr-navy:       #0F2027;
+  --wr-gold:       #0D9488;
+  --wr-gold-bright:#14B8A6;
+  --wr-gold-dim:   rgba(13,148,136,0.5);
 
-  /* Accent interactif — bleu en light mode aussi */
   --wr-blue:   #1A55AA;
   --wr-green:  #0E6B4A;
   --wr-amber:  #B45309;
   --wr-red:    #C0392B;
 
-  --wr-accent:        #1A55AA;
-  --wr-accent-bright: #1E68CC;
-  --wr-accent-muted:  rgba(26,85,170,0.07);
-  --wr-accent-border: rgba(26,85,170,0.22);
-  --wr-accent-glow:   rgba(26,85,170,0.10);
+  /* Teal en light mode */
+  --wr-accent:        #0D9488;
+  --wr-accent-bright: #0F766E;
+  --wr-accent-muted:  rgba(13,148,136,0.09);
+  --wr-accent-border: rgba(13,148,136,0.28);
+  --wr-accent-glow:   rgba(13,148,136,0.14);
 
-  /* CTA gold — light mode */
-  --wr-cta-accent:        #A56B10;
-  --wr-cta-accent-bright: #C98C20;
-  --wr-cta-accent-muted:  rgba(165,107,16,0.08);
-  --wr-cta-accent-border: rgba(165,107,16,0.22);
-  --wr-cta-accent-glow:   rgba(165,107,16,0.10);
+  --wr-cta-accent:        #0D9488;
+  --wr-cta-accent-bright: #0F766E;
+  --wr-cta-accent-muted:  rgba(13,148,136,0.09);
+  --wr-cta-accent-border: rgba(13,148,136,0.28);
+  --wr-cta-accent-glow:   rgba(13,148,136,0.14);
 
-  /* Neutre — light mode */
-  --wr-neutral-accent:        #3D5275;
-  --wr-neutral-accent-muted:  rgba(61,82,117,0.08);
-  --wr-neutral-accent-border: rgba(61,82,117,0.20);
+  --wr-neutral-accent:        #2A4A55;
+  --wr-neutral-accent-muted:  rgba(42,74,85,0.08);
+  --wr-neutral-accent-border: rgba(42,74,85,0.20);
 
-  --wr-sidebar:                  #1A2B4B;
-  --wr-sidebar-border:           rgba(255,255,255,0.07);
+  --wr-sidebar:                  #0C1E28;
+  --wr-sidebar-border:           rgba(20,184,166,0.10);
   --wr-sidebar-border2:          rgba(255,255,255,0.05);
-  --wr-sidebar-text-1:           #D8E8F8;
-  --wr-sidebar-text-2:           #6A88A8;
-  --wr-sidebar-text-3:           #3A5570;
-  --wr-sidebar-surface:          #152240;
-  --wr-sidebar-active-bg:        rgba(212,175,55,0.10);
-  --wr-sidebar-active-glow:      rgba(212,175,55,0.06);
+  --wr-sidebar-text-1:           #C8E8E6;
+  --wr-sidebar-text-2:           #5A8888;
+  --wr-sidebar-text-3:           #2A5560;
+  --wr-sidebar-surface:          #081820;
+  --wr-sidebar-active-bg:        rgba(20,184,166,0.14);
+  --wr-sidebar-active-glow:      rgba(20,184,166,0.08);
 
-  --wr-shadow-xs:    0 1px 2px rgba(26,43,75,0.06);
-  --wr-shadow-sm:    0 2px 6px rgba(26,43,75,0.08), 0 1px 2px rgba(26,43,75,0.04);
-  --wr-shadow-md:    0 6px 20px rgba(26,43,75,0.10), 0 2px 8px rgba(26,43,75,0.06);
-  --wr-shadow-lg:    0 16px 48px rgba(26,43,75,0.12), 0 4px 16px rgba(26,43,75,0.06);
-  --wr-shadow-glow:  0 0 0 1px rgba(26,85,170,0.10), 0 6px 24px rgba(26,43,75,0.08);
-  --wr-shadow-glow-gold: 0 0 0 1px rgba(165,107,16,0.12), 0 6px 24px rgba(26,43,75,0.08);
-  --wr-shadow-inset: inset 0 1px 0 rgba(255,255,255,0.7);
+  --wr-shadow-xs:    0 1px 3px rgba(10,30,40,0.06);
+  --wr-shadow-sm:    0 2px 8px rgba(10,30,40,0.08), 0 1px 2px rgba(10,30,40,0.04);
+  --wr-shadow-md:    0 6px 20px rgba(10,30,40,0.10), 0 2px 8px rgba(10,30,40,0.06);
+  --wr-shadow-lg:    0 16px 48px rgba(10,30,40,0.12), 0 4px 16px rgba(10,30,40,0.06);
+  --wr-shadow-glow:  0 0 0 1px rgba(13,148,136,0.14), 0 6px 24px rgba(10,30,40,0.08);
+  --wr-shadow-glow-gold: 0 0 0 1px rgba(13,148,136,0.14), 0 6px 24px rgba(10,30,40,0.08);
+  --wr-shadow-inset: inset 0 1px 0 rgba(255,255,255,0.8);
 
   --wr-topbar-bg:     #FFFFFF;
-  --wr-topbar-border: #DDE4EF;
+  --wr-topbar-border: #D8E8E6;
+
+  /* Fonts identiques */
+  --wr-font-serif: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  --wr-font-sans:  'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  --wr-font-mono:  'JetBrains Mono', 'Courier New', monospace;
 }
 
 /* ─── Base ────────────────────────────────────────────────────────────────── */
@@ -459,11 +455,11 @@ tbody tr:hover td { background-color: var(--wr-hover-100) !important; }
 
 /* ─── Page titles ─────────────────────────────────────────────────────────── */
 h1.font-mono, h1.font-semibold {
-  font-family: var(--wr-font-serif) !important;
-  font-weight: 500 !important;
+  font-family: var(--wr-font-sans) !important;
+  font-weight: 700 !important;
   font-size: 20px !important;
   color: var(--wr-text-1) !important;
-  letter-spacing: -0.4px !important;
+  letter-spacing: -0.5px !important;
 }
 
 /* ─── Section labels ─────────────────────────────────────────────────────── */

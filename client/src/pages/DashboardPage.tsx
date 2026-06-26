@@ -24,13 +24,14 @@ const C = {
   text1:    "var(--wr-text-1)",
   text2:    "var(--wr-text-2)",
   text3:    "var(--wr-text-3)",
-  gold:     "var(--wr-gold)",
+  gold:     "var(--wr-accent)",   // teal maintenant
+  teal:     "var(--wr-accent)",
   red:      "var(--wr-red)",
   amber:    "var(--wr-amber)",
   green:    "var(--wr-green)",
   blue:     "var(--wr-blue)",
   mono:     "var(--wr-font-mono)",
-  serif:    "var(--wr-font-serif)",
+  serif:    "var(--wr-font-sans)", // Plus Jakarta Sans
 };
 
 const RISK_COLORS: Record<string, string> = {
@@ -297,9 +298,9 @@ function DirectionPanel({ selectedYear, onYearChange }: {
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
       {/* Header + filtre année */}
-      <div style={{ background: `${C.gold}08`, border: `1px solid ${C.gold}25`, borderRadius: 10, padding: "14px 18px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ background: `${C.teal}08`, border: `1px solid ${C.teal}25`, borderRadius: 10, padding: "14px 18px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div>
-          <p style={{ fontSize: 11, fontFamily: C.mono, color: C.gold, margin: "0 0 2px", letterSpacing: "0.16em", textTransform: "uppercase" }}>
+          <p style={{ fontSize: 11, fontFamily: C.mono, color: C.teal, margin: "0 0 2px", letterSpacing: "0.16em", textTransform: "uppercase" }}>
             {t.dashboard.dirTitle}
           </p>
           <p style={{ fontSize: 11, fontFamily: C.mono, color: C.text3, margin: 0 }}>
@@ -312,14 +313,14 @@ function DirectionPanel({ selectedYear, onYearChange }: {
             {[new Date().getFullYear() - 2, new Date().getFullYear() - 1, new Date().getFullYear()].map(y => (
               <button key={y} onClick={() => onYearChange(y)} style={{
                 padding: "4px 10px", fontSize: 11, fontFamily: C.mono,
-                background: selectedYear === y ? `${C.gold}20` : "none",
-                border: `1px solid ${selectedYear === y ? C.gold : C.border2}`,
-                borderRadius: 6, color: selectedYear === y ? C.gold : C.text3,
+                background: selectedYear === y ? `${C.teal}20` : "none",
+                border: `1px solid ${selectedYear === y ? C.teal : C.border2}`,
+                borderRadius: 6, color: selectedYear === y ? C.teal : C.text3,
                 cursor: "pointer",
               }}>{y}</button>
             ))}
           </div>
-          <Shield size={20} style={{ color: C.gold, opacity: 0.6 }} />
+          <Shield size={20} style={{ color: C.teal, opacity: 0.6 }} />
         </div>
       </div>
 
@@ -400,9 +401,9 @@ function FilterChip({ label, active, onClick }: { label: string; active: boolean
   return (
     <button onClick={onClick} style={{
       padding: "4px 10px", fontSize: 11, fontFamily: C.mono,
-      background: active ? `${C.gold}15` : "none",
-      border: `1px solid ${active ? C.gold : C.border2}`,
-      borderRadius: 6, color: active ? C.gold : C.text3,
+      background: active ? `${C.teal}15` : "none",
+      border: `1px solid ${active ? C.teal : C.border2}`,
+      borderRadius: 6, color: active ? C.teal : C.text3,
       cursor: "pointer", transition: "all 0.12s",
     }}>{label}</button>
   );
@@ -474,7 +475,7 @@ export function DashboardPage() {
               cursor: "pointer",
               transition: "all 0.15s",
             }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "var(--wr-accent-border)"; (e.currentTarget as HTMLElement).style.color = "var(--wr-gold)"; }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "var(--wr-accent-border)"; (e.currentTarget as HTMLElement).style.color = "var(--wr-accent)"; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "var(--wr-border2)"; (e.currentTarget as HTMLElement).style.color = "var(--wr-text-2)"; }}
           >
             <RefreshCw size={12} style={{ animation: isRefetching ? "spin 1s linear infinite" : "none" }} />
@@ -494,9 +495,9 @@ export function DashboardPage() {
               style={{
                 display: "flex", alignItems: "center", gap: 6,
                 padding: "9px 14px", fontSize: 11, fontFamily: C.mono,
-                color: dashTab === id ? C.gold : C.text3,
+                color: dashTab === id ? C.teal : C.text3,
                 background: "none", border: "none",
-                borderBottom: `2px solid ${dashTab === id ? C.gold : "transparent"}`,
+                borderBottom: `2px solid ${dashTab === id ? C.teal : "transparent"}`,
                 cursor: "pointer", marginBottom: -1,
               }}
             >
@@ -677,7 +678,7 @@ export function DashboardPage() {
                     width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
                     background: a.priority === "CRITICAL" ? C.red
                                : a.priority === "HIGH"     ? C.amber
-                               : a.priority === "MEDIUM"   ? C.gold
+                               : a.priority === "MEDIUM"   ? C.teal
                                : C.green,
                   }} />
                   <div style={{ flex: 1, minWidth: 0 }}>

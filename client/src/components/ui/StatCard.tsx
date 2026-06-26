@@ -10,24 +10,24 @@ interface StatCardProps {
 }
 
 const ACCENT_LINE: Record<string, string> = {
-  default: "linear-gradient(90deg, var(--wr-gold), rgba(201,162,39,0.06))",
+  default: "linear-gradient(90deg, #14B8A6, rgba(20,184,166,0.06))",
   danger:  "linear-gradient(90deg, #FF6570, rgba(255,101,112,0.06))",
   warning: "linear-gradient(90deg, #F59E0B, rgba(245,158,11,0.06))",
   success: "linear-gradient(90deg, #2DD4A0, rgba(45,212,160,0.06))",
 };
 
 const ACCENT_GLOW: Record<string, string> = {
-  default: "rgba(201,162,39,0.10)",
+  default: "rgba(20,184,166,0.12)",
   danger:  "rgba(255,101,112,0.10)",
   warning: "rgba(245,158,11,0.10)",
   success: "rgba(45,212,160,0.10)",
 };
 
 const ICON_STYLES: Record<string, { bg: string; color: string; border: string }> = {
-  default: { bg: "rgba(201,162,39,0.09)",   color: "var(--wr-gold)",  border: "rgba(201,162,39,0.18)"  },
-  danger:  { bg: "rgba(255,101,112,0.09)",  color: "#FF6570",         border: "rgba(255,101,112,0.18)" },
-  warning: { bg: "rgba(245,158,11,0.09)",   color: "#F59E0B",         border: "rgba(245,158,11,0.18)"  },
-  success: { bg: "rgba(45,212,160,0.09)",   color: "#2DD4A0",         border: "rgba(45,212,160,0.18)"  },
+  default: { bg: "rgba(20,184,166,0.10)",   color: "#14B8A6",  border: "rgba(20,184,166,0.22)"  },
+  danger:  { bg: "rgba(255,101,112,0.09)",  color: "#FF6570",  border: "rgba(255,101,112,0.18)" },
+  warning: { bg: "rgba(245,158,11,0.09)",   color: "#F59E0B",  border: "rgba(245,158,11,0.18)"  },
+  success: { bg: "rgba(45,212,160,0.09)",   color: "#2DD4A0",  border: "rgba(45,212,160,0.18)"  },
 };
 
 const VALUE_COLORS: Record<string, string> = {
@@ -38,7 +38,7 @@ const VALUE_COLORS: Record<string, string> = {
 };
 
 const HOVER_BORDER: Record<string, string> = {
-  default: "rgba(201,162,39,0.22)",
+  default: "rgba(20,184,166,0.28)",
   danger:  "rgba(255,101,112,0.22)",
   warning: "rgba(245,158,11,0.22)",
   success: "rgba(45,212,160,0.22)",
@@ -106,12 +106,12 @@ export function StatCard({ label, value, sub, icon: Icon, accent = "default" }: 
           {/* Value */}
           <p style={{
             fontSize: 30,
-            fontWeight: 600,
-            fontFamily: "var(--wr-font-serif)",
+            fontWeight: 700,
+            fontFamily: "var(--wr-font-sans)",
             color: VALUE_COLORS[accent],
             lineHeight: 1,
             margin: "0 0 8px",
-            letterSpacing: "-0.8px",
+            letterSpacing: "-1px",
           }}>
             {value}
           </p>

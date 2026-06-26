@@ -26,7 +26,7 @@ const VARIANT_STYLES: Record<Variant, { bg: string; border: string; color: strin
   danger:    { bg: "rgba(248,113,113,0.10)",  border: "rgba(248,113,113,0.30)", color: "var(--wr-red)",   hoverBg: "rgba(248,113,113,0.18)" },
   success:   { bg: "rgba(52,211,153,0.10)",   border: "rgba(52,211,153,0.30)",  color: "var(--wr-green)", hoverBg: "rgba(52,211,153,0.18)"  },
   warning:   { bg: "rgba(251,191,36,0.08)",   border: "rgba(251,191,36,0.25)",  color: "var(--wr-amber)", hoverBg: "rgba(251,191,36,0.15)"  },
-  gold:      { bg: "rgba(212,175,55,0.10)",   border: "rgba(212,175,55,0.35)",  color: "var(--wr-gold)",  hoverBg: "rgba(212,175,55,0.18)"  },
+  gold:      { bg: "rgba(20,184,166,0.10)",   border: "rgba(20,184,166,0.32)",  color: "var(--wr-accent)", hoverBg: "rgba(20,184,166,0.18)"  },
 };
 
 const SIZE_STYLES: Record<Size, { padding: string; fontSize: number; gap: number; iconSize: number }> = {
