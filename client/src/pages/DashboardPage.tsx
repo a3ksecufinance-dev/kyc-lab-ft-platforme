@@ -401,10 +401,12 @@ function FilterChip({ label, active, onClick }: { label: string; active: boolean
   return (
     <button onClick={onClick} style={{
       padding: "4px 10px", fontSize: 11, fontFamily: C.mono,
-      background: active ? `${C.teal}15` : "none",
-      border: `1px solid ${active ? C.teal : C.border2}`,
-      borderRadius: 6, color: active ? C.teal : C.text3,
+      background: active ? `${C.teal}18` : "transparent",
+      border: `1px solid ${active ? C.teal : "rgba(100,140,160,0.20)"}`,
+      borderRadius: 20,  /* pill — plus moderne */
+      color: active ? C.teal : C.text3,
       cursor: "pointer", transition: "all 0.12s",
+      fontWeight: active ? 600 : 400,
     }}>{label}</button>
   );
 }
@@ -514,7 +516,7 @@ export function DashboardPage() {
         {dashTab === "ops" && <>
 
         {/* ── Barre de filtres opérationnelle ─────────────────────────────── */}
-        <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "10px 14px", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "8px 14px", background: "transparent", border: `1px solid ${C.border}`, borderRadius: 10, flexWrap: "wrap" }}>
 
           {/* Période graphique */}
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>

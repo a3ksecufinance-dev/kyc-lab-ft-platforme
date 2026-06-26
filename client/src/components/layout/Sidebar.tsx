@@ -334,8 +334,8 @@ export function Sidebar({ alertCount, openCasesCount, pendingKycCount }: Sidebar
                 <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 8px 4px" }}>
                   <span style={{
                     fontSize: 9, letterSpacing: "0.18em", textTransform: "uppercase",
-                    color: "rgba(200,220,240,0.22)",
-                    fontFamily: "var(--wr-font-mono)", fontWeight: 600,
+                    color: "rgba(140,190,220,0.55)",
+                    fontFamily: "var(--wr-font-mono)", fontWeight: 700,
                     whiteSpace: "nowrap", flexShrink: 0,
                   }}>
                     {t.nav[group.labelKey]}

@@ -133,11 +133,11 @@ html:not(.dark) body {
 
 /* ─── Light mode override ─────────────────────────────────────────────────── */
 html:not(.dark) {
-  --wr-bg:         #F2F6FA;
-  --wr-page:       #EDF2F8;
-  --wr-surface:    #FFFFFF;
-  --wr-card:       #FFFFFF;
-  --wr-panel:      #F8FAFD;
+  --wr-bg:         #E8EFF6;   /* légèrement plus foncé — atténue contraste sidebar */
+  --wr-page:       #EAF0F7;
+  --wr-surface:    #F6FAFB;   /* cartes légèrement teintées, moins blanc pur */
+  --wr-card:       #F6FAFB;
+  --wr-panel:      #F0F6F8;
   --wr-hover:      #EBF4F3;
   --wr-hover2:     #DDF0EE;
   --wr-inset:      #F4F8FC;
