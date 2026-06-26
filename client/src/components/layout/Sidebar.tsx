@@ -111,16 +111,16 @@ const NAV_GROUPS: NavGroup[] = [
 // ─── Palette sidebar ──────────────────────────────────────────────────────────
 
 const G = {
-  // Brand gold — UNIQUEMENT pour active state et identité visuelle
-  gold:            "#C9A227",
-  goldBright:      "#E8C84A",
-  goldDim:         "rgba(201,162,39,0.35)",
+  // Teal — nouvelle couleur brand (remplace gold)
+  gold:            "#14B8A6",
+  goldBright:      "#2DD4C2",
+  goldDim:         "rgba(20,184,166,0.35)",
 
-  // Active state
-  activeBg:        "rgba(201,162,39,0.12)",
-  activeBorder:    "rgba(201,162,39,0.25)",
+  // Active state — teal
+  activeBg:        "rgba(20,184,166,0.13)",
+  activeBorder:    "rgba(20,184,166,0.28)",
 
-  // Hover — neutre (bleu-gris), pas gold
+  // Hover
   hoverBg:         "rgba(255,255,255,0.06)",
   hoverText:       "var(--wr-sidebar-text-2)",
 
@@ -238,9 +238,9 @@ export function Sidebar({ alertCount, openCasesCount, pendingKycCount }: Sidebar
         width: W,
         minHeight: "100vh",
         background: [
-          "radial-gradient(ellipse 80% 30% at 10% 0%, rgba(201,162,39,0.06) 0%, transparent 70%)",
-          "radial-gradient(ellipse 100% 40% at 50% 100%, rgba(20,50,100,0.22) 0%, transparent 70%)",
-          "linear-gradient(180deg, #0A1628 0%, #050C1A 35%, #030810 70%, #02060E 100%)",
+          "radial-gradient(ellipse 80% 30% at 10% 0%, rgba(20,184,166,0.07) 0%, transparent 70%)",
+          "radial-gradient(ellipse 100% 40% at 50% 100%, rgba(13,148,136,0.10) 0%, transparent 70%)",
+          "linear-gradient(180deg, #07121C 0%, #050E18 35%, #040A12 70%, #030810 100%)",
         ].join(", "),
         borderRight: `1px solid ${G.border}`,
         display: "flex",
@@ -251,10 +251,10 @@ export function Sidebar({ alertCount, openCasesCount, pendingKycCount }: Sidebar
         overflow: "hidden",
       }}
     >
-      {/* Gold top accent line */}
+      {/* Teal top accent line */}
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, height: 2,
-        background: "linear-gradient(90deg, rgba(201,162,39,0.75), rgba(201,162,39,0.10), transparent)",
+        background: "linear-gradient(90deg, rgba(20,184,166,0.80), rgba(20,184,166,0.15), transparent)",
         pointerEvents: "none",
       }} />
 
@@ -488,7 +488,7 @@ export function Sidebar({ alertCount, openCasesCount, pendingKycCount }: Sidebar
                     display: "flex", alignItems: "center", justifyContent: "center",
                     fontSize: 12, fontWeight: 600,
                     color: G.t1,
-                    fontFamily: "var(--wr-font-serif)",
+                    fontFamily: "var(--wr-font-sans)",
                   }}>
                     {user.name.charAt(0).toUpperCase()}
                   </div>
@@ -557,7 +557,7 @@ export function Sidebar({ alertCount, openCasesCount, pendingKycCount }: Sidebar
                 border: "1px solid rgba(255,255,255,0.10)",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 fontSize: 12, fontWeight: 600, color: G.t1,
-                fontFamily: "var(--wr-font-serif)",
+                fontFamily: "var(--wr-font-sans)",
               }}
                 title={user.name}
               >
