@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useAuth }  from "../hooks/useAuth";
 import { useI18n }  from "../hooks/useI18n";
+import { loadFaceModels, matchFaces } from "../lib/face-match";
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 
@@ -555,6 +556,14 @@ export function EkycPage() {
     setModifiedFields(changed);
   }, [fields, ocrResult]);
 
+  // Précharger les modèles face-api.js en arrière-plan
+  // dès l'arrivée sur la page (~6.7MB téléchargés une fois, mis en cache)
+  useEffect(() => {
+    loadFaceModels().catch(() => {
+      // Erreur silencieuse — face match retombera en révision manuelle
+    });
+  }, []);
+
   // ── Étape OCR : envoyer recto + verso ────────────────────────────────────
 
   const runOcr = async () => {
@@ -587,7 +596,7 @@ export function EkycPage() {
     }
   };
 
-  // ── Face match basique ────────────────────────────────────────────────────
+  // ── Face match local avec face-api.js ─────────────────────────────────────
 
   const runFaceMatch = async () => {
     if (!images.selfie || !images.recto) {
@@ -597,21 +606,34 @@ export function EkycPage() {
     }
     setLoading(true);
     try {
-      // Envoi au serveur pour comparaison basique
-      const res = await fetch("/api/cbs/face-match", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-CBS-Api-Key": "cbs-staging-key-change-me" },
-        body: JSON.stringify({ cin_recto: images.recto, selfie: images.selfie }),
+      // 1. Comparaison locale avec face-api.js (modèles chargés en arrière-plan)
+      const local = await matchFaces(images.recto, images.selfie);
+
+      setFaceMatch({
+        score: local.score,
+        matched: local.matched,
+        message: local.message,
       });
-      if (res.ok) {
-        const data = await res.json() as FaceMatchResult;
-        setFaceMatch(data);
-      } else {
-        // Face match non encore implémenté côté serveur — skip avec avertissement
-        setFaceMatch({ score: 0, matched: false, message: "Face match non disponible — révision manuelle requise" });
+
+      // 2. Envoi du résultat au serveur pour traçabilité (clientScore)
+      try {
+        await fetch("/api/cbs/face-match", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-CBS-Api-Key": "cbs-staging-key-change-me" },
+          body: JSON.stringify({
+            cin_recto: images.recto,
+            selfie: images.selfie,
+            clientScore: local.score,
+          }),
+        });
+      } catch {
+        // Trace optionnelle — ne bloque pas le flow
       }
-    } catch {
-      setFaceMatch({ score: 0, matched: false, message: "Face match indisponible" });
+    } catch (err) {
+      setFaceMatch({
+        score: 0, matched: false,
+        message: err instanceof Error ? err.message : "Face match indisponible — révision manuelle",
+      });
     } finally {
       setLoading(false);
       setStep("review");
@@ -867,19 +889,45 @@ export function EkycPage() {
             </p>
 
             {/* Face match résultat */}
-            {faceMatch && (
-              <div style={{
-                padding: "10px 14px", marginBottom: 16,
-                background: faceMatch.matched ? `${C.green}08` : `${C.amber}08`,
-                border: `1px solid ${faceMatch.matched ? `${C.green}25` : `${C.amber}25`}`,
-                borderRadius: 8, display: "flex", alignItems: "center", gap: 10,
-              }}>
-                <User size={16} style={{ color: faceMatch.matched ? C.green : C.amber }} />
-                <span style={{ fontSize: 11, fontFamily: C.mono, color: faceMatch.matched ? C.green : C.amber }}>
-                  Face match : {faceMatch.score > 0 ? `${faceMatch.score}% similarité` : faceMatch.message}
-                </span>
-              </div>
-            )}
+            {faceMatch && (() => {
+              const color = faceMatch.score >= 80 ? C.green
+                          : faceMatch.score >= 65 ? C.teal
+                          : faceMatch.score >= 50 ? C.amber : C.red;
+              return (
+                <div style={{
+                  padding: "12px 16px", marginBottom: 16,
+                  background: `${color}08`,
+                  border: `1px solid ${color}30`,
+                  borderRadius: 10,
+                  display: "flex", alignItems: "center", gap: 12,
+                }}>
+                  <div style={{
+                    width: 40, height: 40, borderRadius: "50%",
+                    background: `${color}18`,
+                    border: `1px solid ${color}40`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    <User size={18} style={{ color }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontSize: 10, fontFamily: C.mono, color: C.text3, margin: "0 0 2px", textTransform: "uppercase", letterSpacing: "0.12em" }}>
+                      Vérification biométrique
+                    </p>
+                    <p style={{ fontSize: 12, fontFamily: C.mono, color, margin: 0, fontWeight: 600 }}>
+                      {faceMatch.message}
+                    </p>
+                  </div>
+                  {faceMatch.score > 0 && (
+                    <div style={{ textAlign: "right" }}>
+                      <span style={{ fontSize: 24, fontWeight: 700, fontFamily: C.sans, color }}>
+                        {faceMatch.score}
+                      </span>
+                      <span style={{ fontSize: 12, fontFamily: C.mono, color, marginLeft: 2 }}>%</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             <OcrReview
               fields={fields}
