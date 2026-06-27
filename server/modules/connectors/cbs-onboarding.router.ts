@@ -30,6 +30,7 @@ import { runOcr }                          from "../documents/ocr.service";
 import { screenCustomer }                  from "../screening/screening.service";
 import { notifyCbs }                       from "./cbs-notify.service";
 import { redis }                           from "../../_core/redis";
+import * as kycSession                     from "./kyc-session.service";
 
 const log = createLogger("cbs-api");
 
@@ -343,12 +344,14 @@ export function createCbsOnboardingRouter(): Router {
   router.post("/ocr", async (req: Request, res: Response) => {
     if (!verifyCbsAuth(req, res)) return;
 
-    const cbsRef = `OCR-${nanoid(10).toUpperCase()}`;
     const body = req.body as {
       cin_recto:   string;
       cin_verso:   string;
       mimeType?:   string;
       cbs_fields?: Partial<CinMarocFields>;
+      channel?:    "CBS_API" | "DIGITAL_WEB" | "AGENT_OFFICE" | "MOBILE_APP";
+      cbs_id?:     string;
+      cbs_code?:   string;
     };
 
     if (!body.cin_recto || !body.cin_verso) {
@@ -356,7 +359,18 @@ export function createCbsOnboardingRouter(): Router {
       return;
     }
 
-    log.info({ cbsRef }, "OCR CIN marocaine reçu");
+    const channel = body.channel ?? "CBS_API";
+
+    // Créer la session KYC en DB (persistante, suit le candidat)
+    const session = await kycSession.createSession({
+      channel,
+      ...(body.cbs_id   ? { cbsRef: body.cbs_id }     : {}),
+      ...(body.cbs_code ? { cbsCode: body.cbs_code }  : {}),
+      ...(body.cbs_fields ? { cbsFields: body.cbs_fields as Record<string, unknown> } : {}),
+    });
+    const cbsRef = session.sessionRef;
+
+    log.info({ cbsRef, channel }, "OCR CIN marocaine reçu — session créée");
 
     try {
       const rectoBuffer = Buffer.from(body.cin_recto, "base64");
@@ -370,12 +384,19 @@ export function createCbsOnboardingRouter(): Router {
         ? validateCbsVsOcr(body.cbs_fields, ocrResult.merged)
         : null;
 
-      // Stocker session OCR dans Redis (30 min)
+      // Stocker dans Redis (rapide, payload complet 30 min)
       await redis.setex(
         `cbs:ocr:${cbsRef}`,
         1800,
         JSON.stringify({ ocrResult, cbsFields: body.cbs_fields ?? {} })
       );
+
+      // Persister dans la session DB (suivi métier)
+      await kycSession.attachOcrResult({
+        sessionRef:      cbsRef,
+        ocrResult:       ocrResult as unknown as Record<string, unknown>,
+        candidateFields: ocrResult.merged as unknown as Record<string, unknown>,
+      });
 
       log.info({
         cbsRef,
@@ -441,13 +462,36 @@ export function createCbsOnboardingRouter(): Router {
     log.info({ cbsRef: body.cbsRef, modified: body.modified }, "Confirmation CBS reçue");
 
     try {
-      // Récupérer session OCR
-      const sessionRaw = await redis.get(`cbs:ocr:${body.cbsRef}`);
-      if (!sessionRaw) {
-        res.status(404).json({ success: false, error: `Session OCR ${body.cbsRef} expirée ou introuvable (TTL 30min)` });
+      // Récupérer session OCR — DB d'abord (résiste aux reboots Redis), Redis en fallback
+      let session: { ocrResult: Awaited<ReturnType<typeof ocrCinMaroc>>; cbsFields: Partial<CinMarocFields> } | null = null;
+
+      const dbSession = await kycSession.findSessionByRef(body.cbsRef);
+      if (dbSession?.ocrResult) {
+        session = {
+          ocrResult: dbSession.ocrResult as unknown as Awaited<ReturnType<typeof ocrCinMaroc>>,
+          cbsFields: (dbSession.cbsFields ?? {}) as Partial<CinMarocFields>,
+        };
+      } else {
+        const sessionRaw = await redis.get(`cbs:ocr:${body.cbsRef}`);
+        if (sessionRaw) {
+          session = JSON.parse(sessionRaw) as { ocrResult: Awaited<ReturnType<typeof ocrCinMaroc>>; cbsFields: Partial<CinMarocFields> };
+        }
+      }
+
+      if (!session) {
+        res.status(404).json({ success: false, error: `Session OCR ${body.cbsRef} expirée ou introuvable` });
         return;
       }
-      const session = JSON.parse(sessionRaw) as { ocrResult: Awaited<ReturnType<typeof ocrCinMaroc>>; cbsFields: Partial<CinMarocFields> };
+
+      // Vérifier que la session n'est pas déjà décidée
+      if (dbSession?.status === "DECIDED") {
+        res.status(409).json({
+          success: false,
+          error: `Session ${body.cbsRef} déjà décidée — client #${dbSession.customerId}`,
+          existingCustomerId: dbSession.customerId,
+        });
+        return;
+      }
 
       // Vérification champs modifiés vs OCR
       let modifCheck: ReturnType<typeof verifyModifiedFields> = [];
@@ -555,8 +599,26 @@ export function createCbsOnboardingRouter(): Router {
         timestamp:   now.toISOString(),
       });
 
-      // Supprimer la session OCR
+      // Supprimer la session OCR Redis
       await redis.del(`cbs:ocr:${body.cbsRef}`);
+
+      // Finaliser la session DB (statut DECIDED + customerId)
+      try {
+        await kycSession.decideSession({
+          sessionRef:    body.cbsRef,
+          customerId:    customer.id,
+          decisionResult: {
+            kycStatus:     finalKycStatus,
+            screening:     screeningResult.status,
+            matchedEntity: screeningResult.sanctionsResult.matchedEntity,
+            riskLevel:     "LOW",
+          },
+          ...(body.modifiedFields?.length ? { modifiedFields: body.modifiedFields } : {}),
+        });
+      } catch (sessErr) {
+        // Si pas de session DB (legacy), on continue sans bloquer
+        log.warn({ cbsRef: body.cbsRef, err: sessErr }, "Session DB non finalisable (legacy ou expirée)");
+      }
 
       log.info({ cbsRef: body.cbsRef, customerId: customer.id, kycStatus: finalKycStatus, screening: screeningResult.status }, "Confirmation CBS — client créé");
 
@@ -586,22 +648,67 @@ export function createCbsOnboardingRouter(): Router {
   });
 
   /**
+   * GET /api/cbs/sessions/:ref
+   * Consultation de l'état d'une session KYC (reprise, monitoring, audit)
+   */
+  router.get("/sessions/:ref", async (req: Request, res: Response) => {
+    if (!verifyCbsAuth(req, res)) return;
+    const ref = req.params["ref"];
+    if (!ref) {
+      res.status(400).json({ success: false, error: "ref obligatoire" });
+      return;
+    }
+    const session = await kycSession.findSessionByRef(ref);
+    if (!session) {
+      res.status(404).json({ success: false, error: `Session ${ref} introuvable` });
+      return;
+    }
+    res.json({
+      success:        true,
+      sessionRef:     session.sessionRef,
+      channel:        session.channel,
+      status:         session.status,
+      cbsRef:         session.cbsRef,
+      candidateFields: session.candidateFields,
+      decisionResult: session.decisionResult,
+      customerId:     session.customerId,
+      startedAt:      session.startedAt,
+      expiresAt:      session.expiresAt,
+      decidedAt:      session.decidedAt,
+      reviewedBy:     session.reviewedBy,
+      modifiedFields: session.modifiedFields,
+    });
+  });
+
+  /**
+   * GET /api/cbs/sessions/stats
+   * Statistiques agrégées (total, par statut, par canal)
+   */
+  router.get("/sessions-stats", async (_req: Request, res: Response) => {
+    const stats = await kycSession.getSessionStats();
+    res.json(stats);
+  });
+
+  /**
    * GET /api/cbs/health
    */
   router.get("/health", (_req: Request, res: Response) => {
     res.json({
       status:    "ok",
       service:   "KYC-AML CBS Integration API",
-      version:   "4.1",
+      version:   "5.0",
       endpoints: [
-        "POST /onboarding   — Entrée en relation classique (UC-1/2/3/4/5)",
-        "POST /ocr          — OCR CIN marocaine recto+verso → JSON structuré",
-        "POST /confirm      — Confirmation/modif données OCR → création client",
-        "POST /face-match   — Comparaison selfie vs CIN photo",
-        "POST /document     — Nouveau document pour client existant",
-        "POST /reactivation — Réactivation client bloqué (UC-8)",
-        "GET  /health       — Santé du service",
+        "POST /ocr               — OCR CIN recto+verso → JSON structuré (étape 1)",
+        "POST /confirm           — Confirmation/modif données OCR → création client (étape 2)",
+        "POST /face-match        — Comparaison selfie vs CIN photo",
+        "POST /document          — Nouveau document pour client existant",
+        "POST /reactivation      — Réactivation client bloqué (UC-8)",
+        "GET  /sessions/:ref     — Consultation état session KYC",
+        "GET  /sessions-stats    — Statistiques sessions",
+        "GET  /health            — Santé du service",
+        "POST /onboarding        — [DEPRECATED] usage rétrocompat uniquement",
       ],
+      deprecated: ["/api/cbs/onboarding"],
       timestamp: new Date().toISOString(),
       mode:      ENV.CBS_AUTH_DISABLED ? "development" : "production",
     });

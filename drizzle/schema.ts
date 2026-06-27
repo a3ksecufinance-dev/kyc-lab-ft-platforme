@@ -759,6 +759,79 @@ export const silencingRules = pgTable("silencing_rules", {
 export type SilencingRule = typeof silencingRules.$inferSelect;
 export type InsertSilencingRule = typeof silencingRules.$inferInsert;
 
+// ─── KYC Sessions — Entrée en relation persistante (workflow 2 étapes) ──────
+//
+// Chaque entrée en relation crée une session qui suit le candidat client à
+// travers les étapes OCR → review agent → confirmation finale.
+// La table customer n'est créée qu'à la décision finale.
+
+export const kycSessionStatusEnum = pgEnum("kyc_session_status", [
+  "DRAFT",            // session créée, en attente OCR
+  "OCR_DONE",         // OCR terminé, en attente revue agent
+  "AGENT_REVIEW",     // agent en cours de validation
+  "PENDING_CA",       // validation CA en attente (si champs modifiés)
+  "DECIDED",          // décision finale prise → customer créé
+  "ABANDONED",        // session expirée ou annulée
+]);
+
+export const kycSessionChannelEnum = pgEnum("kyc_session_channel", [
+  "CBS_API",          // Basikon via API
+  "DIGITAL_WEB",      // canal digital page /ekyc
+  "AGENT_OFFICE",     // agent saisit en agence
+  "MOBILE_APP",       // future app mobile native
+]);
+
+export const kycSessions = pgTable("kyc_sessions", {
+  id:           serial("id").primaryKey(),
+  // sessionRef public (utilisé dans toutes les API : OCR-XXX, KYC-XXX)
+  sessionRef:   varchar("session_ref", { length: 50 }).notNull().unique(),
+  channel:      kycSessionChannelEnum("channel").notNull(),
+  status:       kycSessionStatusEnum("status").default("DRAFT").notNull(),
+
+  // Référence CBS (si applicable)
+  cbsRef:       varchar("cbs_ref", { length: 100 }),
+  cbsCode:      varchar("cbs_code", { length: 50 }),  // "entree" | "matcash"
+
+  // Données OCR brutes (extracted, confidence, mrzValid)
+  ocrResult:    jsonb("ocr_result"),
+
+  // Champs candidats (peuvent évoluer entre OCR et confirm)
+  candidateFields: jsonb("candidate_fields"),
+
+  // Données envoyées par CBS pour comparaison
+  cbsFields:    jsonb("cbs_fields"),
+
+  // Résultat décision finale
+  decisionResult: jsonb("decision_result"),  // { customerId, customerRef, kycStatus, screening, ... }
+  customerId:   integer("customer_id").references(() => customers.id, { onDelete: "set null" }),
+
+  // Agent qui a fait la revue (si DIGITAL_WEB) ou null (si CBS_API)
+  reviewedBy:   integer("reviewed_by").references(() => users.id, { onDelete: "set null" }),
+  reviewedAt:   timestamp("reviewed_at"),
+
+  // Si champs modifiés à la confirmation
+  modifiedFields: jsonb("modified_fields"),  // array de noms de champs
+
+  // Métadonnées
+  startedAt:    timestamp("started_at").defaultNow().notNull(),
+  expiresAt:    timestamp("expires_at").notNull(),
+  decidedAt:    timestamp("decided_at"),
+  abandonedAt:  timestamp("abandoned_at"),
+
+  createdAt:    timestamp("created_at").defaultNow().notNull(),
+  updatedAt:    timestamp("updated_at").defaultNow().notNull(),
+}, (t) => ({
+  sessionRefIdx: uniqueIndex("kyc_sessions_session_ref_idx").on(t.sessionRef),
+  statusIdx:     index("kyc_sessions_status_idx").on(t.status),
+  channelIdx:    index("kyc_sessions_channel_idx").on(t.channel),
+  cbsRefIdx:     index("kyc_sessions_cbs_ref_idx").on(t.cbsRef),
+  expiresIdx:    index("kyc_sessions_expires_idx").on(t.expiresAt),
+  customerIdx:   index("kyc_sessions_customer_idx").on(t.customerId),
+}));
+
+export type KycSession = typeof kycSessions.$inferSelect;
+export type InsertKycSession = typeof kycSessions.$inferInsert;
+
 // ─── pKYC — Snapshots de dérive comportementale ───────────────────────────────
 
 export const pkycSnapshots = pgTable("pkyc_snapshots", {
