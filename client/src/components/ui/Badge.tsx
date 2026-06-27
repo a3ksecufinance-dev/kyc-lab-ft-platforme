@@ -55,10 +55,10 @@ const STATUS: Record<string, BS> = {
   CORPORATE:           { bg:"rgba(167,139,250,0.10)",  color:"#A78BFA", border:"rgba(167,139,250,0.22)"  },
   ONLINE:              { bg:"rgba(74,158,255,0.10)",   color:"#4A9EFF", border:"rgba(74,158,255,0.22)"   },
   MOBILE:              { bg:"rgba(34,211,238,0.10)",   color:"#22D3EE", border:"rgba(34,211,238,0.22)"   },
-  BRANCH:              { bg:"rgba(201,162,39,0.10)",   color:"#C9A227", border:"rgba(201,162,39,0.22)"   },
+  BRANCH:              { bg:"rgba(20,184,166,0.10)",   color:"#14B8A6", border:"rgba(20,184,166,0.22)"   },
   ATM:                 { bg:"rgba(251,146,60,0.10)",   color:"#FB923C", border:"rgba(251,146,60,0.22)"   },
   API:                 { bg:"rgba(100,116,139,0.09)",  color:"#94A3B8", border:"rgba(100,116,139,0.18)"  },
-  CUSTOM:              { bg:"rgba(201,162,39,0.10)",   color:"#C9A227", border:"rgba(201,162,39,0.22)"   },
+  CUSTOM:              { bg:"rgba(20,184,166,0.10)",   color:"#14B8A6", border:"rgba(20,184,166,0.22)"   },
 };
 
 const PRIORITY: Record<string, BS> = {

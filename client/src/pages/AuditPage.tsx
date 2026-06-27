@@ -41,7 +41,7 @@ const ENTITY_META: Record<string, { icon: React.ComponentType<{ size?: number; c
   case:        { icon: FolderOpen,    color: "#FB923C", label: "Dossier"     },
   screening:   { icon: Shield,        color: "#22D3EE", label: "Screening"   },
   report:      { icon: FileText,      color: "#C084FC", label: "Rapport"     },
-  aml_rule:    { icon: Activity,      color: "#E8C84A", label: "Règle AML"   },
+  aml_rule:    { icon: Activity,      color: "#2DD4C2", label: "Règle AML"   },
   system:      { icon: Settings,      color: "#94A3B8", label: "Système"     },
   ubo:         { icon: User,          color: "#4A9EFF", label: "UBO"         },
 };
@@ -320,7 +320,7 @@ export function AuditPage() {
           <StatPill
             label="Entité la plus active"
             value={`${ENTITY_META[topEntity[0]]?.label ?? topEntity[0]} · ${formatNumber(topEntity[1] as number)}`}
-            color="#E8C84A"
+            color="#2DD4C2"
           />
         )}
       </div>
@@ -347,8 +347,8 @@ export function AuditPage() {
             <span style={{
               fontSize: 9, fontFamily: "var(--wr-font-mono)", fontWeight: 700,
               padding: "1px 7px", borderRadius: 3,
-              background: "rgba(201,162,39,0.12)", color: "var(--wr-gold)",
-              border: "1px solid rgba(201,162,39,0.22)", letterSpacing: "0.10em",
+              background: "rgba(20,184,166,0.12)", color: "var(--wr-gold)",
+              border: "1px solid rgba(20,184,166,0.22)", letterSpacing: "0.10em",
             }}>
               {formatNumber(total)} ENTRÉES
             </span>
@@ -372,8 +372,8 @@ export function AuditPage() {
               style={{
                 display: "flex", alignItems: "center", gap: 5,
                 padding: "5px 12px", borderRadius: 6, cursor: exporting ? "wait" : "pointer",
-                background: exporting ? "rgba(201,162,39,0.08)" : "rgba(201,162,39,0.12)",
-                border: "1px solid rgba(201,162,39,0.28)",
+                background: exporting ? "rgba(20,184,166,0.08)" : "rgba(20,184,166,0.12)",
+                border: "1px solid rgba(20,184,166,0.28)",
                 fontSize: 10, fontFamily: "var(--wr-font-mono)", fontWeight: 700,
                 color: "var(--wr-gold)", letterSpacing: "0.05em",
                 opacity: exporting ? 0.7 : 1,

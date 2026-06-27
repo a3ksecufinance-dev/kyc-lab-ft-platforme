@@ -112,8 +112,8 @@ export function BamReportsPage() {
                 onClick={() => { setReportType(rt); setGenerate(false); }}
                 style={{
                   fontSize: 12, padding: "6px 16px", borderRadius: 8, cursor: "pointer",
-                  border: reportType === rt ? "1px solid rgba(212,175,55,0.45)" : `1px solid ${C.border2}`,
-                  background: reportType === rt ? "rgba(212,175,55,0.1)" : "transparent",
+                  border: reportType === rt ? "1px solid rgba(20,184,166,0.45)" : `1px solid ${C.border2}`,
+                  background: reportType === rt ? "rgba(20,184,166,0.1)" : "transparent",
                   color: reportType === rt ? C.gold : C.text3,
                   fontWeight: reportType === rt ? 600 : 400,
                 }}
@@ -173,7 +173,7 @@ export function BamReportsPage() {
               onClick={() => setGenerate(true)}
               style={{
                 fontSize: 12, padding: "7px 20px", borderRadius: 8, cursor: "pointer",
-                border: "1px solid rgba(212,175,55,0.4)", background: "rgba(212,175,55,0.1)",
+                border: "1px solid rgba(20,184,166,0.4)", background: "rgba(20,184,166,0.1)",
                 color: C.gold, fontWeight: 600, display: "flex", alignItems: "center", gap: 6,
               }}
             >

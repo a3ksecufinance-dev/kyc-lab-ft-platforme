@@ -106,7 +106,7 @@ export function AppLayout({ children, title, breadcrumbs }: AppLayoutProps) {
           {/* Subtle bottom gradient line */}
           <div style={{
             position: "absolute", bottom: 0, left: 0, right: 0, height: 1,
-            background: "linear-gradient(90deg, transparent, rgba(201,162,39,0.12), transparent)",
+            background: "linear-gradient(90deg, transparent, rgba(20,184,166,0.12), transparent)",
             pointerEvents: "none",
           }} />
 
@@ -218,8 +218,8 @@ export function AppLayout({ children, title, breadcrumbs }: AppLayoutProps) {
               }}>
                 <div style={{
                   width: 20, height: 20, borderRadius: 5,
-                  background: "rgba(201,162,39,0.14)",
-                  border: "1px solid rgba(201,162,39,0.20)",
+                  background: "rgba(20,184,166,0.14)",
+                  border: "1px solid rgba(20,184,166,0.20)",
                   display: "flex", alignItems: "center", justifyContent: "center",
                   fontSize: 9.5, fontWeight: 700,
                   color: "var(--wr-gold)",

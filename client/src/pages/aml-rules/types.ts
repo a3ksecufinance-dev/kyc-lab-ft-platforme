@@ -76,7 +76,7 @@ export const CATEGORY_LABELS: Record<string, string> = {
 export const CATEGORY_STYLE: Record<string, React.CSSProperties> = {
   THRESHOLD:    { color: "var(--wr-amber)",  background: "rgba(245,158,11,0.09)",  border: "1px solid rgba(245,158,11,0.22)"  },
   FREQUENCY:    { color: "var(--wr-blue)",   background: "rgba(74,158,255,0.09)",  border: "1px solid rgba(74,158,255,0.22)"  },
-  PATTERN:      { color: "var(--wr-gold)",   background: "rgba(201,162,39,0.09)",  border: "1px solid rgba(201,162,39,0.2)"   },
+  PATTERN:      { color: "var(--wr-gold)",   background: "rgba(20,184,166,0.09)",  border: "1px solid rgba(20,184,166,0.2)"   },
   GEOGRAPHY:    { color: "var(--wr-red)",    background: "rgba(255,101,112,0.09)", border: "1px solid rgba(255,101,112,0.22)" },
   COUNTERPARTY: { color: "var(--wr-amber)",  background: "rgba(245,158,11,0.07)",  border: "1px solid rgba(245,158,11,0.2)"   },
   VELOCITY:     { color: "var(--wr-blue)",   background: "rgba(74,158,255,0.07)",  border: "1px solid rgba(74,158,255,0.2)"   },

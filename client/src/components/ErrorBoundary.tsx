@@ -59,8 +59,8 @@ export class ErrorBoundary extends Component<Props, State> {
               style={{
                 padding: "10px 24px", fontSize: 12, fontWeight: 600,
                 borderRadius: 8, cursor: "pointer",
-                background: "rgba(201,162,39,0.12)",
-                border: "1px solid rgba(201,162,39,0.35)",
+                background: "rgba(20,184,166,0.12)",
+                border: "1px solid rgba(20,184,166,0.35)",
                 color: "var(--wr-gold, #c9a227)",
               }}
             >

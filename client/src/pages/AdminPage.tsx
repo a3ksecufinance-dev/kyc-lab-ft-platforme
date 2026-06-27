@@ -713,7 +713,7 @@ function MlTab() {
           Initialise les règles AML de référence (OFAC, PEP, structuration, fréquence…). Sans effet si des règles existent déjà.
         </p>
         {seedMut.data && (
-          <div style={{ padding: "8px 12px", borderRadius: 6, marginBottom: 10, background: seedMut.data.seeded > 0 ? "rgba(52,211,153,0.1)" : "rgba(212,175,55,0.1)", border: `1px solid ${seedMut.data.seeded > 0 ? "rgba(52,211,153,0.3)" : "rgba(212,175,55,0.3)"}` }}>
+          <div style={{ padding: "8px 12px", borderRadius: 6, marginBottom: 10, background: seedMut.data.seeded > 0 ? "rgba(52,211,153,0.1)" : "rgba(20,184,166,0.1)", border: `1px solid ${seedMut.data.seeded > 0 ? "rgba(52,211,153,0.3)" : "rgba(20,184,166,0.3)"}` }}>
             <p style={{ fontSize: 11, fontFamily: "var(--wr-font-mono)", margin: 0, color: seedMut.data.seeded > 0 ? "var(--wr-green)" : "var(--wr-amber)" }}>
               {seedMut.data.message} {seedMut.data.seeded > 0 && `(${seedMut.data.seeded} règles créées)`}
             </p>
@@ -725,7 +725,7 @@ function MlTab() {
         <button
           disabled={seedMut.isPending}
           onClick={() => seedMut.mutate()}
-          style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.3)", borderRadius: 7, fontSize: 11, fontFamily: "var(--wr-font-mono)", color: "var(--wr-amber)", cursor: "pointer", opacity: seedMut.isPending ? 0.5 : 1 }}
+          style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", background: "rgba(20,184,166,0.1)", border: "1px solid rgba(20,184,166,0.3)", borderRadius: 7, fontSize: 11, fontFamily: "var(--wr-font-mono)", color: "var(--wr-amber)", cursor: "pointer", opacity: seedMut.isPending ? 0.5 : 1 }}
         >
           <Shield size={12} />
           {seedMut.isPending ? "Initialisation…" : "Initialiser les règles AML par défaut"}

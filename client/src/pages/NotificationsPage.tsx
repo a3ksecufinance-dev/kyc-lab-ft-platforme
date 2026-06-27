@@ -140,7 +140,7 @@ export function NotificationsPage() {
                 border: filter === f
                   ? "1px solid var(--wr-accent)"
                   : "1px solid var(--wr-border)",
-                background: filter === f ? "rgba(201,162,39,0.08)" : "var(--wr-card)",
+                background: filter === f ? "rgba(20,184,166,0.08)" : "var(--wr-card)",
                 color: filter === f ? "var(--wr-accent)" : "var(--wr-text-2)",
                 cursor: "pointer", fontWeight: filter === f ? 600 : 400,
               }}
@@ -175,10 +175,10 @@ export function NotificationsPage() {
                   style={{
                     display: "flex", alignItems: "flex-start", gap: 12,
                     padding: "12px 16px", borderRadius: 8,
-                    background: n.isRead ? "var(--wr-card)" : "rgba(201,162,39,0.04)",
+                    background: n.isRead ? "var(--wr-card)" : "rgba(20,184,166,0.04)",
                     border: n.isRead
                       ? "1px solid var(--wr-border)"
-                      : "1px solid rgba(201,162,39,0.15)",
+                      : "1px solid rgba(20,184,166,0.15)",
                     cursor: n.isRead ? "default" : "pointer",
                     transition: "all 0.15s",
                   }}
@@ -236,7 +236,7 @@ export function NotificationsPage() {
                     <div style={{
                       width: 8, height: 8, borderRadius: "50%",
                       background: "var(--wr-accent)",
-                      boxShadow: "0 0 6px rgba(201,162,39,0.4)",
+                      boxShadow: "0 0 6px rgba(20,184,166,0.4)",
                       flexShrink: 0, marginTop: 4,
                     }} />
                   )}

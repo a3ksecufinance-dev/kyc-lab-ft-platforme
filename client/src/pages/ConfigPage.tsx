@@ -204,7 +204,7 @@ export function ConfigPage() {
                         padding: "14px 18px", borderRadius: 8,
                         background: "var(--wr-card)",
                         border: isModified
-                          ? "1px solid rgba(201,162,39,0.3)"
+                          ? "1px solid rgba(20,184,166,0.3)"
                           : "1px solid var(--wr-border)",
                         transition: "all 0.15s",
                       }}

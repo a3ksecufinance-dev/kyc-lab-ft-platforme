@@ -461,7 +461,7 @@ export function WalletsPage() {
                   style={{ flex: 1, fontSize: 12, padding: "8px 0", borderRadius: 8, border: `1px solid ${C.border2}`, background: "transparent", color: C.text3, cursor: "pointer" }}>{t.common.cancel}</button>
                 <button disabled={tierReason.trim().length < 5 || promoteMutation.isPending}
                   onClick={() => promoteMutation.mutate({ walletId: selectedWallet.id, customerId: selectedWallet.customerId, newTier, reason: tierReason })}
-                  style={{ flex: 1, fontSize: 12, padding: "8px 0", borderRadius: 8, border: "1px solid rgba(212,175,55,0.35)", background: "rgba(212,175,55,0.1)", color: C.gold, cursor: "pointer", opacity: tierReason.trim().length < 5 ? 0.4 : 1 }}>
+                  style={{ flex: 1, fontSize: 12, padding: "8px 0", borderRadius: 8, border: "1px solid rgba(20,184,166,0.35)", background: "rgba(20,184,166,0.1)", color: C.gold, cursor: "pointer", opacity: tierReason.trim().length < 5 ? 0.4 : 1 }}>
                   {promoteMutation.isPending ? "…" : t.common.confirm}
                 </button>
               </div>

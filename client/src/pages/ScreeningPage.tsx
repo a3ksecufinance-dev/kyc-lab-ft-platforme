@@ -631,8 +631,8 @@ function PendingTab() {
             <button key={f} onClick={() => setFilterStatus(f)} style={{
               padding: "6px 12px", borderRadius: 6, fontSize: 10, fontFamily: C.mono,
               cursor: "pointer", transition: "all 0.15s",
-              background: filterStatus === f ? "rgba(212,175,55,0.12)" : "transparent",
-              border: `1px solid ${filterStatus === f ? "rgba(212,175,55,0.35)" : C.border2}`,
+              background: filterStatus === f ? "rgba(20,184,166,0.12)" : "transparent",
+              border: `1px solid ${filterStatus === f ? "rgba(20,184,166,0.35)" : C.border2}`,
               color: filterStatus === f ? C.gold : C.text3,
             }}>{f}</button>
           ))}
@@ -765,7 +765,7 @@ function ListsTab({ canAdmin }: { canAdmin: boolean }) {
       }>
         {isLoading ? (
           <div style={{ display: "flex", justifyContent: "center", padding: "24px 0" }}>
-            <div style={{ width: 20, height: 20, border: "2px solid rgba(212,175,55,0.3)", borderTopColor: C.gold, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+            <div style={{ width: 20, height: 20, border: "2px solid rgba(20,184,166,0.3)", borderTopColor: C.gold, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
@@ -971,7 +971,7 @@ function CustomListTab({ canEdit }: { canEdit: boolean }) {
                       {e.country}
                     </span>
                   )}
-                  <span style={{ fontSize: 9, fontFamily: C.mono, padding: "2px 6px", borderRadius: 4, background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.25)", color: C.gold }}>
+                  <span style={{ fontSize: 9, fontFamily: C.mono, padding: "2px 6px", borderRadius: 4, background: "rgba(20,184,166,0.1)", border: "1px solid rgba(20,184,166,0.25)", color: C.gold }}>
                     CUSTOM
                   </span>
                 </div>

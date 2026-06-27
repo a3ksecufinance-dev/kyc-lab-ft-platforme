@@ -84,7 +84,7 @@ export function LicensePage() {
       <main style={{ flex: 1, padding: "28px 36px", overflow: "auto" }}>
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 28 }}>
-          <KeyRound size={22} style={{ color: "#C9A227" }} />
+          <KeyRound size={22} style={{ color: "#14B8A6" }} />
           <div>
             <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: "var(--wr-text-1)" }}>
               {t.nav.license}
@@ -288,7 +288,7 @@ export function LicensePage() {
                   disabled={activating || !keyInput.trim()}
                   style={{
                     padding: "10px 20px", borderRadius: 6,
-                    background: "#C9A227", border: "none",
+                    background: "#14B8A6", border: "none",
                     color: "#000", fontSize: 13, fontWeight: 600,
                     cursor: activating ? "wait" : "pointer",
                     opacity: activating || !keyInput.trim() ? 0.5 : 1,

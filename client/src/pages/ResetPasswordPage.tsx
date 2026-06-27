@@ -71,11 +71,11 @@ export function ResetPasswordPage() {
             style={{ height: 64, width: "auto", objectFit: "contain", marginBottom: 16, display: "inline-block" }}
           />
           <div style={{ display: "inline-flex", alignItems: "center", gap: 6, justifyContent: "center", marginBottom: 8 }}>
-            <Shield size={13} style={{ color: "rgba(212,175,55,0.7)" }} />
-            <span style={{ fontSize: 10, fontFamily: "monospace", letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(212,175,55,0.65)" }}>
+            <Shield size={13} style={{ color: "rgba(20,184,166,0.7)" }} />
+            <span style={{ fontSize: 10, fontFamily: "monospace", letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(20,184,166,0.65)" }}>
               Plateforme LAB-FT / KYC
             </span>
-            <Shield size={13} style={{ color: "rgba(212,175,55,0.7)" }} />
+            <Shield size={13} style={{ color: "rgba(20,184,166,0.7)" }} />
           </div>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: "var(--wr-sidebar-text-1)", margin: "0 0 6px", letterSpacing: "-0.01em" }}>
             KYC-Lab Platform
@@ -88,8 +88,8 @@ export function ResetPasswordPage() {
         {/* Stats */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 28 }}>
           {STATS.map(({ value, label }) => (
-            <div key={label} style={{ background: "rgba(212,175,55,0.04)", border: "1px solid rgba(212,175,55,0.1)", borderRadius: 8, padding: "10px 8px", textAlign: "center" }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: "rgba(212,175,55,0.75)", fontFamily: "monospace" }}>{value}</div>
+            <div key={label} style={{ background: "rgba(20,184,166,0.04)", border: "1px solid rgba(20,184,166,0.1)", borderRadius: 8, padding: "10px 8px", textAlign: "center" }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "rgba(20,184,166,0.75)", fontFamily: "monospace" }}>{value}</div>
               <div style={{ fontSize: 9, fontFamily: "monospace", letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(180,196,216,0.3)", marginTop: 3 }}>{label}</div>
             </div>
           ))}
@@ -102,7 +102,7 @@ export function ResetPasswordPage() {
           {step === "request" && (
             <form onSubmit={handleRequest} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <div style={{ marginBottom: 6 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, padding: "8px 12px", background: "rgba(212,175,55,0.05)", border: "1px solid rgba(212,175,55,0.12)", borderRadius: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, padding: "8px 12px", background: "rgba(20,184,166,0.05)", border: "1px solid rgba(20,184,166,0.12)", borderRadius: 8 }}>
                   <Mail size={16} style={{ color: "#D4AF37" }} />
                   <h2 style={{ fontSize: 14, fontWeight: 600, color: "var(--wr-text-1)", margin: 0 }}>Réinitialisation du mot de passe</h2>
                 </div>
@@ -112,7 +112,7 @@ export function ResetPasswordPage() {
               </div>
 
               <div>
-                <label style={{ display: "block", fontSize: 10, fontFamily: "monospace", letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(212,175,55,0.5)", marginBottom: 8 }}>
+                <label style={{ display: "block", fontSize: 10, fontFamily: "monospace", letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(20,184,166,0.5)", marginBottom: 8 }}>
                   {t.auth.email}
                 </label>
                 <input
@@ -131,7 +131,7 @@ export function ResetPasswordPage() {
               )}
 
               <button type="submit" disabled={requestMutation.isPending}
-                style={{ width: "100%", padding: "10px 16px", borderRadius: 8, border: "none", background: requestMutation.isPending ? "rgba(212,175,55,0.3)" : "#D4AF37", color: "#1A2B4B", fontSize: 13, fontWeight: 700, cursor: requestMutation.isPending ? "not-allowed" : "pointer", fontFamily: "monospace", letterSpacing: "0.05em", transition: "background 0.15s" }}>
+                style={{ width: "100%", padding: "10px 16px", borderRadius: 8, border: "none", background: requestMutation.isPending ? "rgba(20,184,166,0.3)" : "#D4AF37", color: "#1A2B4B", fontSize: 13, fontWeight: 700, cursor: requestMutation.isPending ? "not-allowed" : "pointer", fontFamily: "monospace", letterSpacing: "0.05em", transition: "background 0.15s" }}>
                 {requestMutation.isPending ? t.common.loading : t.auth.sendResetLink}
               </button>
 
@@ -160,7 +160,7 @@ export function ResetPasswordPage() {
           {step === "confirm" && (
             <form onSubmit={handleConfirm} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <div style={{ marginBottom: 6 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, padding: "8px 12px", background: "rgba(212,175,55,0.05)", border: "1px solid rgba(212,175,55,0.12)", borderRadius: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, padding: "8px 12px", background: "rgba(20,184,166,0.05)", border: "1px solid rgba(20,184,166,0.12)", borderRadius: 8 }}>
                   <Lock size={16} style={{ color: "#D4AF37" }} />
                   <h2 style={{ fontSize: 14, fontWeight: 600, color: "var(--wr-text-1)", margin: 0 }}>Nouveau mot de passe</h2>
                 </div>
@@ -170,7 +170,7 @@ export function ResetPasswordPage() {
               </div>
 
               <div>
-                <label style={{ display: "block", fontSize: 10, fontFamily: "monospace", letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(212,175,55,0.5)", marginBottom: 8 }}>
+                <label style={{ display: "block", fontSize: 10, fontFamily: "monospace", letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(20,184,166,0.5)", marginBottom: 8 }}>
                   {t.auth.newPassword}
                 </label>
                 <div style={{ position: "relative" }}>
@@ -189,7 +189,7 @@ export function ResetPasswordPage() {
               </div>
 
               <div>
-                <label style={{ display: "block", fontSize: 10, fontFamily: "monospace", letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(212,175,55,0.5)", marginBottom: 8 }}>
+                <label style={{ display: "block", fontSize: 10, fontFamily: "monospace", letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(20,184,166,0.5)", marginBottom: 8 }}>
                   {t.auth.confirmPasswordLabel}
                 </label>
                 <input
@@ -224,7 +224,7 @@ export function ResetPasswordPage() {
               )}
 
               <button type="submit" disabled={confirmMutation.isPending || newPwd.length < 8}
-                style={{ width: "100%", padding: "10px 16px", borderRadius: 8, border: "none", background: (confirmMutation.isPending || newPwd.length < 8) ? "rgba(212,175,55,0.3)" : "#D4AF37", color: "#1A2B4B", fontSize: 13, fontWeight: 700, cursor: (confirmMutation.isPending || newPwd.length < 8) ? "not-allowed" : "pointer", fontFamily: "monospace", letterSpacing: "0.05em", transition: "background 0.15s" }}>
+                style={{ width: "100%", padding: "10px 16px", borderRadius: 8, border: "none", background: (confirmMutation.isPending || newPwd.length < 8) ? "rgba(20,184,166,0.3)" : "#D4AF37", color: "#1A2B4B", fontSize: 13, fontWeight: 700, cursor: (confirmMutation.isPending || newPwd.length < 8) ? "not-allowed" : "pointer", fontFamily: "monospace", letterSpacing: "0.05em", transition: "background 0.15s" }}>
                 {confirmMutation.isPending ? t.common.loading : t.auth.updatePassword}
               </button>
             </form>

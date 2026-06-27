@@ -74,11 +74,11 @@ export function LoginPage() {
             style={{ height: 64, width: "auto", objectFit: "contain", marginBottom: 16, display: "inline-block" }}
           />
           <div style={{ display: "inline-flex", alignItems: "center", gap: 6, justifyContent: "center", marginBottom: 8 }}>
-            <Shield size={13} style={{ color: "rgba(212,175,55,0.7)" }} />
-            <span style={{ fontSize: 10, fontFamily: "monospace", letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(212,175,55,0.65)" }}>
+            <Shield size={13} style={{ color: "rgba(20,184,166,0.7)" }} />
+            <span style={{ fontSize: 10, fontFamily: "monospace", letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(20,184,166,0.65)" }}>
               Plateforme LAB-FT / KYC
             </span>
-            <Shield size={13} style={{ color: "rgba(212,175,55,0.7)" }} />
+            <Shield size={13} style={{ color: "rgba(20,184,166,0.7)" }} />
           </div>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: "var(--wr-sidebar-text-1)", margin: "0 0 6px", letterSpacing: "-0.01em" }}>
             KYC-Lab Platform
@@ -92,13 +92,13 @@ export function LoginPage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 28 }}>
           {STATS.map(({ value, label }) => (
             <div key={label} style={{
-              background: "rgba(212,175,55,0.04)",
-              border: "1px solid rgba(212,175,55,0.1)",
+              background: "rgba(20,184,166,0.04)",
+              border: "1px solid rgba(20,184,166,0.1)",
               borderRadius: 8,
               padding: "10px 8px",
               textAlign: "center",
             }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: "rgba(212,175,55,0.75)", fontFamily: "monospace" }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "rgba(20,184,166,0.75)", fontFamily: "monospace" }}>
                 {value}
               </div>
               <div style={{ fontSize: 9, fontFamily: "monospace", letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(180,196,216,0.3)", marginTop: 3 }}>
@@ -120,8 +120,8 @@ export function LoginPage() {
             <div style={{
               display: "flex", alignItems: "center", gap: 8, marginBottom: 6,
               padding: "8px 12px",
-              background: step === "mfa" ? "rgba(139,92,246,0.06)" : "rgba(212,175,55,0.05)",
-              border: `1px solid ${step === "mfa" ? "rgba(139,92,246,0.15)" : "rgba(212,175,55,0.12)"}`,
+              background: step === "mfa" ? "rgba(139,92,246,0.06)" : "rgba(20,184,166,0.05)",
+              border: `1px solid ${step === "mfa" ? "rgba(139,92,246,0.15)" : "rgba(20,184,166,0.12)"}`,
               borderRadius: 8,
             }}>
               {step === "mfa"
@@ -142,7 +142,7 @@ export function LoginPage() {
           {step === "credentials" && (
             <form onSubmit={handleCredentials} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <div>
-                <label style={{ display: "block", fontSize: 10, fontFamily: "monospace", letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(212,175,55,0.5)", marginBottom: 8 }}>
+                <label style={{ display: "block", fontSize: 10, fontFamily: "monospace", letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(20,184,166,0.5)", marginBottom: 8 }}>
                   Adresse e-mail
                 </label>
                 <input
@@ -154,7 +154,7 @@ export function LoginPage() {
               </div>
 
               <div>
-                <label style={{ display: "block", fontSize: 10, fontFamily: "monospace", letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(212,175,55,0.5)", marginBottom: 8 }}>
+                <label style={{ display: "block", fontSize: 10, fontFamily: "monospace", letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(20,184,166,0.5)", marginBottom: 8 }}>
                   Mot de passe
                 </label>
                 <div style={{ position: "relative" }}>
@@ -190,7 +190,7 @@ export function LoginPage() {
                 disabled={loading}
                 style={{
                   width: "100%", padding: "10px 16px", borderRadius: 8, border: "none",
-                  background: loading ? "rgba(212,175,55,0.3)" : "#D4AF37",
+                  background: loading ? "rgba(20,184,166,0.3)" : "#D4AF37",
                   color: "#1A2B4B", fontSize: 13, fontWeight: 700,
                   cursor: loading ? "not-allowed" : "pointer",
                   fontFamily: "monospace", letterSpacing: "0.05em",
@@ -223,7 +223,7 @@ export function LoginPage() {
               </div>
 
               <div>
-                <label style={{ display: "block", fontSize: 10, fontFamily: "monospace", letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(212,175,55,0.5)", marginBottom: 8 }}>
+                <label style={{ display: "block", fontSize: 10, fontFamily: "monospace", letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(20,184,166,0.5)", marginBottom: 8 }}>
                   Code MFA
                 </label>
                 <input
