@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CBS Simulator — LabFT</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  :root {
+    --teal:   #14B8A6;
+    --teal-d: #0D9488;
+    --bg:     #0B1620;
+    --card:   #0F2030;
+    --border: rgba(20,184,166,0.18);
+    --text:   #D4EAF8;
+    --muted:  #6E8FA0;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; }
+  .scenario-card { transition: all 0.15s; }
+  .scenario-card:hover { transform: translateY(-1px); }
+  .json-block { font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+  pre { white-space: pre-wrap; word-break: break-word; }
+  @keyframes pulse-glow { 0%,100% { box-shadow: 0 0 0 0 rgba(20,184,166,0.4); } 50% { box-shadow: 0 0 0 8px rgba(20,184,166,0); } }
+  .live-dot { animation: pulse-glow 1.5s infinite; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="module">
+import { SCENARIOS } from './scenarios.js';
+window.SCENARIOS = SCENARIOS;
+</script>
+
+<script type="text/babel" data-type="module">
+const { useState, useEffect, useRef } = React;
+
+// ─── Configuration ────────────────────────────────────────────────────────
+const DEFAULT_LABFT_URL = "http://localhost:3000";
+const DEFAULT_API_KEY   = "cbs-staging-key-change-me";
+const SIMULATOR_BASE    = window.location.origin;
+
+// ─── Helpers ──────────────────────────────────────────────────────────────
+function StatusBadge({ status }) {
+  const colors = {
+    APPROVED:  "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+    REJECTED:  "bg-red-500/15 text-red-300 border-red-500/30",
+    IN_REVIEW: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+    PENDING:   "bg-blue-500/15 text-blue-300 border-blue-500/30",
+    OCR_DONE:  "bg-teal-500/15 text-teal-300 border-teal-500/30",
+    DECIDED:   "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+    ABANDONED: "bg-gray-500/15 text-gray-300 border-gray-500/30",
+    DRAFT:     "bg-purple-500/15 text-purple-300 border-purple-500/30",
+    FLAGGED:   "bg-red-500/15 text-red-300 border-red-500/30",
+    COMPLETED: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+    error:     "bg-red-500/15 text-red-300 border-red-500/30",
+    success:   "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+  };
+  return <span className={`px-2 py-0.5 rounded text-xs font-mono border ${colors[status] || "bg-gray-500/15 text-gray-300 border-gray-500/30"}`}>{status}</span>;
+}
+
+// ─── Module navigation ────────────────────────────────────────────────────
+const MODULES = [
+  { id: "kyc",          label: "KYC / Entrée relation", icon: "🆔" },
+  { id: "transactions", label: "Transactions",          icon: "💸" },
+  { id: "wallets",      label: "Wallets",               icon: "👛" },
+  { id: "documents",    label: "Documents",             icon: "📄" },
+  { id: "webhooks",     label: "Webhooks reçus",        icon: "📡" },
+  { id: "history",      label: "Historique tests",      icon: "📊" },
+];
+
+// ─── App principale ───────────────────────────────────────────────────────
+function App() {
+  const [activeModule, setActiveModule] = useState("kyc");
+  const [labftUrl, setLabftUrl]     = useState(localStorage.getItem("labft_url") || DEFAULT_LABFT_URL);
+  const [apiKey, setApiKey]         = useState(localStorage.getItem("api_key")   || DEFAULT_API_KEY);
+  const [testHistory, setTestHistory] = useState(JSON.parse(localStorage.getItem("test_history") || "[]"));
+
+  useEffect(() => { localStorage.setItem("labft_url", labftUrl); }, [labftUrl]);
+  useEffect(() => { localStorage.setItem("api_key", apiKey); }, [apiKey]);
+  useEffect(() => { localStorage.setItem("test_history", JSON.stringify(testHistory.slice(0, 100))); }, [testHistory]);
+
+  const addToHistory = (entry) => {
+    setTestHistory(prev => [{ ...entry, timestamp: new Date().toISOString() }, ...prev].slice(0, 100));
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      {/* Header */}
+      <header className="border-b border-teal-500/20 bg-[#0A1620]">
+        <div className="px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-gradient-to-br from-teal-500 to-teal-700 rounded-lg flex items-center justify-center text-lg">
+              🏦
+            </div>
+            <div>
+              <h1 className="text-lg font-bold tracking-tight">CBS Simulator</h1>
+              <p className="text-xs text-teal-400 font-mono">Basikon → LabFT — Mode démo</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <input
+              value={labftUrl}
+              onChange={e => setLabftUrl(e.target.value)}
+              placeholder="LabFT URL"
+              className="bg-black/30 border border-white/10 rounded px-3 py-1.5 text-xs font-mono text-teal-300 w-64"
+            />
+            <input
+              value={apiKey}
+              onChange={e => setApiKey(e.target.value)}
+              placeholder="API Key"
+              className="bg-black/30 border border-white/10 rounded px-3 py-1.5 text-xs font-mono text-teal-300 w-48"
+            />
+          </div>
+        </div>
+        {/* Tabs */}
+        <nav className="px-6 flex gap-1 overflow-x-auto">
+          {MODULES.map(m => (
+            <button key={m.id} onClick={() => setActiveModule(m.id)}
+              className={`px-4 py-2.5 text-xs font-mono uppercase tracking-wider border-b-2 transition flex items-center gap-2 whitespace-nowrap
+                ${activeModule === m.id ? "border-teal-500 text-teal-300" : "border-transparent text-gray-500 hover:text-gray-300"}`}>
+              <span>{m.icon}</span> {m.label}
+            </button>
+          ))}
+        </nav>
+      </header>
+
+      {/* Content */}
+      <main className="flex-1 px-6 py-6">
+        {activeModule === "kyc"          && <ScenariosTab module="kyc"          title="Module KYC — Entrée en relation" labftUrl={labftUrl} apiKey={apiKey} onTest={addToHistory} />}
+        {activeModule === "transactions" && <ScenariosTab module="transactions" title="Module Transactions"             labftUrl={labftUrl} apiKey={apiKey} onTest={addToHistory} />}
+        {activeModule === "wallets"      && <ScenariosTab module="wallets"      title="Module Wallets"                  labftUrl={labftUrl} apiKey={apiKey} onTest={addToHistory} />}
+        {activeModule === "documents"    && <ScenariosTab module="documents"    title="Module Documents — Cycle de vie" labftUrl={labftUrl} apiKey={apiKey} onTest={addToHistory} />}
+        {activeModule === "webhooks"     && <WebhooksTab />}
+        {activeModule === "history"      && <HistoryTab history={testHistory} onClear={() => setTestHistory([])} />}
+      </main>
+    </div>
+  );
+}
+
+// ─── Tab : Scénarios par module ───────────────────────────────────────────
+function ScenariosTab({ module, title, labftUrl, apiKey, onTest }) {
+  const scenarios = window.SCENARIOS[module] || [];
+  const [selectedId, setSelectedId] = useState(scenarios[0]?.id);
+  const selected = scenarios.find(s => s.id === selectedId);
+
+  return (
+    <div className="max-w-7xl mx-auto">
+      <div className="mb-4">
+        <h2 className="text-xl font-bold">{title}</h2>
+        <p className="text-xs font-mono text-gray-500 mt-1">{scenarios.length} scénario(s) disponible(s)</p>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        {/* Liste des scénarios */}
+        <div className="col-span-1 space-y-2">
+          {scenarios.map(s => (
+            <button key={s.id} onClick={() => setSelectedId(s.id)}
+              className={`scenario-card w-full text-left p-3 rounded-lg border transition
+                ${selectedId === s.id
+                  ? "bg-teal-500/10 border-teal-500/40"
+                  : "bg-[#0F2030] border-white/5 hover:border-teal-500/20"}`}>
+              <div className="flex items-start gap-3">
+                <span className="text-2xl">{s.icon}</span>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold">{s.label}</p>
+                  <p className="text-xs text-gray-500 mt-1 leading-relaxed">{s.description}</p>
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {/* Détail du scénario sélectionné */}
+        {selected && (
+          <div className="col-span-2">
+            <ScenarioRunner scenario={selected} labftUrl={labftUrl} apiKey={apiKey} onTest={onTest} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Runner de scénario ───────────────────────────────────────────────────
+function ScenarioRunner({ scenario, labftUrl, apiKey, onTest }) {
+  const [step, setStep]         = useState(0);
+  const [results, setResults]   = useState([]);
+  const [running, setRunning]   = useState(false);
+  const [editablePayload, setEditablePayload] = useState(null);
+
+  // Reset à chaque changement de scénario
+  useEffect(() => {
+    setStep(0); setResults([]); setEditablePayload(null);
+  }, [scenario.id]);
+
+  const callApi = async (endpoint, payload, label) => {
+    setRunning(true);
+    const t0 = Date.now();
+    try {
+      const res = await fetch(`${labftUrl}${endpoint}`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json", "X-CBS-Api-Key": apiKey },
+        body:    JSON.stringify(payload),
+      });
+      const data = await res.json();
+      const result = {
+        label, endpoint, status: res.status,
+        success: res.ok, response: data,
+        durationMs: Date.now() - t0,
+        time: new Date().toLocaleTimeString(),
+      };
+      setResults(prev => [...prev, result]);
+      onTest({ scenario: scenario.id, label, success: res.ok, response: data });
+      return data;
+    } catch (err) {
+      const result = {
+        label, endpoint, status: 0, success: false,
+        response: { error: err.message },
+        durationMs: Date.now() - t0,
+        time: new Date().toLocaleTimeString(),
+      };
+      setResults(prev => [...prev, result]);
+      return null;
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const runFlow = async () => {
+    setResults([]);
+
+    if (scenario.flow === "ocr_then_confirm") {
+      // Étape 1 — OCR
+      const ocrResp = await callApi("/api/cbs/ocr", scenario.ocr_payload, "Étape 1 — POST /api/cbs/ocr");
+      if (!ocrResp?.cbsRef) return;
+
+      // Étape 2 — Confirm
+      await callApi("/api/cbs/confirm",
+        { ...scenario.confirm_payload, cbsRef: ocrResp.cbsRef },
+        "Étape 2 — POST /api/cbs/confirm");
+    }
+
+    else if (scenario.flow === "legacy_onboarding") {
+      await callApi("/api/cbs/onboarding", scenario.legacy_payload, "POST /api/cbs/onboarding (LEGACY)");
+    }
+
+    else if (scenario.flow === "cbs_document") {
+      await callApi("/api/cbs/document", scenario.payload, "POST /api/cbs/document");
+    }
+
+    else if (scenario.flow === "cbs_reactivation") {
+      await callApi("/api/cbs/reactivation", scenario.payload, "POST /api/cbs/reactivation");
+    }
+
+    else if (scenario.flow === "transaction") {
+      await callApi("/trpc/transactions.create", { json: scenario.payload }, "POST tRPC transactions.create");
+    }
+
+    else if (scenario.flow === "transaction_batch") {
+      for (let i = 0; i < scenario.payloads.length; i++) {
+        await callApi("/trpc/transactions.create", { json: scenario.payloads[i] },
+          `Transaction ${i+1}/${scenario.payloads.length}`);
+      }
+    }
+
+    else if (scenario.flow === "wallet_create") {
+      await callApi("/trpc/wallets.create", { json: scenario.payload }, "POST tRPC wallets.create");
+    }
+
+    else if (scenario.flow === "wallet_transfer") {
+      await callApi("/trpc/wallets.transfer", { json: scenario.payload }, "POST tRPC wallets.transfer");
+    }
+  };
+
+  // Évaluation du résultat vs attendu
+  const evaluateResult = (result) => {
+    if (!scenario.expected || !result?.response) return null;
+    const r = result.response;
+    const e = scenario.expected;
+    if (e.decision && r.decision !== e.decision) return "fail";
+    if (e.reasonCode && r.reasonCode !== e.reasonCode) return "fail";
+    if (result.success) return "pass";
+    return "warn";
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Header scénario */}
+      <div className="bg-[#0F2030] border border-teal-500/20 rounded-xl p-5">
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">{scenario.icon}</span>
+            <div>
+              <h3 className="text-base font-bold">{scenario.label}</h3>
+              <p className="text-xs text-gray-400 mt-1">{scenario.description}</p>
+            </div>
+          </div>
+          <button onClick={runFlow} disabled={running}
+            className="px-4 py-2 bg-teal-500/20 border border-teal-500/40 text-teal-300 rounded-lg text-sm font-semibold hover:bg-teal-500/30 disabled:opacity-50">
+            {running ? "⏳ En cours..." : "▶ Exécuter"}
+          </button>
+        </div>
+
+        {/* Résultat attendu */}
+        {scenario.expected && (
+          <div className="mt-3 p-3 bg-black/30 rounded border border-white/5">
+            <p className="text-[10px] font-mono uppercase text-gray-500 mb-1.5 tracking-wider">Résultat attendu</p>
+            <div className="flex gap-2 flex-wrap">
+              {scenario.expected.decision   && <StatusBadge status={scenario.expected.decision} />}
+              {scenario.expected.reasonCode && <span className="text-xs font-mono text-gray-400">{scenario.expected.reasonCode}</span>}
+              {scenario.expected.note       && <span className="text-xs text-gray-400 italic">{scenario.expected.note}</span>}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Payloads (collapsibles) */}
+      <details className="bg-[#0F2030] border border-white/5 rounded-lg">
+        <summary className="px-4 py-3 cursor-pointer text-xs font-mono uppercase text-gray-400 tracking-wider hover:text-teal-300">
+          📤 Payload(s) qui seront envoyé(s)
+        </summary>
+        <div className="p-4 border-t border-white/5 space-y-3">
+          {scenario.ocr_payload     && <PayloadDisplay label="Étape 1 — OCR" data={scenario.ocr_payload} />}
+          {scenario.confirm_payload && <PayloadDisplay label="Étape 2 — Confirm" data={scenario.confirm_payload} />}
+          {scenario.legacy_payload  && <PayloadDisplay label="Legacy onboarding" data={scenario.legacy_payload} />}
+          {scenario.payload         && <PayloadDisplay label="Payload" data={scenario.payload} />}
+          {scenario.payloads        && <PayloadDisplay label={`Lot de ${scenario.payloads.length} payloads`} data={scenario.payloads[0]} truncated />}
+        </div>
+      </details>
+
+      {/* Résultats */}
+      <div className="space-y-2">
+        {results.map((r, i) => {
+          const evalResult = evaluateResult(r);
+          return (
+            <div key={i} className={`bg-[#0F2030] border rounded-lg p-4
+              ${evalResult === "pass" ? "border-emerald-500/30"
+              : evalResult === "fail" ? "border-red-500/30"
+              : "border-amber-500/30"}`}>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold">{r.label}</span>
+                  <StatusBadge status={r.success ? "success" : "error"} />
+                  {evalResult === "pass" && <span className="text-xs text-emerald-400">✓ Conforme attendu</span>}
+                  {evalResult === "fail" && <span className="text-xs text-red-400">✗ Écart vs attendu</span>}
+                </div>
+                <div className="text-xs font-mono text-gray-500">
+                  {r.time} · {r.durationMs}ms · HTTP {r.status}
+                </div>
+              </div>
+              <pre className="json-block text-gray-300 bg-black/40 rounded p-3 overflow-x-auto max-h-96">
+                {JSON.stringify(r.response, null, 2)}
+              </pre>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Affichage payload ────────────────────────────────────────────────────
+function PayloadDisplay({ label, data, truncated }) {
+  return (
+    <div>
+      <p className="text-xs font-mono text-teal-400 mb-1.5">{label}</p>
+      <pre className="json-block text-gray-400 bg-black/40 rounded p-3 overflow-x-auto max-h-48">
+        {JSON.stringify(data, null, 2)}
+        {truncated && "\n... (idem pour les autres payloads)"}
+      </pre>
+    </div>
+  );
+}
+
+// ─── Tab : Webhooks reçus (live) ──────────────────────────────────────────
+function WebhooksTab() {
+  const [webhooks, setWebhooks] = useState([]);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+
+  const fetchWebhooks = async () => {
+    try {
+      const res = await fetch(`${SIMULATOR_BASE}/api/webhooks/recent`);
+      setWebhooks(await res.json());
+    } catch {}
+  };
+
+  useEffect(() => {
+    fetchWebhooks();
+    if (!autoRefresh) return;
+    const id = setInterval(fetchWebhooks, 2000);
+    return () => clearInterval(id);
+  }, [autoRefresh]);
+
+  const clearAll = async () => {
+    if (!confirm("Effacer tous les webhooks reçus ?")) return;
+    await fetch(`${SIMULATOR_BASE}/api/webhooks/clear`, { method: "POST" });
+    setWebhooks([]);
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto">
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold">Webhooks reçus depuis LabFT</h2>
+          <p className="text-xs font-mono text-gray-500 mt-1">
+            Endpoint : <span className="text-teal-400">{SIMULATOR_BASE}/webhook/cbs</span> · {webhooks.length} notification(s)
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-xs font-mono text-gray-400">
+            <input type="checkbox" checked={autoRefresh} onChange={e => setAutoRefresh(e.target.checked)} />
+            Auto-refresh 2s
+          </label>
+          {autoRefresh && <span className="live-dot w-2 h-2 bg-teal-500 rounded-full"></span>}
+          <button onClick={fetchWebhooks} className="px-3 py-1.5 bg-white/5 border border-white/10 rounded text-xs">🔄 Refresh</button>
+          <button onClick={clearAll} className="px-3 py-1.5 bg-red-500/10 border border-red-500/30 text-red-300 rounded text-xs">🗑 Effacer</button>
+        </div>
+      </div>
+
+      {webhooks.length === 0 ? (
+        <div className="bg-[#0F2030] border border-white/5 rounded-xl p-12 text-center">
+          <p className="text-4xl mb-3">📭</p>
+          <p className="text-sm font-mono text-gray-500">Aucun webhook reçu pour l'instant</p>
+          <div className="mt-6 p-4 bg-black/30 rounded-lg max-w-xl mx-auto text-left">
+            <p className="text-xs font-mono text-teal-400 mb-2">Pour activer la réception :</p>
+            <pre className="json-block text-gray-400">
+{`# Dans .env de LabFT :
+CBS_WEBHOOK_URL=${SIMULATOR_BASE}/webhook/cbs
+CBS_NOTIFY_ENABLED=true
+
+# Puis redémarrer LabFT
+npm run dev`}</pre>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {webhooks.map((w, i) => {
+            const ev = w.payload?.event ?? "?";
+            const colorMap = {
+              KYC_APPROVED:        "emerald",
+              KYC_REJECTED:        "red",
+              KYC_IN_REVIEW:       "amber",
+              KYC_DOC_EXPIRED:     "red",
+              KYC_DOC_EXPIRING_SOON: "amber",
+              KYC_GRACE_ENDING:    "amber",
+              KYC_BLOCK_REQUIRED:  "red",
+            };
+            const c = colorMap[ev] || "blue";
+            return (
+              <div key={i} className={`bg-[#0F2030] border border-${c}-500/30 rounded-lg p-4`}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-3">
+                    <span className={`px-2 py-0.5 rounded text-xs font-mono bg-${c}-500/15 text-${c}-300 border border-${c}-500/30`}>{ev}</span>
+                    <span className="text-sm">{w.payload?.customerRef ?? "?"}</span>
+                  </div>
+                  <span className="text-xs font-mono text-gray-500">{new Date(w.receivedAt).toLocaleTimeString()}</span>
+                </div>
+                <p className="text-xs text-gray-400 mb-2">{w.payload?.reason ?? ""}</p>
+                <details>
+                  <summary className="cursor-pointer text-xs font-mono text-gray-500 hover:text-teal-400">Voir payload complet</summary>
+                  <pre className="json-block text-gray-400 bg-black/40 rounded p-3 mt-2 overflow-x-auto">
+                    {JSON.stringify(w, null, 2)}
+                  </pre>
+                </details>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Tab : Historique ─────────────────────────────────────────────────────
+function HistoryTab({ history, onClear }) {
+  const stats = {
+    total: history.length,
+    success: history.filter(h => h.success).length,
+    fail: history.filter(h => !h.success).length,
+  };
+  const successRate = stats.total ? Math.round(stats.success / stats.total * 100) : 0;
+
+  return (
+    <div className="max-w-7xl mx-auto">
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold">Historique des tests</h2>
+          <p className="text-xs font-mono text-gray-500 mt-1">{stats.total} test(s) · Taux de succès {successRate}%</p>
+        </div>
+        <button onClick={onClear} className="px-3 py-1.5 bg-red-500/10 border border-red-500/30 text-red-300 rounded text-xs">🗑 Effacer historique</button>
+      </div>
+
+      <div className="grid grid-cols-4 gap-3 mb-6">
+        <StatBox label="Total" value={stats.total} />
+        <StatBox label="Succès" value={stats.success} color="text-emerald-400" />
+        <StatBox label="Échecs" value={stats.fail} color="text-red-400" />
+        <StatBox label="Taux succès" value={`${successRate}%`} color="text-teal-400" />
+      </div>
+
+      <div className="bg-[#0F2030] border border-white/5 rounded-lg overflow-hidden">
+        <table className="w-full text-xs">
+          <thead className="bg-black/30">
+            <tr>
+              <th className="text-left p-3 font-mono uppercase text-gray-500 tracking-wider">Heure</th>
+              <th className="text-left p-3 font-mono uppercase text-gray-500 tracking-wider">Scénario</th>
+              <th className="text-left p-3 font-mono uppercase text-gray-500 tracking-wider">Étape</th>
+              <th className="text-left p-3 font-mono uppercase text-gray-500 tracking-wider">Résultat</th>
+            </tr>
+          </thead>
+          <tbody>
+            {history.slice(0, 50).map((h, i) => (
+              <tr key={i} className="border-t border-white/5">
+                <td className="p-3 font-mono text-gray-500">{new Date(h.timestamp).toLocaleString()}</td>
+                <td className="p-3 font-mono text-teal-400">{h.scenario}</td>
+                <td className="p-3 text-gray-300">{h.label}</td>
+                <td className="p-3"><StatusBadge status={h.success ? "success" : "error"} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function StatBox({ label, value, color = "text-white" }) {
+  return (
+    <div className="bg-[#0F2030] border border-white/5 rounded-lg p-4">
+      <p className="text-xs font-mono uppercase text-gray-500 tracking-wider mb-2">{label}</p>
+      <p className={`text-2xl font-bold ${color}`}>{value}</p>
+    </div>
+  );
+}
+
+// ─── Mount ────────────────────────────────────────────────────────────────
+const waitForScenarios = setInterval(() => {
+  if (window.SCENARIOS) {
+    clearInterval(waitForScenarios);
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  }
+}, 50);
+</script>
+</body>
+</html>
