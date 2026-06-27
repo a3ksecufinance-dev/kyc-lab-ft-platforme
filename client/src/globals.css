@@ -309,6 +309,36 @@ html.dark ::selection { background: rgba(74,158,255,0.22); color: var(--wr-text-
   box-shadow: var(--wr-shadow-md);
 }
 
+/* Card modernisée pour pages refactorées (CustomerDetailPage etc.) */
+.wr-card-modern {
+  background: var(--wr-card);
+  border: 1px solid var(--wr-border-100);
+  border-radius: var(--wr-r-lg);
+  padding: 20px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.wr-card-modern:hover {
+  border-color: var(--wr-border-200);
+}
+.wr-card-modern-flush {
+  background: var(--wr-card);
+  border: 1px solid var(--wr-border-100);
+  border-radius: var(--wr-r-lg);
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.wr-card-modern-flush:hover { border-color: var(--wr-border-200); }
+
+/* Label de section moderne (h2, titres internes) */
+.wr-section-label {
+  font-family: var(--wr-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--wr-text-3);
+  font-weight: 700;
+}
+
 /* Mono label */
 .wr-label {
   font-family: var(--wr-font-mono);

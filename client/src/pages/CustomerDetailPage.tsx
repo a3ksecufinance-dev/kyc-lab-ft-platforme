@@ -121,7 +121,7 @@ export function CustomerDetailPage() {
       <AppLayout>
         <div className="space-y-4">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-32 bg-[#0d1117] border border-[#21262d] rounded-lg animate-pulse" />
+            <div key={i} className="h-32 wr-card-modern animate-pulse" />
           ))}
         </div>
       </AppLayout>
@@ -138,19 +138,36 @@ export function CustomerDetailPage() {
 
   return (
     <AppLayout breadcrumbs={[{ label: t.nav.customers, href: "/customers" }, { label: `${customer.firstName} ${customer.lastName}` }]}>
-      {/* Header */}
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-[#1f6feb]/15 border border-[#1f6feb]/30 flex items-center justify-center flex-shrink-0">
+      {/* Header — modernisé Plus Jakarta Sans + teal */}
+      <div className="flex items-start justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <div
+            className="flex items-center justify-center flex-shrink-0"
+            style={{
+              width: 52, height: 52, borderRadius: 12,
+              background: "rgba(20,184,166,0.12)",
+              border: "1px solid rgba(20,184,166,0.28)",
+            }}
+          >
             {customer.customerType === "CORPORATE"
-              ? <Building2 size={18} className="text-[#58a6ff]" />
-              : <User size={18} className="text-[#58a6ff]" />}
+              ? <Building2 size={22} style={{ color: "var(--wr-accent)" }} />
+              : <User      size={22} style={{ color: "var(--wr-accent)" }} />}
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-[#e6edf3] font-mono">
+            <h1
+              style={{
+                fontSize: 22, fontWeight: 700,
+                fontFamily: "var(--wr-font-sans)",
+                color: "var(--wr-text-1)",
+                letterSpacing: "-0.5px",
+                margin: "0 0 4px",
+              }}
+            >
               {customer.firstName} {customer.lastName}
             </h1>
-            <p className="text-xs font-mono text-[#7d8590] mt-0.5">{customer.customerId}</p>
+            <p style={{ fontSize: 11, fontFamily: "var(--wr-font-mono)", color: "var(--wr-text-3)", margin: 0, letterSpacing: "0.06em" }}>
+              {customer.customerId}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -178,17 +195,30 @@ export function CustomerDetailPage() {
               },
             })}
             disabled={exportKycPdfMutation.isPending}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono border border-[#30363d] text-[#7d8590] hover:text-[#e6edf3] hover:border-[#484f58] rounded-md transition-colors disabled:opacity-40"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "7px 14px",
+              fontSize: 12, fontFamily: "var(--wr-font-mono)", fontWeight: 600,
+              background: "rgba(20,184,166,0.10)",
+              border: "1px solid rgba(20,184,166,0.30)",
+              color: "var(--wr-accent)",
+              borderRadius: 7,
+              cursor: exportKycPdfMutation.isPending ? "not-allowed" : "pointer",
+              opacity: exportKycPdfMutation.isPending ? 0.5 : 1,
+              transition: "background 0.15s",
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = "rgba(20,184,166,0.18)")}
+            onMouseLeave={e => (e.currentTarget.style.background = "rgba(20,184,166,0.10)")}
             title="Exporter fiche KYC PDF"
           >
-            <Download size={12} />
+            <Download size={13} />
             {exportKycPdfMutation.isPending ? "…" : "KYC PDF"}
           </button>
         </div>
       </div>
 
-      {/* Onglets */}
-      <div className="flex gap-0 border-b border-[#21262d] mb-5">
+      {/* Onglets — pill modernes */}
+      <div className="flex gap-2 mb-6 flex-wrap" style={{ borderBottom: "1px solid var(--wr-border)", paddingBottom: 0 }}>
         {([
           ["info",      t.customerDetail.identity,     Shield   ],
           ["documents", t.customerDetail.kycDocuments, FileText ],
@@ -197,25 +227,40 @@ export function CustomerDetailPage() {
           ...(flags.enhancedOnboarding ? [["edd", "EDD", ClipboardCheck] as [typeof activeTab, string, React.ElementType]] : []),
           ["pkyc", "pKYC", RefreshCw] as [typeof activeTab, string, React.ElementType],
           ["ubo",  "UBO",  Users2   ] as [typeof activeTab, string, React.ElementType],
-        ] as [typeof activeTab, string, React.ElementType][]).map(([tab, label, Icon]) => (
-          <button key={tab} onClick={() => setActiveTab(tab)}
-            className={`flex items-center gap-1.5 px-4 py-2 text-xs font-mono border-b-2 transition-colors ${
-              activeTab === tab
-                ? "border-[#58a6ff] text-[#58a6ff]"
-                : "border-transparent text-[#7d8590] hover:text-[#e6edf3]"
-            }`}>
-            <Icon size={12} />
-            {label}
-          </button>
-        ))}
+        ] as [typeof activeTab, string, React.ElementType][]).map(([tab, label, Icon]) => {
+          const active = activeTab === tab;
+          return (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                padding: "8px 14px",
+                fontSize: 12, fontFamily: "var(--wr-font-sans)", fontWeight: active ? 600 : 500,
+                background: active ? "rgba(20,184,166,0.12)" : "transparent",
+                border: `1px solid ${active ? "rgba(20,184,166,0.30)" : "transparent"}`,
+                color: active ? "var(--wr-accent)" : "var(--wr-text-3)",
+                borderRadius: 8,
+                cursor: "pointer",
+                marginBottom: -1,
+                transition: "all 0.12s",
+              }}
+              onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "var(--wr-text-2)"; }}
+              onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "var(--wr-text-3)"; }}
+            >
+              <Icon size={13} />
+              {label}
+            </button>
+          );
+        })}
       </div>
 
       {/* ── Onglet Profil ── */}
       {activeTab === "info" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2 space-y-4">
-            <div className="bg-[#0d1117] border border-[#21262d] rounded-lg p-4">
-              <h2 className="text-[11px] font-mono text-[#7d8590] tracking-widest uppercase mb-3">{t.customerDetail.identity}</h2>
+            <div className="wr-card-modern">
+              <h2 className="wr-section-label mb-3">{t.customerDetail.identity}</h2>
               <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
                 <InfoRow label={t.common.status} value={<Badge label={customer.customerType} />} />
                 <InfoRow label={t.customers.nationality} value={customer.nationality ?? "—"} />
@@ -230,10 +275,10 @@ export function CustomerDetailPage() {
             </div>
 
             {(customer.address || customer.city || customer.residenceCountry) && (
-              <div className="bg-[#0d1117] border border-[#21262d] rounded-lg p-4">
+              <div className="wr-card-modern">
                 <div className="flex items-center gap-2 mb-3">
                   <MapPin size={12} className="text-[#7d8590]" />
-                  <h2 className="text-[11px] font-mono text-[#7d8590] tracking-widest uppercase">{t.customerDetail.address}</h2>
+                  <h2 className="wr-section-label">{t.customerDetail.address}</h2>
                 </div>
                 <p className="text-sm font-mono text-[#e6edf3]">
                   {[customer.address, customer.city, customer.residenceCountry].filter(Boolean).join(", ")}
@@ -241,9 +286,9 @@ export function CustomerDetailPage() {
               </div>
             )}
 
-            <div className="bg-[#0d1117] border border-[#21262d] rounded-lg overflow-hidden">
+            <div className="wr-card-modern-flush">
               <div className="px-4 py-3 border-b border-[#21262d]">
-                <h2 className="text-[11px] font-mono text-[#7d8590] tracking-widest uppercase">{t.customerDetail.recentTransactions}</h2>
+                <h2 className="wr-section-label">{t.customerDetail.recentTransactions}</h2>
               </div>
               <div className="divide-y divide-[#21262d]/50">
                 {!transactions?.length ? (
@@ -279,10 +324,10 @@ export function CustomerDetailPage() {
           </div>
 
           <div className="space-y-4">
-            <div className="bg-[#0d1117] border border-[#21262d] rounded-lg p-4">
+            <div className="wr-card-modern">
               <div className="flex items-center gap-2 mb-3">
                 <Shield size={12} className="text-[#7d8590]" />
-                <h2 className="text-[11px] font-mono text-[#7d8590] tracking-widest uppercase">{t.customerDetail.riskScore}</h2>
+                <h2 className="wr-section-label">{t.customerDetail.riskScore}</h2>
               </div>
               <div className="flex items-end gap-3 mb-3">
                 <span className={`text-4xl font-mono font-semibold tabular-nums ${
@@ -323,8 +368,8 @@ export function CustomerDetailPage() {
               )}
             </div>
 
-            <div className="bg-[#0d1117] border border-[#21262d] rounded-lg p-4">
-              <h2 className="text-[11px] font-mono text-[#7d8590] tracking-widest uppercase mb-3">KYC</h2>
+            <div className="wr-card-modern">
+              <h2 className="wr-section-label mb-3">KYC</h2>
               <div className="space-y-2">
                 <InfoRow label={t.common.status} value={<Badge label={customer.kycStatus} variant="status" />} />
                 {customer.nextReviewDate && <InfoRow label={t.customerDetail.nextReview} value={formatDate(customer.nextReviewDate)} />}
@@ -339,7 +384,7 @@ export function CustomerDetailPage() {
                 {customer.frozenAt
                   ? <Lock size={12} className="text-red-400" />
                   : <Unlock size={12} className="text-[#7d8590]" />}
-                <h2 className="text-[11px] font-mono text-[#7d8590] tracking-widest uppercase">
+                <h2 className="wr-section-label">
                   {t.customerDetail.assetFreeze}
                 </h2>
               </div>
@@ -386,10 +431,10 @@ export function CustomerDetailPage() {
             </div>
 
             {/* ── RGPD — Effacement ── */}
-            <div className="bg-[#0d1117] border border-[#21262d] rounded-lg p-4">
+            <div className="wr-card-modern">
               <div className="flex items-center gap-2 mb-3">
                 <Trash2 size={12} className="text-[#7d8590]" />
-                <h2 className="text-[11px] font-mono text-[#7d8590] tracking-widest uppercase">RGPD — Effacement</h2>
+                <h2 className="wr-section-label">RGPD — Effacement</h2>
               </div>
               {customer.erasureCompletedAt ? (
                 <p className="text-[10px] font-mono text-emerald-400">
@@ -420,9 +465,9 @@ export function CustomerDetailPage() {
             </div>
 
             {screenings && screenings.length > 0 && (
-              <div className="bg-[#0d1117] border border-[#21262d] rounded-lg overflow-hidden">
+              <div className="wr-card-modern-flush">
                 <div className="px-4 py-3 border-b border-[#21262d]">
-                  <h2 className="text-[11px] font-mono text-[#7d8590] tracking-widest uppercase">Derniers screenings</h2>
+                  <h2 className="wr-section-label">Derniers screenings</h2>
                 </div>
                 <div className="divide-y divide-[#21262d]/50">
                   {screenings.slice(0, 5).map((s: {
@@ -451,9 +496,9 @@ export function CustomerDetailPage() {
       {activeTab === "documents" && (
         <div className="space-y-4">
           {/* Upload rapide */}
-          <div className="bg-[#0d1117] border border-[#21262d] rounded-lg p-4">
+          <div className="wr-card-modern">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-[11px] font-mono text-[#7d8590] tracking-widest uppercase">
+              <h2 className="wr-section-label">
                 {t.customerDetail.uploadDocument}
               </h2>
               <select value={docType}
@@ -509,10 +554,10 @@ export function CustomerDetailPage() {
           {/* Liste documents */}
           {docsFetching && !documents ? (
             <div className="space-y-2">
-              {[1, 2].map(i => <div key={i} className="h-16 bg-[#0d1117] border border-[#21262d] rounded-lg animate-pulse" />)}
+              {[1, 2].map(i => <div key={i} className="h-16 wr-card-modern animate-pulse" />)}
             </div>
           ) : !documents?.length ? (
-            <div className="text-center py-10 bg-[#0d1117] border border-[#21262d] rounded-lg">
+            <div className="text-center py-10 wr-card-modern">
               <FileText size={24} className="text-[#30363d] mx-auto mb-2" />
               <p className="text-xs font-mono text-[#484f58]">{t.common.noData}</p>
             </div>
@@ -533,7 +578,7 @@ export function CustomerDetailPage() {
                   <Clock size={12} className="text-[#484f58]" />;
 
                 return (
-                  <div key={doc.id} className="bg-[#0d1117] border border-[#21262d] rounded-lg px-4 py-3">
+                  <div key={doc.id} className="wr-card-modern px-4 py-3">
                     <div className="flex items-center gap-3">
                       <FileText size={15} className="text-[#484f58] flex-shrink-0" />
                       <div className="flex-1 min-w-0">
@@ -602,7 +647,7 @@ export function CustomerDetailPage() {
 
       {/* ── Onglet Réseau ── */}
       {activeTab === "network" && (
-        <div className="bg-[#0d1117] border border-[#21262d] rounded-lg p-6 text-center">
+        <div className="wr-card-modern p-6 text-center">
           <Network size={28} className="text-[#30363d] mx-auto mb-3" />
           <p className="text-xs font-mono text-[#7d8590] mb-3">
             Analyser le réseau de relations de ce client
@@ -647,7 +692,7 @@ export function CustomerDetailPage() {
             isPending={initEddMut.isPending || updateItemMut.isPending || recordInterviewMut.isPending || completeEddMut.isPending || rejectEddMut.isPending}
           />
           {eddTemplate && !eddOpenCase && (
-            <div className="bg-[#0d1117] border border-[#21262d] rounded-lg p-4 mt-4">
+            <div className="wr-card-modern mt-4">
               <p className="text-[9px] font-mono text-[#7d8590] uppercase tracking-widest mb-3">
                 Template checklist EDD standard ({eddTemplate.items.length} éléments)
               </p>
@@ -708,7 +753,7 @@ export function CustomerDetailPage() {
               <p className="text-[10px] font-mono text-[#7d8590] mt-1">Cliquez sur "Lancer le scoring" pour générer un profil</p>
             </div>
           ) : (
-            <div className="bg-[#0d1117] border border-[#21262d] rounded-lg overflow-hidden">
+            <div className="wr-card-modern-flush">
               <table className="w-full text-[11px] font-mono">
                 <thead>
                   <tr className="border-b border-[#21262d] text-[#7d8590] text-[9px] uppercase tracking-wider">
@@ -762,7 +807,7 @@ export function CustomerDetailPage() {
               <p className="text-sm font-mono text-[#7d8590]">{t.common.noData}</p>
             </div>
           ) : (
-            <div className="bg-[#0d1117] border border-[#21262d] rounded-lg overflow-hidden">
+            <div className="wr-card-modern-flush">
               <table className="w-full text-[11px] font-mono">
                 <thead>
                   <tr className="border-b border-[#21262d] text-[#7d8590] text-[9px] uppercase tracking-wider">
@@ -927,7 +972,7 @@ function WalletsTab({
 
   if (wallets.length === 0) {
     return (
-      <div className="bg-[#0d1117] border border-[#21262d] rounded-lg p-8 text-center">
+      <div className="wr-card-modern p-8 text-center">
         <Wallet size={26} className="text-[#30363d] mx-auto mb-3" />
         <p className="text-xs font-mono text-[#7d8590]">{t.common.noData}</p>
       </div>
@@ -938,7 +983,7 @@ function WalletsTab({
     <>
       <div className="space-y-3">
         {wallets.map(w => (
-          <div key={w.id} className="bg-[#0d1117] border border-[#21262d] rounded-lg p-4 flex items-center justify-between gap-4">
+          <div key={w.id} className="wr-card-modern flex items-center justify-between gap-4">
             <div className="flex items-center gap-4 min-w-0">
               <Wallet size={15} className="text-[#58a6ff] flex-shrink-0" />
               <div className="min-w-0">
@@ -1077,7 +1122,7 @@ function EddTab({
 
       {/* ── Dossier EDD ouvert ── */}
       {!openCase ? (
-        <div className="bg-[#0d1117] border border-[#21262d] rounded-lg p-6">
+        <div className="wr-card-modern p-6">
           <div className="flex items-center gap-3 mb-4">
             <ClipboardCheck size={18} className="text-[#30363d]" />
             <p className="text-xs font-mono text-[#7d8590]">{t.common.noData}</p>
@@ -1104,7 +1149,7 @@ function EddTab({
           )}
         </div>
       ) : (
-        <div className="bg-[#0d1117] border border-[#21262d] rounded-lg divide-y divide-[#21262d]">
+        <div className="wr-card-modern divide-y divide-[#21262d]">
           {/* Header dossier */}
           <div className="p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -1286,7 +1331,7 @@ function EddTab({
 
       {/* ── Historique EDD ── */}
       {history.length > 0 && (
-        <div className="bg-[#0d1117] border border-[#21262d] rounded-lg p-4">
+        <div className="wr-card-modern">
           <p className="text-[10px] font-mono text-[#7d8590] uppercase tracking-wider mb-3">Historique EDD</p>
           <div className="space-y-1">
             {history.map(c => (

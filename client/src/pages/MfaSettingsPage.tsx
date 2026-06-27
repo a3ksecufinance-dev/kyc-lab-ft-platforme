@@ -97,7 +97,7 @@ export function MfaSettingsPage() {
 
   if (isLoading) return (
     <AppLayout>
-      <div className="h-32 animate-pulse bg-[#0d1117] border border-[#21262d] rounded-lg" />
+      <div className="h-32 animate-pulse wr-card-modern" />
     </AppLayout>
   );
 
@@ -189,7 +189,7 @@ export function MfaSettingsPage() {
 
         {/* ── Étape configuration ── */}
         {step === "setup" && (qrData !== null || mfaEnabled) && (
-          <div className="bg-[#0d1117] border border-[#21262d] rounded-lg overflow-hidden">
+          <div className="wr-card-modern-flush">
             <div className="px-5 py-4 border-b border-[#21262d]">
               <h3 className="text-sm font-semibold text-[#e6edf3] font-mono">
                 {mfaEnabled ? t.mfa.regenerateCodes : t.mfa.setupAuthenticator}
