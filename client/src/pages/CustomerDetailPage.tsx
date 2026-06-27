@@ -280,7 +280,7 @@ export function CustomerDetailPage() {
                   <MapPin size={12} className="text-[#7d8590]" />
                   <h2 className="wr-section-label">{t.customerDetail.address}</h2>
                 </div>
-                <p className="text-sm font-mono text-[#e6edf3]">
+                <p className="text-sm font-sans text-[#e6edf3]">
                   {[customer.address, customer.city, customer.residenceCountry].filter(Boolean).join(", ")}
                 </p>
               </div>
@@ -292,7 +292,7 @@ export function CustomerDetailPage() {
               </div>
               <div className="divide-y divide-[#21262d]/50">
                 {!transactions?.length ? (
-                  <p className="px-4 py-6 text-xs font-mono text-[#484f58] text-center">{t.customerDetail.noTransactions}</p>
+                  <p className="px-4 py-6 text-xs text-[#484f58] text-center">{t.customerDetail.noTransactions}</p>
                 ) : (
                   transactions.map((tx: {
                     id: number; transactionId: string; amount: string;
@@ -303,8 +303,8 @@ export function CustomerDetailPage() {
                     <div key={tx.id} className="px-4 py-2.5 hover:bg-[#161b22] transition-colors">
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="text-xs font-mono text-[#e6edf3]">{tx.transactionId}</p>
-                          <p className="text-[10px] font-mono text-[#7d8590] mt-0.5">
+                          <p className="text-xs text-[#e6edf3]">{tx.transactionId}</p>
+                          <p className="text-[10px] text-[#7d8590] mt-0.5">
                             {formatDate(tx.transactionDate)} · {tx.transactionType}
                           </p>
                         </div>
@@ -334,7 +334,7 @@ export function CustomerDetailPage() {
                   customer.riskScore >= 75 ? "text-red-400" :
                   customer.riskScore >= 50 ? "text-amber-400" : "text-emerald-400"
                 }`}>{customer.riskScore}</span>
-                <span className="text-xs font-mono text-[#7d8590] mb-1">/ 100</span>
+                <span className="text-xs text-[#7d8590] mb-1">/ 100</span>
               </div>
               <div className="w-full h-2 bg-[#21262d] rounded-full overflow-hidden">
                 <div className="h-full rounded-full transition-all" style={{
@@ -343,21 +343,21 @@ export function CustomerDetailPage() {
                 }} />
               </div>
               {customer.lastReviewDate && (
-                <p className="text-[10px] font-mono text-[#484f58] mt-2">
+                <p className="text-[10px] text-[#484f58] mt-2">
                   Dernière révision le {formatDate(customer.lastReviewDate)}
                 </p>
               )}
               <button
                 onClick={() => calcRiskMut.mutate({ id: customerId })}
                 disabled={calcRiskMut.isPending}
-                className="w-full mt-3 text-[11px] font-mono py-1.5 rounded border border-[#30363d] text-[#7d8590] hover:text-[#58a6ff] hover:border-[#58a6ff]/40 disabled:opacity-40 transition-colors flex items-center justify-center gap-1.5"
+                className="w-full mt-3 text-[11px] font-mono py-1.5 rounded border border-[var(--wr-border-200)] text-[#7d8590] hover:text-[#58a6ff] hover:border-[#58a6ff]/40 disabled:opacity-40 transition-colors flex items-center justify-center gap-1.5"
               >
                 <RefreshCw size={10} className={calcRiskMut.isPending ? "animate-spin" : ""} />
                 {calcRiskMut.isPending ? "Calcul…" : "Recalculer le score"}
               </button>
               {calcRiskMut.data && (
                 <div className="mt-3 space-y-1">
-                  <p className="text-[9px] font-mono text-[#7d8590] uppercase tracking-widest">Facteurs de risque</p>
+                  <p className="text-[9px] text-[#7d8590] uppercase tracking-widest">Facteurs de risque</p>
                   {calcRiskMut.data.factors.map((f, i) => (
                     <div key={i} className="flex items-center justify-between text-[10px] font-mono py-0.5">
                       <span className="text-[#7d8590]">{f.rule}</span>
@@ -377,7 +377,7 @@ export function CustomerDetailPage() {
             </div>
 
             {/* ── Gel des avoirs ── */}
-            <div className={`bg-[#0d1117] border rounded-lg p-4 ${
+            <div className={`bg-[var(--wr-surface)] border rounded-lg p-4 ${
               customer.frozenAt ? "border-red-500/40" : "border-[#21262d]"
             }`}>
               <div className="flex items-center gap-2 mb-3">
@@ -396,7 +396,7 @@ export function CustomerDetailPage() {
                     <span>{t.customerDetail.frozenSince} {formatDate(customer.frozenAt)}</span>
                   </div>
                   {customer.frozenReason && (
-                    <p className="text-[10px] font-mono text-[#7d8590] break-words">{customer.frozenReason}</p>
+                    <p className="text-[10px] text-[#7d8590] break-words">{customer.frozenReason}</p>
                   )}
                   {canFreeze && (
                     <button
@@ -415,7 +415,7 @@ export function CustomerDetailPage() {
                       onChange={(e) => setFreezeReason(e.target.value)}
                       placeholder={t.customerDetail.freezeReason}
                       rows={2}
-                      className="w-full bg-[#161b22] border border-[#30363d] rounded px-2 py-1.5 text-[11px] font-mono text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff]/50 resize-none"
+                      className="w-full bg-[#161b22] border border-[var(--wr-border-200)] rounded px-2 py-1.5 text-[11px] text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff]/50 resize-none"
                     />
                     <button
                       onClick={() => { if (freezeReason.trim().length >= 5) { freezeMut.mutate({ id: customerId, reason: freezeReason }); setFreezeReason(""); } }}
@@ -425,7 +425,7 @@ export function CustomerDetailPage() {
                     </button>
                   </div>
                 ) : (
-                  <p className="text-[10px] font-mono text-[#484f58]">{t.customerDetail.noActiveFreeze}</p>
+                  <p className="text-[10px] text-[#484f58]">{t.customerDetail.noActiveFreeze}</p>
                 )
               )}
             </div>
@@ -458,7 +458,7 @@ export function CustomerDetailPage() {
                 <button
                   onClick={() => reqErasureMut.mutate({ id: customerId })}
                   disabled={reqErasureMut.isPending}
-                  className="w-full text-[11px] font-mono py-1.5 rounded border border-[#30363d] text-[#7d8590] hover:text-[#e6edf3] hover:border-[#484f58] disabled:opacity-50 transition-colors">
+                  className="w-full text-[11px] font-mono py-1.5 rounded border border-[var(--wr-border-200)] text-[#7d8590] hover:text-[#e6edf3] hover:border-[#484f58] disabled:opacity-50 transition-colors">
                   {reqErasureMut.isPending ? "En cours…" : "Demander l'effacement"}
                 </button>
               )}
@@ -478,8 +478,8 @@ export function CustomerDetailPage() {
                     <div key={s.id} className="px-4 py-2.5">
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="text-[10px] font-mono text-[#e6edf3] truncate">{s.listSource ?? s.screeningType}</p>
-                          <p className="text-[10px] font-mono text-[#484f58]">{formatDate(s.createdAt)}</p>
+                          <p className="text-[10px] text-[#e6edf3] truncate">{s.listSource ?? s.screeningType}</p>
+                          <p className="text-[10px] text-[#484f58]">{formatDate(s.createdAt)}</p>
                         </div>
                         <Badge label={s.status} variant="status" />
                       </div>
@@ -504,7 +504,7 @@ export function CustomerDetailPage() {
               <select value={docType}
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
                   setDocType(e.target.value)}
-                className="bg-[#161b22] border border-[#30363d] rounded px-2 py-1 text-xs font-mono text-[#e6edf3] focus:outline-none">
+                className="bg-[#161b22] border border-[var(--wr-border-200)] rounded px-2 py-1 text-xs text-[#e6edf3] focus:outline-none">
                 {[
                   ["PASSPORT",         t.documents.typePassport],
                   ["ID_CARD",          t.documents.typeIdCard],
@@ -516,9 +516,9 @@ export function CustomerDetailPage() {
               </select>
             </div>
 
-            <label className="flex items-center justify-center gap-2 border-2 border-dashed border-[#30363d] hover:border-[#58a6ff]/50 rounded-lg py-4 cursor-pointer transition-colors">
+            <label className="flex items-center justify-center gap-2 border-2 border-dashed border-[var(--wr-border-200)] hover:border-[#58a6ff]/50 rounded-lg py-4 cursor-pointer transition-colors">
               <Upload size={16} className="text-[#484f58]" />
-              <span className="text-xs font-mono text-[#7d8590]">
+              <span className="text-xs text-[#7d8590]">
                 {uploadingDoc ? t.common.uploading : "JPG, PNG, PDF — max 10 Mo"}
               </span>
               <input type="file" className="hidden" accept=".jpg,.jpeg,.png,.webp,.pdf"
@@ -559,7 +559,7 @@ export function CustomerDetailPage() {
           ) : !documents?.length ? (
             <div className="text-center py-10 wr-card-modern">
               <FileText size={24} className="text-[#30363d] mx-auto mb-2" />
-              <p className="text-xs font-mono text-[#484f58]">{t.common.noData}</p>
+              <p className="text-xs text-[#484f58]">{t.common.noData}</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -583,7 +583,7 @@ export function CustomerDetailPage() {
                       <FileText size={15} className="text-[#484f58] flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-mono text-[#e6edf3] font-medium">
+                          <span className="text-xs text-[#e6edf3] font-medium">
                             {doc.documentType.replace(/_/g, " ")}
                           </span>
                           <span className={`flex items-center gap-1 text-[10px] font-mono ${
@@ -598,15 +598,15 @@ export function CustomerDetailPage() {
                             {doc.ekycScore !== null && ` (${doc.ekycScore}/100)`}
                           </span>
                           {doc.documentNumber && (
-                            <span className="text-[10px] font-mono text-[#7d8590]">N° {doc.documentNumber}</span>
+                            <span className="text-[10px] text-[#7d8590]">N° {doc.documentNumber}</span>
                           )}
                         </div>
                         <div className="flex items-center gap-3 mt-0.5">
-                          <span className="text-[10px] font-mono text-[#484f58]">
+                          <span className="text-[10px] text-[#484f58]">
                             {formatDate(doc.createdAt)}
                           </span>
                           {doc.ocrConfidence !== null && (
-                            <span className="text-[10px] font-mono text-[#484f58]">
+                            <span className="text-[10px] text-[#484f58]">
                               OCR {doc.ocrConfidence}%
                             </span>
                           )}
@@ -649,7 +649,7 @@ export function CustomerDetailPage() {
       {activeTab === "network" && (
         <div className="wr-card-modern p-6 text-center">
           <Network size={28} className="text-[#30363d] mx-auto mb-3" />
-          <p className="text-xs font-mono text-[#7d8590] mb-3">
+          <p className="text-xs text-[#7d8590] mb-3">
             Analyser le réseau de relations de ce client
           </p>
           <a href={`/network?customerId=${customerId}`}
@@ -693,13 +693,13 @@ export function CustomerDetailPage() {
           />
           {eddTemplate && !eddOpenCase && (
             <div className="wr-card-modern mt-4">
-              <p className="text-[9px] font-mono text-[#7d8590] uppercase tracking-widest mb-3">
+              <p className="text-[9px] text-[#7d8590] uppercase tracking-widest mb-3">
                 Template checklist EDD standard ({eddTemplate.items.length} éléments)
               </p>
               <div className="space-y-1.5">
                 {eddTemplate.items.map((item) => (
-                  <div key={item.id} className="flex items-center gap-2 text-[10px] font-mono text-[#7d8590]">
-                    <span className="w-3 h-3 rounded border border-[#30363d] flex-shrink-0" />
+                  <div key={item.id} className="flex items-center gap-2 text-[10px] text-[#7d8590]">
+                    <span className="w-3 h-3 rounded border border-[var(--wr-border-200)] flex-shrink-0" />
                     {item.label}
                   </div>
                 ))}
@@ -713,8 +713,8 @@ export function CustomerDetailPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-semibold text-[#e6edf3] font-mono">Scoring pKYC — Dérive comportementale</h3>
-              <p className="text-[10px] font-mono text-[#7d8590] mt-0.5">Historique 30 jours · Analyse de dérive de risque</p>
+              <h3 className="text-sm font-semibold font-sans">Scoring pKYC — Dérive comportementale</h3>
+              <p className="text-[10px] text-[#7d8590] mt-0.5">Historique 30 jours · Analyse de dérive de risque</p>
             </div>
             <button
               onClick={() => pkycRunMut.mutate({ customerId })}
@@ -735,9 +735,9 @@ export function CustomerDetailPage() {
                   { label: "Revue déclenchée",   value: pkycRunMut.data.reviewTriggered ? "OUI" : "NON" },
                   { label: "Client ID",          value: pkycRunMut.data.customerId },
                 ].map(({ label, value }) => (
-                  <div key={label} className="bg-[#0d1117] border border-[#21262d] rounded p-2">
+                  <div key={label} className="bg-[var(--wr-surface)] border border-[#21262d] rounded p-2">
                     <div className="text-xs font-mono font-bold text-[#e6edf3]">{String(value)}</div>
-                    <div className="text-[9px] font-mono text-[#7d8590] mt-0.5">{label}</div>
+                    <div className="text-[9px] text-[#7d8590] mt-0.5">{label}</div>
                   </div>
                 ))}
               </div>
@@ -745,12 +745,12 @@ export function CustomerDetailPage() {
           )}
 
           {!pkycHistory ? (
-            <div className="text-center py-12 text-[11px] font-mono text-[#7d8590]">{t.common.loading}</div>
+            <div className="text-center py-12 text-[11px] text-[#7d8590]">{t.common.loading}</div>
           ) : pkycHistory.length === 0 ? (
             <div className="text-center py-16 border border-dashed border-[#21262d] rounded-lg">
               <RefreshCw size={28} className="mx-auto text-[#21262d] mb-3" />
-              <p className="text-sm font-mono text-[#7d8590]">{t.common.noData}</p>
-              <p className="text-[10px] font-mono text-[#7d8590] mt-1">Cliquez sur "Lancer le scoring" pour générer un profil</p>
+              <p className="text-sm font-sans text-[#7d8590]">{t.common.noData}</p>
+              <p className="text-[10px] text-[#7d8590] mt-1">Cliquez sur "Lancer le scoring" pour générer un profil</p>
             </div>
           ) : (
             <div className="wr-card-modern-flush">
@@ -788,8 +788,8 @@ export function CustomerDetailPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-semibold text-[#e6edf3] font-mono">Bénéficiaires Effectifs (UBO)</h3>
-              <p className="text-[10px] font-mono text-[#7d8590] mt-0.5">Personnes physiques détenant +25% du capital ou du contrôle</p>
+              <h3 className="text-sm font-semibold font-sans">Bénéficiaires Effectifs (UBO)</h3>
+              <p className="text-[10px] text-[#7d8590] mt-0.5">Personnes physiques détenant +25% du capital ou du contrôle</p>
             </div>
             <button
               onClick={() => setShowAddUbo(true)}
@@ -800,11 +800,11 @@ export function CustomerDetailPage() {
           </div>
 
           {!ubos ? (
-            <div className="text-center py-8 text-[11px] font-mono text-[#7d8590]">{t.common.loading}</div>
+            <div className="text-center py-8 text-[11px] text-[#7d8590]">{t.common.loading}</div>
           ) : ubos.length === 0 ? (
             <div className="text-center py-16 border border-dashed border-[#21262d] rounded-lg">
               <Users2 size={28} className="mx-auto text-[#21262d] mb-3" />
-              <p className="text-sm font-mono text-[#7d8590]">{t.common.noData}</p>
+              <p className="text-sm font-sans text-[#7d8590]">{t.common.noData}</p>
             </div>
           ) : (
             <div className="wr-card-modern-flush">
@@ -848,10 +848,10 @@ export function CustomerDetailPage() {
             <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}
               onClick={() => setShowAddUbo(false)}>
               <div role="dialog" aria-modal="true" aria-label="Ajouter un bénéficiaire effectif"
-                className="bg-[#0d1117] border border-[#21262d] rounded-2xl p-6 w-full max-w-lg"
+                className="bg-[var(--wr-surface)] border border-[#21262d] rounded-2xl p-6 w-full max-w-lg"
                 onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-5">
-                  <h2 className="text-sm font-semibold text-[#e6edf3] font-mono">Ajouter un bénéficiaire effectif</h2>
+                  <h2 className="text-sm font-semibold font-sans">Ajouter un bénéficiaire effectif</h2>
                   <button onClick={() => setShowAddUbo(false)} aria-label={t.common.close} className="text-[#7d8590] hover:text-[#e6edf3] transition-colors"><X size={16} /></button>
                 </div>
 
@@ -871,11 +871,11 @@ export function CustomerDetailPage() {
                     ["role", "Rôle / Fonction"],
                   ] as [keyof typeof uboForm, string][]).map(([k, label]) => (
                     <div key={k}>
-                      <label className="block text-[9px] font-mono text-[#7d8590] uppercase tracking-wider mb-1">{label}</label>
+                      <label className="block text-[9px] text-[#7d8590] uppercase tracking-wider mb-1">{label}</label>
                       <input
                         value={uboForm[k] as string}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUboForm(f => ({ ...f, [k]: e.target.value }))}
-                        className="w-full bg-[#161b22] border border-[#30363d] rounded-md px-2.5 py-1.5 text-xs font-mono text-[#e6edf3] outline-none"
+                        className="w-full bg-[#161b22] border border-[var(--wr-border-200)] rounded-md px-2.5 py-1.5 text-xs text-[#e6edf3] outline-none"
                       />
                     </div>
                   ))}
@@ -883,13 +883,13 @@ export function CustomerDetailPage() {
                     <input type="checkbox" id="ubo-pep" checked={uboForm.pepStatus}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUboForm(f => ({ ...f, pepStatus: e.target.checked }))}
                       className="cursor-pointer" />
-                    <label htmlFor="ubo-pep" className="text-xs font-mono text-[#7d8590] cursor-pointer">Personne Politiquement Exposée (PEP)</label>
+                    <label htmlFor="ubo-pep" className="text-xs text-[#7d8590] cursor-pointer">Personne Politiquement Exposée (PEP)</label>
                   </div>
                 </div>
 
                 <div className="flex justify-end gap-2 mt-5">
                   <button onClick={() => setShowAddUbo(false)}
-                    className="px-4 py-1.5 text-xs font-mono border border-[#30363d] text-[#7d8590] rounded-md hover:text-[#e6edf3] transition-colors">
+                    className="px-4 py-1.5 text-xs font-mono border border-[var(--wr-border-200)] text-[#7d8590] rounded-md hover:text-[#e6edf3] transition-colors">
                     Annuler
                   </button>
                   <button
@@ -921,8 +921,8 @@ export function CustomerDetailPage() {
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
-      <p className="text-[10px] font-mono text-[#7d8590] uppercase tracking-wider">{label}</p>
-      <div className="text-xs font-mono text-[#e6edf3] mt-0.5">
+      <p className="text-[10px] text-[#7d8590] uppercase tracking-wider">{label}</p>
+      <div className="text-xs text-[#e6edf3] mt-0.5">
         {typeof value === "string" ? value : value}
       </div>
     </div>
@@ -974,7 +974,7 @@ function WalletsTab({
     return (
       <div className="wr-card-modern p-8 text-center">
         <Wallet size={26} className="text-[#30363d] mx-auto mb-3" />
-        <p className="text-xs font-mono text-[#7d8590]">{t.common.noData}</p>
+        <p className="text-xs text-[#7d8590]">{t.common.noData}</p>
       </div>
     );
   }
@@ -993,7 +993,7 @@ function WalletsTab({
             </div>
             <div className="flex items-center gap-6 flex-shrink-0">
               <div className="text-right">
-                <p className="text-xs font-mono text-[#e6edf3]">{Number(w.balance).toLocaleString()} {w.currency}</p>
+                <p className="text-xs text-[#e6edf3]">{Number(w.balance).toLocaleString()} {w.currency}</p>
                 <p className="text-[10px] text-[#7d8590]">solde</p>
               </div>
               <TierBadge tier={w.kycTier} />
@@ -1004,7 +1004,7 @@ function WalletsTab({
               )}
               <button
                 onClick={() => { setPromoting(w); setNewTier("STANDARD"); setReason(""); }}
-                className="text-[10px] font-mono px-3 py-1 rounded border border-[#30363d] text-[#7d8590] hover:text-[#e6edf3] hover:border-[#484f58] transition-colors"
+                className="text-[10px] font-mono px-3 py-1 rounded border border-[var(--wr-border-200)] text-[#7d8590] hover:text-[#e6edf3] hover:border-[#484f58] transition-colors"
               >
                 Changer tier
               </button>
@@ -1017,13 +1017,13 @@ function WalletsTab({
       {promoting && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }}>
           <div role="dialog" aria-modal="true" aria-label="Promotion de tier"
-            className="bg-[#161b22] border border-[#30363d] rounded-xl p-6 w-80">
+            className="bg-[#161b22] border border-[var(--wr-border-200)] rounded-xl p-6 w-80">
             <h3 className="text-sm font-semibold text-[#e6edf3] mb-1">Promotion de tier</h3>
-            <p className="text-[10px] font-mono text-[#7d8590] mb-4">{promoting.walletId}</p>
+            <p className="text-[10px] text-[#7d8590] mb-4">{promoting.walletId}</p>
             <div className="mb-3">
               <label className="text-[10px] text-[#7d8590] block mb-1.5">Nouveau tier</label>
               <select value={newTier} onChange={e => setNewTier(e.target.value as KycTier)}
-                className="w-full text-xs bg-[#0d1117] border border-[#30363d] text-[#e6edf3] rounded-md px-2.5 py-1.5 outline-none">
+                className="w-full text-xs bg-[var(--wr-surface)] border border-[var(--wr-border-200)] text-[#e6edf3] rounded-md px-2.5 py-1.5 outline-none">
                 <option value="ALLEGED">ALLEGED — 5 000 / 20 000 MAD</option>
                 <option value="STANDARD">STANDARD — 50 000 / 200 000 MAD</option>
                 <option value="RENFORCE">RENFORCE — 500 000 / 2 000 000 MAD</option>
@@ -1033,11 +1033,11 @@ function WalletsTab({
               <label className="text-[10px] text-[#7d8590] block mb-1.5">Motif</label>
               <textarea value={reason} onChange={e => setReason(e.target.value)} rows={3}
                 placeholder="Documents vérifiés, entretien EDD…"
-                className="w-full text-xs bg-[#0d1117] border border-[#30363d] text-[#e6edf3] rounded-md px-2.5 py-1.5 outline-none resize-none font-mono" />
+                className="w-full text-xs bg-[var(--wr-surface)] border border-[var(--wr-border-200)] text-[#e6edf3] rounded-md px-2.5 py-1.5 outline-none resize-none font-mono" />
             </div>
             <div className="flex gap-2">
               <button onClick={() => setPromoting(null)}
-                className="flex-1 text-xs py-1.5 rounded-md border border-[#30363d] text-[#7d8590] hover:text-[#e6edf3] transition-colors">
+                className="flex-1 text-xs py-1.5 rounded-md border border-[var(--wr-border-200)] text-[#7d8590] hover:text-[#e6edf3] transition-colors">
                 Annuler
               </button>
               <button
@@ -1125,14 +1125,14 @@ function EddTab({
         <div className="wr-card-modern p-6">
           <div className="flex items-center gap-3 mb-4">
             <ClipboardCheck size={18} className="text-[#30363d]" />
-            <p className="text-xs font-mono text-[#7d8590]">{t.common.noData}</p>
+            <p className="text-xs text-[#7d8590]">{t.common.noData}</p>
           </div>
           {wallets.length > 0 && (
             <div className="flex items-center gap-3">
               <select
                 value={selectedWalletId}
                 onChange={e => setSelectedWalletId(Number(e.target.value))}
-                className="text-xs bg-[#0d1117] border border-[#30363d] text-[#e6edf3] rounded-md px-2.5 py-1.5 outline-none font-mono"
+                className="text-xs bg-[var(--wr-surface)] border border-[var(--wr-border-200)] text-[#e6edf3] rounded-md px-2.5 py-1.5 outline-none font-mono"
               >
                 {wallets.map(w => (
                   <option key={w.id} value={w.id}>{w.walletId} — {w.kycTier}</option>
@@ -1164,7 +1164,7 @@ function EddTab({
                 {openCase.status}
               </span>
             </div>
-            <span className="text-[10px] font-mono text-[#7d8590]">
+            <span className="text-[10px] text-[#7d8590]">
               Ouvert le {new Date(openCase.createdAt).toLocaleDateString("fr-MA")}
             </span>
           </div>
@@ -1172,7 +1172,7 @@ function EddTab({
           {/* Checklist */}
           {checklist && (
             <div className="p-4">
-              <p className="text-[10px] font-mono text-[#7d8590] uppercase tracking-wider mb-3">Checklist de diligence</p>
+              <p className="text-[10px] text-[#7d8590] uppercase tracking-wider mb-3">Checklist de diligence</p>
               <div className="space-y-2">
                 {checklist.items.map(item => (
                   <div key={item.id} className="flex items-start gap-3">
@@ -1182,7 +1182,7 @@ function EddTab({
                       className={`mt-0.5 w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${
                         item.done
                           ? "bg-[#34D399]/20 border-[#34D399]/60"
-                          : "bg-transparent border-[#30363d] hover:border-[#484f58]"
+                          : "bg-transparent border-[var(--wr-border-200)] hover:border-[#484f58]"
                       }`}
                     >
                       {item.done && <CheckCircle size={10} className="text-[#34D399]" />}
@@ -1192,7 +1192,7 @@ function EddTab({
                         {item.label}
                       </p>
                       {item.done && item.doneAt && (
-                        <p className="text-[10px] font-mono text-[#7d8590] mt-0.5">
+                        <p className="text-[10px] text-[#7d8590] mt-0.5">
                           ✓ {new Date(item.doneAt).toLocaleDateString("fr-MA")}
                           {item.notes && ` — ${item.notes}`}
                         </p>
@@ -1215,7 +1215,7 @@ function EddTab({
               <>
                 <button
                   onClick={() => setShowInterview(!showInterview)}
-                  className="text-xs font-mono text-[#7d8590] hover:text-[#e6edf3] flex items-center gap-2 transition-colors"
+                  className="text-xs text-[#7d8590] hover:text-[#e6edf3] flex items-center gap-2 transition-colors"
                 >
                   <Clock size={12} />
                   {showInterview ? "Masquer" : "Enregistrer l'entretien EDD"}
@@ -1226,14 +1226,14 @@ function EddTab({
                       type="date"
                       value={interviewDate}
                       onChange={e => setInterviewDate(e.target.value)}
-                      className="w-full text-xs bg-[#0d1117] border border-[#30363d] text-[#e6edf3] rounded-md px-2.5 py-1.5 outline-none font-mono"
+                      className="w-full text-xs bg-[var(--wr-surface)] border border-[var(--wr-border-200)] text-[#e6edf3] rounded-md px-2.5 py-1.5 outline-none font-mono"
                     />
                     <textarea
                       value={interviewNotes}
                       onChange={e => setInterviewNotes(e.target.value)}
                       rows={3}
                       placeholder="Compte-rendu de l'entretien, observations…"
-                      className="w-full text-xs bg-[#0d1117] border border-[#30363d] text-[#e6edf3] rounded-md px-2.5 py-1.5 outline-none resize-none font-mono"
+                      className="w-full text-xs bg-[var(--wr-surface)] border border-[var(--wr-border-200)] text-[#e6edf3] rounded-md px-2.5 py-1.5 outline-none resize-none font-mono"
                     />
                     <button
                       disabled={!interviewDate || interviewNotes.length < 20 || isPending}
@@ -1280,11 +1280,11 @@ function EddTab({
                   onChange={e => setDecisionText(e.target.value)}
                   rows={3}
                   placeholder="Résumé des vérifications effectuées et conclusion…"
-                  className="w-full text-xs bg-[#0d1117] border border-[#30363d] text-[#e6edf3] rounded-md px-2.5 py-1.5 outline-none resize-none font-mono"
+                  className="w-full text-xs bg-[var(--wr-surface)] border border-[var(--wr-border-200)] text-[#e6edf3] rounded-md px-2.5 py-1.5 outline-none resize-none font-mono"
                 />
                 <div className="flex gap-2">
                   <button onClick={() => setShowComplete(false)}
-                    className="text-xs px-3 py-1.5 rounded-md border border-[#30363d] text-[#7d8590] transition-colors font-mono">
+                    className="text-xs px-3 py-1.5 rounded-md border border-[var(--wr-border-200)] text-[#7d8590] transition-colors font-mono">
                     Annuler
                   </button>
                   <button
@@ -1308,11 +1308,11 @@ function EddTab({
                   onChange={e => setRejectText(e.target.value)}
                   rows={3}
                   placeholder="Raison du refus de la promotion au tier RENFORCÉ…"
-                  className="w-full text-xs bg-[#0d1117] border border-[#30363d] text-[#e6edf3] rounded-md px-2.5 py-1.5 outline-none resize-none font-mono"
+                  className="w-full text-xs bg-[var(--wr-surface)] border border-[var(--wr-border-200)] text-[#e6edf3] rounded-md px-2.5 py-1.5 outline-none resize-none font-mono"
                 />
                 <div className="flex gap-2">
                   <button onClick={() => setShowReject(false)}
-                    className="text-xs px-3 py-1.5 rounded-md border border-[#30363d] text-[#7d8590] transition-colors font-mono">
+                    className="text-xs px-3 py-1.5 rounded-md border border-[var(--wr-border-200)] text-[#7d8590] transition-colors font-mono">
                     Annuler
                   </button>
                   <button
@@ -1332,7 +1332,7 @@ function EddTab({
       {/* ── Historique EDD ── */}
       {history.length > 0 && (
         <div className="wr-card-modern">
-          <p className="text-[10px] font-mono text-[#7d8590] uppercase tracking-wider mb-3">Historique EDD</p>
+          <p className="text-[10px] text-[#7d8590] uppercase tracking-wider mb-3">Historique EDD</p>
           <div className="space-y-1">
             {history.map(c => (
               <div key={c.id} className="flex items-center justify-between text-xs font-mono py-1">

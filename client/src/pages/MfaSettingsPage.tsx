@@ -93,7 +93,7 @@ export function MfaSettingsPage() {
     onError: (e: { message: string }) => setError(e.message),
   });
 
-  const inputCls = "w-full bg-[#161b22] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff]/40 tracking-widest text-center";
+  const inputCls = "w-full bg-[#161b22] border border-[var(--wr-border-200)] rounded-md px-3 py-2 text-xs text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff]/40 tracking-widest text-center";
 
   if (isLoading) return (
     <AppLayout>
@@ -107,7 +107,7 @@ export function MfaSettingsPage() {
     <AppLayout>
       <div className="mb-6">
         <h1 className="text-lg font-semibold text-[#e6edf3] font-mono">{t.mfa.title}</h1>
-        <p className="text-xs font-mono text-[#7d8590] mt-0.5">
+        <p className="text-xs text-[#7d8590] mt-0.5">
           {t.mfa.subtitle} (TOTP — Google Authenticator, Authy, Bitwarden…)
         </p>
       </div>
@@ -120,28 +120,28 @@ export function MfaSettingsPage() {
             <div className={`flex items-center gap-4 p-5 rounded-lg border ${
               mfaEnabled
                 ? "bg-emerald-400/5 border-emerald-400/20"
-                : "bg-[#0d1117] border-[#21262d]"
+                : "bg-[var(--wr-surface)] border-[#21262d]"
             }`}>
               {mfaEnabled
                 ? <ShieldCheck size={28} className="text-emerald-400 flex-shrink-0" />
                 : <Shield     size={28} className="text-[#484f58]   flex-shrink-0" />
               }
               <div className="flex-1">
-                <p className={`text-sm font-semibold font-mono ${mfaEnabled ? "text-emerald-400" : "text-[#e6edf3]"}`}>
+                <p className={`text-sm font-semibold font-sans ${mfaEnabled ? "text-emerald-400" : "text-[#e6edf3]"}`}>
                   {mfaEnabled ? t.mfa.enabled : t.mfa.disabled}
                 </p>
                 {mfaEnabled && status?.enabledAt && (
-                  <p className="text-[10px] font-mono text-[#484f58] mt-0.5">
+                  <p className="text-[10px] text-[#484f58] mt-0.5">
                     {t.mfa.enabledSince} {new Date(status.enabledAt).toLocaleDateString("fr-FR")}
                   </p>
                 )}
                 {mfaEnabled && (
-                  <p className="text-[10px] font-mono text-[#484f58] mt-0.5">
+                  <p className="text-[10px] text-[#484f58] mt-0.5">
                     {t.mfa.backupCodesLeft.replace("{n}", String(status?.backupCodesLeft ?? 0))}
                   </p>
                 )}
                 {!mfaEnabled && (
-                  <p className="text-[10px] font-mono text-[#484f58] mt-0.5">
+                  <p className="text-[10px] text-[#484f58] mt-0.5">
                     {t.mfa.ebaRecommended}
                   </p>
                 )}
@@ -170,7 +170,7 @@ export function MfaSettingsPage() {
                 </button>
                 <button
                   onClick={() => setStep("setup")}
-                  className="w-full py-2.5 text-xs font-mono border border-[#30363d] text-[#7d8590] hover:text-[#e6edf3] rounded-lg"
+                  className="w-full py-2.5 text-xs font-mono border border-[var(--wr-border-200)] text-[#7d8590] hover:text-[#e6edf3] rounded-lg"
                 >
                   <span className="flex items-center justify-center gap-2">
                     <Key size={12} /> {t.mfa.regenerateCodes}
@@ -200,7 +200,7 @@ export function MfaSettingsPage() {
               {!mfaEnabled && qrData && (
                 <>
                   <div>
-                    <p className="text-xs font-mono text-[#7d8590] mb-3">
+                    <p className="text-xs text-[#7d8590] mb-3">
                       {t.mfa.scanQr}
                     </p>
                     <div className="flex justify-center">
@@ -209,11 +209,11 @@ export function MfaSettingsPage() {
                   </div>
 
                   <div>
-                    <p className="text-xs font-mono text-[#7d8590] mb-2">
+                    <p className="text-xs text-[#7d8590] mb-2">
                       {t.mfa.manualKey}
                     </p>
-                    <div className="bg-[#161b22] border border-[#30363d] rounded-md px-3 py-2 flex items-center justify-between">
-                      <span className="text-xs font-mono text-[#e6edf3] tracking-widest break-all">
+                    <div className="bg-[#161b22] border border-[var(--wr-border-200)] rounded-md px-3 py-2 flex items-center justify-between">
+                      <span className="text-xs text-[#e6edf3] tracking-widest break-all">
                         {qrData.secret}
                       </span>
                       <CopyButton value={qrData.secret} />
@@ -223,7 +223,7 @@ export function MfaSettingsPage() {
               )}
 
               <div>
-                <p className="text-xs font-mono text-[#7d8590] mb-2">
+                <p className="text-xs text-[#7d8590] mb-2">
                   {t.mfa.enterCode}
                 </p>
                 <input
@@ -244,7 +244,7 @@ export function MfaSettingsPage() {
 
               <div className="flex gap-2">
                 <button onClick={() => { setStep("status"); setCode(""); setError(null); }}
-                  className="flex-1 py-2 text-xs font-mono border border-[#30363d] text-[#7d8590] rounded-md">
+                  className="flex-1 py-2 text-xs font-mono border border-[var(--wr-border-200)] text-[#7d8590] rounded-md">
                   {t.common.cancel}
                 </button>
                 <button
@@ -267,7 +267,7 @@ export function MfaSettingsPage() {
 
         {/* ── Codes de secours ── */}
         {step === "backup_codes" && backupCodes.length > 0 && (
-          <div className="bg-[#0d1117] border border-amber-400/20 rounded-lg overflow-hidden">
+          <div className="bg-[var(--wr-surface)] border border-amber-400/20 rounded-lg overflow-hidden">
             <div className="px-5 py-4 border-b border-amber-400/20 bg-amber-400/5">
               <div className="flex items-center gap-2">
                 <AlertTriangle size={14} className="text-amber-400" />
@@ -283,8 +283,8 @@ export function MfaSettingsPage() {
             <div className="p-5 space-y-4">
               <div className="grid grid-cols-2 gap-2">
                 {backupCodes.map((c: string, i: number) => (
-                  <div key={i} className="bg-[#161b22] border border-[#30363d] rounded px-3 py-2 flex items-center justify-between">
-                    <span className="text-xs font-mono text-[#e6edf3] tracking-widest">{c}</span>
+                  <div key={i} className="bg-[#161b22] border border-[var(--wr-border-200)] rounded px-3 py-2 flex items-center justify-between">
+                    <span className="text-xs text-[#e6edf3] tracking-widest">{c}</span>
                     <CopyButton value={c} />
                   </div>
                 ))}
@@ -319,7 +319,7 @@ export function MfaSettingsPage() {
 
         {/* ── Désactivation ── */}
         {step === "disable" && (
-          <div className="bg-[#0d1117] border border-red-400/20 rounded-lg overflow-hidden">
+          <div className="bg-[var(--wr-surface)] border border-red-400/20 rounded-lg overflow-hidden">
             <div className="px-5 py-4 border-b border-red-400/20 bg-red-400/5">
               <h3 className="text-sm font-semibold text-red-400 font-mono">{t.mfa.disableTitle}</h3>
               <p className="text-[10px] font-mono text-red-400/70 mt-1">
@@ -329,7 +329,7 @@ export function MfaSettingsPage() {
 
             <div className="p-5 space-y-3">
               <div>
-                <label className="block text-[10px] font-mono text-[#7d8590] tracking-widest uppercase mb-1">
+                <label className="block wr-section-label mb-1">
                   {t.mfa.confirmPasswordLabel}
                 </label>
                 <input
@@ -338,7 +338,7 @@ export function MfaSettingsPage() {
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                     setDisablePass(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full bg-[#161b22] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-red-400/40"
+                  className="w-full bg-[#161b22] border border-[var(--wr-border-200)] rounded-md px-3 py-2 text-xs text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-red-400/40"
                 />
               </div>
 
@@ -350,7 +350,7 @@ export function MfaSettingsPage() {
 
               <div className="flex gap-2">
                 <button onClick={() => { setStep("status"); setError(null); }}
-                  className="flex-1 py-2 text-xs font-mono border border-[#30363d] text-[#7d8590] rounded-md">
+                  className="flex-1 py-2 text-xs font-mono border border-[var(--wr-border-200)] text-[#7d8590] rounded-md">
                   {t.common.cancel}
                 </button>
                 <button
@@ -397,13 +397,13 @@ function ChangePasswordSection() {
     mut.mutate({ currentPassword, newPassword });
   }
 
-  const inputCls = "w-full bg-[#161b22] border border-[#30363d] rounded-md px-3 py-2 text-xs font-mono text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff]/40";
+  const inputCls = "w-full bg-[#161b22] border border-[var(--wr-border-200)] rounded-md px-3 py-2 text-xs text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff]/40";
 
   return (
-    <div className="mt-4 bg-[#0d1117] border border-[#21262d] rounded-xl p-6 max-w-lg">
+    <div className="mt-4 bg-[var(--wr-surface)] border border-[#21262d] rounded-xl p-6 max-w-lg">
       <div className="flex items-center gap-2 mb-4">
         <Lock size={14} className="text-[#7d8590]" />
-        <h2 className="text-sm font-semibold font-mono text-[#e6edf3]">Changer le mot de passe</h2>
+        <h2 className="text-sm font-semibold font-sans text-[#e6edf3]">Changer le mot de passe</h2>
       </div>
 
       {success && (
@@ -420,15 +420,15 @@ function ChangePasswordSection() {
 
       <div className="space-y-3">
         <div>
-          <label className="block text-[9px] font-mono text-[#7d8590] uppercase tracking-wider mb-1">Mot de passe actuel</label>
+          <label className="block text-[9px] text-[#7d8590] uppercase tracking-wider mb-1">Mot de passe actuel</label>
           <input type="password" value={currentPassword} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCurrentPassword(e.target.value)} className={inputCls} placeholder="••••••••" />
         </div>
         <div>
-          <label className="block text-[9px] font-mono text-[#7d8590] uppercase tracking-wider mb-1">Nouveau mot de passe</label>
+          <label className="block text-[9px] text-[#7d8590] uppercase tracking-wider mb-1">Nouveau mot de passe</label>
           <input type="password" value={newPassword} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewPassword(e.target.value)} className={inputCls} placeholder="Min. 8 car., 1 maj., 1 chiffre" />
         </div>
         <div>
-          <label className="block text-[9px] font-mono text-[#7d8590] uppercase tracking-wider mb-1">Confirmer le nouveau mot de passe</label>
+          <label className="block text-[9px] text-[#7d8590] uppercase tracking-wider mb-1">Confirmer le nouveau mot de passe</label>
           <input type="password" value={confirmPassword} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)} className={inputCls} placeholder="••••••••" />
         </div>
         <button

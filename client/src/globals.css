@@ -339,6 +339,24 @@ html.dark ::selection { background: rgba(74,158,255,0.22); color: var(--wr-text-
   font-weight: 700;
 }
 
+/* Boutons teal modernes — variantes soft (pill) et solid */
+.wr-btn-teal-soft {
+  background: rgba(20,184,166,0.10) !important;
+  border: 1px solid rgba(20,184,166,0.30) !important;
+  color: var(--wr-accent) !important;
+  border-radius: 7px;
+  transition: background 0.15s;
+}
+.wr-btn-teal-soft:hover { background: rgba(20,184,166,0.18) !important; }
+
+.wr-btn-teal-solid {
+  background: var(--wr-accent) !important;
+  color: #fff !important;
+  border-radius: 7px;
+  transition: background 0.15s;
+}
+.wr-btn-teal-solid:hover { background: var(--wr-accent-bright) !important; }
+
 /* Mono label */
 .wr-label {
   font-family: var(--wr-font-mono);
