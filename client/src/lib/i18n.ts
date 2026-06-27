@@ -51,6 +51,7 @@ const translations = {
       account:           "Mon Compte",
       goodGuys:          "Liste blanche",
       silencing:         "Règles de silence",
+      ekyc:              "eKYC Digital",
     },
     // ── Common ──────────────────────────────────────────────────────────────
     common: {
@@ -1300,6 +1301,7 @@ const translations = {
       account:          "My Account",
       goodGuys:         "Good Guys List",
       silencing:        "Silencing Rules",
+      ekyc:             "eKYC Digital",
     },
     common: {
       loading:      "Loading…",

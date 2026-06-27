@@ -276,6 +276,56 @@ export function createCbsOnboardingRouter(): Router {
   });
 
   /**
+   * POST /api/cbs/face-match
+   * Comparaison selfie vs photo CIN (heuristique basique côté serveur)
+   * Le client peut faire une comparaison plus précise avec face-api.js en local.
+   *
+   * Note : sans modèle ML embarqué côté serveur, on retourne un score neutre.
+   * Le vrai face match est fait côté client avec face-api.js (modèles WASM).
+   */
+  router.post("/face-match", async (req: Request, res: Response) => {
+    if (!verifyCbsAuth(req, res)) return;
+
+    const body = req.body as { cin_recto?: string; selfie?: string; clientScore?: number };
+
+    if (!body.cin_recto || !body.selfie) {
+      res.status(400).json({ matched: false, score: 0, message: "cin_recto et selfie requis" });
+      return;
+    }
+
+    // Si le client a déjà calculé un score avec face-api.js, on le valide et le retourne
+    if (typeof body.clientScore === "number") {
+      const score = Math.max(0, Math.min(100, Math.round(body.clientScore)));
+      res.json({
+        matched: score >= 65,
+        score,
+        message: score >= 80 ? "Correspondance forte"
+               : score >= 65 ? "Correspondance acceptable"
+               : "Correspondance faible — révision requise",
+        source: "client-face-api",
+      });
+      return;
+    }
+
+    // Pas de score client → vérification basique de taille/présence d'image
+    const rectoSize  = Buffer.from(body.cin_recto, "base64").length;
+    const selfieSize = Buffer.from(body.selfie,   "base64").length;
+
+    if (rectoSize < 1024 || selfieSize < 1024) {
+      res.json({ matched: false, score: 0, message: "Images trop petites pour analyse" });
+      return;
+    }
+
+    // Réponse neutre — face match doit être validé manuellement ou avec face-api côté client
+    res.json({
+      matched: false,
+      score: 0,
+      message: "Vérification biométrique en mode révision manuelle",
+      source: "server-pending-review",
+    });
+  });
+
+  /**
    * POST /api/cbs/ocr
    * Étape 1 — CBS envoie CIN Recto + Verso (base64)
    * Retourne JSON structuré + validation CBS vs OCR
@@ -533,11 +583,12 @@ export function createCbsOnboardingRouter(): Router {
     res.json({
       status:    "ok",
       service:   "KYC-AML CBS Integration API",
-      version:   "4.0",
+      version:   "4.1",
       endpoints: [
         "POST /onboarding   — Entrée en relation classique (UC-1/2/3/4/5)",
         "POST /ocr          — OCR CIN marocaine recto+verso → JSON structuré",
         "POST /confirm      — Confirmation/modif données OCR → création client",
+        "POST /face-match   — Comparaison selfie vs CIN photo",
         "POST /document     — Nouveau document pour client existant",
         "POST /reactivation — Réactivation client bloqué (UC-8)",
         "GET  /health       — Santé du service",

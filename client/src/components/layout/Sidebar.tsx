@@ -8,7 +8,7 @@ import {
   Sun, Moon, Repeat2, Wallet, Users2, Globe,
   ShieldCheck, FileBarChart, Scale, Gauge, ScrollText, Building2,
   ChevronLeft, ChevronRight, GitMerge, KeyRound,
-  Cog, BellRing, Plug, UserCheck, VolumeX,
+  Cog, BellRing, Plug, UserCheck, VolumeX, ScanFace,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { useI18n } from "../../hooks/useI18n";
@@ -54,6 +54,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     labelKey: "kycIdentity",
     items: [
+      { path: "/ekyc",        icon: ScanFace,     labelKey: "ekyc",        minRole: "analyst" },
       { path: "/screening",   icon: ShieldCheck,  labelKey: "screening",   minRole: "analyst" },
       { path: "/documents",   icon: FileText,     labelKey: "documents",   minRole: "analyst" },
       { path: "/network",     icon: Network,      labelKey: "network",     minRole: "analyst" },
