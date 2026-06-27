@@ -53,6 +53,10 @@ export function createCbsOnboardingRouter(): Router {
 
   /**
    * POST /api/cbs/onboarding
+   * @deprecated Utiliser le workflow 2 étapes : POST /ocr puis POST /confirm
+   *             Cet endpoint reste actif pour rétrocompatibilité mais sera
+   *             retiré dans une version future.
+   *
    * UC-1 Happy Path, UC-2 Sanctions, UC-3 PEP, UC-4 OCR, UC-5 Doc expiré
    */
   router.post("/onboarding", async (req: Request, res: Response) => {
@@ -60,6 +64,11 @@ export function createCbsOnboardingRouter(): Router {
 
     const cbsRef = `CBS-${nanoid(8).toUpperCase()}`;
     const body   = req.body as Partial<CbsOnboardingPayload>;
+    // Avertissement : endpoint legacy — préférer /ocr + /confirm
+    log.warn({ cbsRef, deprecated: true },
+      "/api/cbs/onboarding est déprécié — migrer vers /api/cbs/ocr puis /api/cbs/confirm");
+    res.setHeader("X-Deprecated", "true");
+    res.setHeader("X-Migration-Path", "/api/cbs/ocr + /api/cbs/confirm");
     log.info({ cbsRef, code: body.code, cin: body.CIN }, "Réception onboarding CBS");
 
     try {
