@@ -76,7 +76,9 @@ const envSchema = z.object({
   AML_VOLUME_VARIATION_THRESHOLD: z.coerce.number().positive().default(300),
 
   // ML Scoring Service
-  ML_SERVICE_URL:      z.string().url().default("http://kyc_ml:8000"),
+  // Défaut : localhost (Node natif), peut être surchargé via .env si Docker compose
+  // (alors mettre ML_SERVICE_URL=http://kyc_ml:8000 dans .env)
+  ML_SERVICE_URL:      z.string().url().default("http://localhost:8000"),
   ML_INTERNAL_API_KEY: z.string().min(8).default("dev_ml_key_changeme"),
 
   // ML Retraining Scheduler
