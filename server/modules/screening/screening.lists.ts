@@ -63,7 +63,7 @@ const OPENSANCTIONS_FALLBACKS: Partial<Record<string, string>> = {
 // Utilisées si le fetch externe échoue et que le cache est vide
 
 function getMockEntities(source: string): SanctionEntity[] {
-  const base = [
+  const base: SanctionEntity[] = [
     { id: `${source}-001`, name: "Ali Hassan Al-Rashid",    aliases: ["A. Al-Rashid", "Hassan Rashid"],     listSource: source },
     { id: `${source}-002`, name: "Vladimir Petrov",          aliases: ["V. Petrov"],                         listSource: source },
     { id: `${source}-003`, name: "Kim Chol",                 aliases: ["Kim Jong Chol"],                     listSource: source },
@@ -75,6 +75,15 @@ function getMockEntities(source: string): SanctionEntity[] {
     { id: `${source}-009`, name: "Ahmad Shah Massoud",       aliases: ["Ahmed Shah"],                         listSource: source },
     { id: `${source}-010`, name: "Black Sea Resources Ltd",  aliases: ["BSR Limited", "BlackSea Resources"], listSource: source },
   ];
+  // OFAC : ajouter quelques noms connus pour les démos
+  if (source === "OFAC") {
+    base.push(
+      { id: "OFAC-DEMO-001", name: "Usama bin Muhammad bin Awad BIN LADIN", aliases: ["Osama BIN LADEN", "Usama BIN LADEN", "Osama bin Laden"], listSource: "OFAC", entityType: "individual" as const, programs: ["SDGT"] },
+      { id: "OFAC-DEMO-002", name: "Ayman al-ZAWAHIRI",                      aliases: ["A. Zawahiri", "Al-Zawahiri"],                            listSource: "OFAC", entityType: "individual" as const, programs: ["SDGT"] },
+      { id: "OFAC-DEMO-003", name: "Saddam HUSSEIN",                          aliases: ["Saddam Hussein Al-Tikriti"],                             listSource: "OFAC", entityType: "individual" as const, programs: ["IRAQ"] },
+      { id: "OFAC-DEMO-004", name: "Muammar QADHAFI",                         aliases: ["Muammar Gaddafi", "Muammar Kadhafi"],                    listSource: "OFAC", entityType: "individual" as const, programs: ["LIBYA"] },
+    );
+  }
   return base;
 }
 
@@ -294,9 +303,29 @@ export async function fetchOfacList(): Promise<SanctionEntity[]> {
     }
 
     log.info({ count: entities.length, url }, "Liste OFAC SDN chargée");
+
+    // Fallback mock si liste vide (proxy bloquant)
+    if (entities.length === 0) {
+      const useMock = process.env["NODE_ENV"] !== "production"
+        || (ENV as Record<string, unknown>)["PEP_MOCK_FALLBACK"] === true;
+      if (useMock) {
+        const mock = getMockEntities("OFAC");
+        log.warn({ count: mock.length }, "Liste OFAC vide après fetch — données mock OFAC chargées");
+        return mock;
+      }
+    }
+
     return entities;
   } catch (err) {
     log.error({ err, url }, "Échec chargement OFAC SDN");
+    // Fallback mock en cas d'exception
+    const useMock = process.env["NODE_ENV"] !== "production"
+      || (ENV as Record<string, unknown>)["PEP_MOCK_FALLBACK"] === true;
+    if (useMock) {
+      const mock = getMockEntities("OFAC");
+      log.warn({ count: mock.length }, "OFAC inaccessible — données mock OFAC chargées");
+      return mock;
+    }
     return [];
   }
 }
