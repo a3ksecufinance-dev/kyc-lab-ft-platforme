@@ -25,14 +25,19 @@ const log = createLogger("ocr-cin-maroc");
 export interface CinMarocFields {
   nom?:             string;
   prenom?:          string;
-  cin?:             string;
-  dateNaissance?:   string;   // YYYY-MM-DD
-  dateExpiration?:  string;   // YYYY-MM-DD
-  lieuNaissance?:   string;
+  cin?:             string;            // ex: K01234567 (1-2 lettres + 7-8 chiffres)
+  can?:             string;            // Card Authentication Number (6 chiffres) — CNIE post-2020 uniquement
+  dateNaissance?:   string;            // YYYY-MM-DD
+  dateExpiration?:  string;            // YYYY-MM-DD
+  lieuNaissance?:   string;            // Ville simple OU "préfecture - ville"
+  prefecture?:      string;            // Ex: "TANGER ASSILAH" si présent
   sexe?:            "M" | "F";
   adresse?:         string;
   quartier?:        string;
   ville?:           string;
+  filiationPere?:   string;            // "Fils de" (filiation père)
+  filiationMere?:   string;            // "Fille/Fils de" (filiation mère)
+  numEtatCivil?:    string;            // N° d'état civil (verso)
 }
 
 export interface CinMarocOcrResult {
@@ -58,11 +63,30 @@ export interface CinValidationResult {
 }
 
 // ─── Format CIN marocain ─────────────────────────────────────────────────────
+//
+// Formats observés sur les vraies CIN marocaines :
+//   - Ancienne génération : 1 lettre + 6 chiffres   (ex: A123456)
+//   - Génération récente  : 1 lettre + 7 chiffres   (ex: U1234567, K0123456)
+//   - CNIE post-2020      : 1-2 lettres + 7 chiffres (ex: K01234567)
+//
+// Regex unifiée acceptant tous les formats : [A-Z]{1,2}\d{6,8}
 
-const CIN_REGEX = /\b([A-Z]{1,2}\d{5,6})\b/;
+const CIN_REGEX = /\b([A-Z]{1,2}\d{6,8})\b/;
 
 function normalizeCin(raw: string): string | undefined {
   const m = CIN_REGEX.exec(raw.toUpperCase().replace(/\s/g, ""));
+  return m?.[1];
+}
+
+// ─── CAN (Card Authentication Number) — CNIE post-2020 ─────────────────────
+//
+// Apparaît en bas à droite du recto, format "CAN 123456" (6 chiffres).
+// Présent uniquement sur les CIN nouvelles génération.
+
+const CAN_REGEX = /\bCAN\s*[:：]?\s*(\d{6})\b/i;
+
+function extractCan(rawText: string): string | undefined {
+  const m = CAN_REGEX.exec(rawText);
   return m?.[1];
 }
 
@@ -75,6 +99,37 @@ function mrzDateToIso(yymmdd: string): string | undefined {
   const dd = yymmdd.slice(4, 6);
   const yyyy = yy >= 30 ? 1900 + yy : 2000 + yy;
   return `${yyyy}-${mm}-${dd}`;
+}
+
+// ─── Date FR (DD.MM.YYYY ou DD/MM/YYYY) → YYYY-MM-DD ───────────────────────
+//
+// Format utilisé sur les CIN marocaines pour "Né le" et "Valable jusqu'au".
+// Observé : "29.11.1978", "09.09.2029", "05/12/1983", "22/07/2029"
+
+const DATE_FR_REGEX = /\b(\d{1,2})[./](\d{1,2})[./](\d{4})\b/;
+
+function frDateToIso(raw: string): string | undefined {
+  const m = DATE_FR_REGEX.exec(raw);
+  if (!m) return undefined;
+  const dd = m[1]!.padStart(2, "0");
+  const mm = m[2]!.padStart(2, "0");
+  const yyyy = m[3]!;
+  // Validation basique
+  if (parseInt(dd) > 31 || parseInt(mm) > 12) return undefined;
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+// Extraction de toutes les dates FR dans un texte (utile pour distinguer
+// naissance vs expiration sur le recto).
+function extractAllFrDates(text: string): string[] {
+  const dates: string[] = [];
+  const re = new RegExp(DATE_FR_REGEX, "g");
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    const iso = frDateToIso(m[0]);
+    if (iso) dates.push(iso);
+  }
+  return dates;
 }
 
 // ─── Parser MRZ TD1 CIN marocaine ────────────────────────────────────────────
@@ -133,42 +188,97 @@ function parseMrzMaroc(lines: string[]): Partial<CinMarocFields> & { valid: bool
 }
 
 // ─── Extraction champs texte recto ───────────────────────────────────────────
+//
+// Structure typique CIN marocaine recto (latin) :
+//
+//   ROYAUME DU MAROC
+//   CARTE NATIONALE D'IDENTITE
+//
+//   [PHOTO]   PRENOM
+//             NOM
+//             Né le      DD.MM.YYYY
+//             à          VILLE - PREFECTURE
+//
+//             [signature]
+//   N°  ABC1234567        Valable jusqu'au DD.MM.YYYY
+//                                    CAN 123456
+//
+// Particularités :
+//   - Le prénom apparaît AU-DESSUS du nom (et non l'inverse)
+//   - "Né le" et "à" sont des marqueurs Latin (pas "Lieu de naissance")
+//   - "Valable jusqu'au" pour expiration (pas "Date d'expiration")
+//   - CAN visible uniquement sur CNIE post-2020
 
 function extractRectoText(rawText: string): Partial<CinMarocFields> {
   const fields: Partial<CinMarocFields> = {};
   const lines = rawText.split("\n").map(l => l.trim()).filter(Boolean);
 
-  for (const line of lines) {
+  // ── CAN (bas du recto, format "CAN 123456") ───────────────────────────────
+  const can = extractCan(rawText);
+  if (can) fields.can = can;
+
+  // ── N° CIN (n'importe où, format "N° K01234567" ou ligne brute) ──────────
+  if (!fields.cin) {
+    const cin = normalizeCin(rawText);
+    if (cin) fields.cin = cin;
+  }
+
+  // ── Dates : "Né le DD.MM.YYYY" + "Valable jusqu'au DD.MM.YYYY" ──────────
+  // Heuristique : la 1ère date est la naissance, la 2e (plus récente) est l'expiration
+  const allDates = extractAllFrDates(rawText);
+  if (allDates.length >= 1) {
+    // Trier : naissance < expiration
+    const sorted = [...allDates].sort();
+    fields.dateNaissance = sorted[0];
+    if (allDates.length >= 2) {
+      fields.dateExpiration = sorted[sorted.length - 1];
+    }
+  }
+
+  // ── Recherche explicite des marqueurs Latin ─────────────────────────────
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
     const lower = line.toLowerCase();
 
-    // Nom : "Nom : BENALI" ou "NOM BENALI" ou "Nom de famille :"
-    if (!fields.nom && (lower.startsWith("nom") || lower.includes("name"))) {
-      const val = line.replace(/^[^:：]+[:：]\s*/i, "").trim().toUpperCase();
-      if (val && val.length > 1 && !/\d/.test(val)) fields.nom = val;
+    // "Né le DD.MM.YYYY" — Date naissance prioritaire
+    if (lower.startsWith("né le") || lower.startsWith("ne le")) {
+      const dt = frDateToIso(line);
+      if (dt) fields.dateNaissance = dt;
     }
 
-    // Prénom
-    if (!fields.prenom && (lower.startsWith("pré") || lower.startsWith("pre") || lower.includes("prenom"))) {
-      const val = line.replace(/^[^:：]+[:：]\s*/i, "").trim().toUpperCase();
-      if (val && val.length > 1 && !/\d/.test(val)) fields.prenom = val;
+    // "Valable jusqu'au DD.MM.YYYY" — Date expiration prioritaire
+    if (lower.includes("valable") || lower.includes("jusqu")) {
+      const dt = frDateToIso(line);
+      if (dt) fields.dateExpiration = dt;
     }
 
-    // Lieu de naissance
-    if (!fields.lieuNaissance && (lower.includes("né") || lower.includes("naissance") || lower.includes("lieu"))) {
-      const val = line.replace(/^[^:：]+[:：]\s*/i, "").trim();
-      if (val && val.length > 1) fields.lieuNaissance = val.toUpperCase();
+    // "à VILLE - PREFECTURE" — Lieu naissance
+    // Capté avec ligne commençant par "à" ou "a " suivi d'une ville
+    if (!fields.lieuNaissance && (line.startsWith("à ") || line.startsWith("a ") || line.startsWith("À "))) {
+      const val = line.replace(/^[àaÀ]\s+/, "").trim();
+      if (val && val.length > 1 && /[A-Z]/.test(val)) {
+        const parts = val.split(/\s+[-–]\s+/);
+        if (parts.length === 2) {
+          fields.lieuNaissance = parts[0]!.toUpperCase();
+          fields.prefecture   = parts[1]!.toUpperCase();
+        } else {
+          fields.lieuNaissance = val.toUpperCase();
+        }
+      }
     }
 
-    // N° CIN dans le texte libre
-    if (!fields.cin) {
-      const cin = normalizeCin(line);
-      if (cin) fields.cin = cin;
-    }
-
-    // Sexe
-    if (!fields.sexe) {
-      if (lower.includes("masculin") || lower === "m" || lower.includes("sexe : m")) fields.sexe = "M";
-      if (lower.includes("féminin") || lower.includes("feminin") || lower === "f") fields.sexe = "F";
+    // ─── Nom + Prénom (ligne en MAJUSCULES, pas de chiffres, ≥ 2 chars) ─
+    // Le prénom est typiquement la PREMIÈRE ligne MAJUSCULE avant la date naissance
+    // Le nom est la DEUXIÈME ligne MAJUSCULE
+    if (!fields.prenom || !fields.nom) {
+      const isAllCaps = /^[A-ZÉÈÀÂÊÎÔÛÄËÏÖÜÇ\s'-]+$/.test(line) && line.length >= 2 && line.length <= 40;
+      if (isAllCaps && !line.match(/ROYAUME|CARTE|NATIONALE|IDENTITE|MAROC|GENERAL|DIRECTEUR|NATIONAL|VALABLE|JUSQU/i)) {
+        if (!fields.prenom) {
+          fields.prenom = line.trim();
+        } else if (!fields.nom) {
+          fields.nom = line.trim();
+        }
+      }
     }
   }
 
@@ -176,36 +286,84 @@ function extractRectoText(rawText: string): Partial<CinMarocFields> {
 }
 
 // ─── Extraction champs texte verso ───────────────────────────────────────────
+//
+// Structure typique CIN marocaine verso (latin) :
+//
+//   Valable jusqu'au DD.MM.YYYY
+//
+//   Fils de       NOM_PERE
+//   Fille de      NOM_MERE         (selon le sexe)
+//   et de         NOM_MERE
+//
+//   Adresse       12 RUE HASSAN II QUARTIER GAUTHIER CASABLANCA
+//                 [code-barres 2D PDF417]
+//
+//   N° état civil  12345/SECT  Sexe : F
+//
+// Particularités :
+//   - "Fils/Fille de" = filiation père
+//   - "et de" = filiation mère
+//   - Adresse souvent sur 1 ou 2 lignes
+//   - Sexe : "M" / "F" en fin de ligne
 
 function extractVersoText(rawText: string): Partial<CinMarocFields> {
   const fields: Partial<CinMarocFields> = {};
   const lines = rawText.split("\n").map(l => l.trim()).filter(Boolean);
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
     const lower = line.toLowerCase();
 
-    // Adresse
-    if (!fields.adresse && lower.startsWith("adresse")) {
-      const val = line.replace(/^[^:：]+[:：]\s*/i, "").trim();
+    // ── Adresse (souvent sur 1-2 lignes après "Adresse") ─────────────────
+    if (!fields.adresse && (lower.startsWith("adresse") || lower.includes("adresse"))) {
+      let val = line.replace(/^[^:：]*adresse\s*[:：]?\s*/i, "").trim();
+      // Si l'adresse continue sur la ligne suivante (sans étiquette)
+      if (val.length < 5 && i + 1 < lines.length) {
+        val = lines[i + 1]!.trim();
+      }
       if (val && val.length > 2) fields.adresse = val;
     }
 
-    // Quartier
+    // ── Filiation père : "Fils de" ou "Fille de" ─────────────────────────
+    if (!fields.filiationPere && /^(fils|fille) de\b/i.test(line)) {
+      const val = line.replace(/^(fils|fille) de\s*[:：]?\s*/i, "").trim();
+      if (val && val.length > 1) fields.filiationPere = val.toUpperCase();
+    }
+
+    // ── Filiation mère : "et de" ─────────────────────────────────────────
+    if (!fields.filiationMere && /^et de\b/i.test(line)) {
+      const val = line.replace(/^et de\s*[:：]?\s*/i, "").trim();
+      if (val && val.length > 1) fields.filiationMere = val.toUpperCase();
+    }
+
+    // ── N° état civil ────────────────────────────────────────────────────
+    if (!fields.numEtatCivil && (lower.includes("état civil") || lower.includes("etat civil") || lower.includes("n° état"))) {
+      const m = /(\d{1,6}\s*\/?\s*[A-Z0-9-]*)/i.exec(line.replace(/^[^:：]+[:：]\s*/, ""));
+      if (m) fields.numEtatCivil = m[1]!.trim();
+    }
+
+    // ── Quartier (rare champ explicite, plutôt extrait de l'adresse) ────
     if (!fields.quartier && (lower.startsWith("quartier") || lower.includes("quartier"))) {
       const val = line.replace(/^[^:：]+[:：]\s*/i, "").trim();
       if (val && val.length > 1) fields.quartier = val;
     }
 
-    // Ville / Commune
+    // ── Ville / Commune ─────────────────────────────────────────────────
     if (!fields.ville && (lower.startsWith("ville") || lower.startsWith("commune") || lower.includes("localité"))) {
       const val = line.replace(/^[^:：]+[:：]\s*/i, "").trim();
       if (val && val.length > 1) fields.ville = val.toUpperCase();
     }
 
-    // Sexe sur le verso
+    // ── Sexe sur le verso ────────────────────────────────────────────────
+    // Patterns observés : "Sexe : F", "Sexe F", "Sexe : M"
     if (!fields.sexe) {
-      if (lower.includes("masculin") || (lower.includes("sexe") && lower.includes("m"))) fields.sexe = "M";
-      if (lower.includes("féminin") || lower.includes("feminin")) fields.sexe = "F";
+      // Cas explicite "Sexe X"
+      const sexMatch = /sexe\s*[:：]?\s*([MF])\b/i.exec(line);
+      if (sexMatch) {
+        const v = sexMatch[1]!.toUpperCase();
+        if (v === "M" || v === "F") fields.sexe = v;
+      } else if (lower.includes("masculin")) fields.sexe = "M";
+      else if (lower.includes("féminin") || lower.includes("feminin")) fields.sexe = "F";
     }
   }
 
@@ -214,6 +372,13 @@ function extractVersoText(rawText: string): Partial<CinMarocFields> {
   if (!fields.adresse) {
     const addrMatch = lines.find(l => /^\d+[\s,]+[A-Za-zÀ-ÿ]/.test(l));
     if (addrMatch) fields.adresse = addrMatch;
+  }
+
+  // Heuristique ville : dernière ligne en MAJUSCULES de l'adresse contient souvent la ville
+  if (!fields.ville && fields.adresse) {
+    const tokens = fields.adresse.split(/[\s,]+/);
+    const cityToken = tokens.reverse().find(t => /^[A-ZÉÈ]{3,}/.test(t));
+    if (cityToken) fields.ville = cityToken.toUpperCase();
   }
 
   return fields;
@@ -295,8 +460,9 @@ export async function ocrCinMaroc(
 // ─── Validation CBS vs OCR ────────────────────────────────────────────────────
 
 const ALL_FIELDS: (keyof CinMarocFields)[] = [
-  "nom", "prenom", "cin", "dateNaissance", "dateExpiration",
-  "lieuNaissance", "sexe", "adresse", "quartier", "ville",
+  "nom", "prenom", "cin", "can", "dateNaissance", "dateExpiration",
+  "lieuNaissance", "prefecture", "sexe", "adresse", "quartier", "ville",
+  "filiationPere", "filiationMere", "numEtatCivil",
 ];
 
 function normalizeForCompare(s: string): string {
