@@ -172,14 +172,23 @@ export async function runOcr(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { createWorker } = await import("tesseract.js" as any);
 
+    // Chemin local pour les modèles de langue (évite téléchargement CDN
+    // bloqué par firewall en prod). Variable d'env TESSDATA_PATH.
+    const tessdataPath = (process.env["TESSDATA_PATH"] ?? "").trim() || undefined;
+    const workerOpts: Record<string, unknown> = { logger: () => {} };
+    if (tessdataPath) {
+      workerOpts["langPath"] = tessdataPath;
+      workerOpts["cachePath"] = tessdataPath;
+    }
+
     let worker: unknown;
     try {
       // Tentative avec langues configurées (inc. arabe si activé)
-      worker = await createWorker(langs, 1, { logger: () => {} });
+      worker = await createWorker(langs, 1, workerOpts);
     } catch (langErr) {
       // Fallback sur fra+eng si lang:ara non installé
       log.warn({ langErr, langs }, "Langues OCR non disponibles — fallback fra+eng");
-      worker = await createWorker(["fra", "eng"], 1, { logger: () => {} });
+      worker = await createWorker(["fra", "eng"], 1, workerOpts);
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
