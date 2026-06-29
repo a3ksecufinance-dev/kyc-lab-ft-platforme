@@ -162,6 +162,20 @@ export async function runOcr(
     return { rawText: "", confidence: 0, processingMs: 0, engine: "none" };
   }
 
+  // ── Pré-traitement image (Jimp) ────────────────────────────────────────────
+  // Active si OCR_PREPROCESS=true (par défaut) — améliore confidence de +15-25
+  let processedBuffer = buffer;
+  const preprocessEnabled = (process.env["OCR_PREPROCESS"] ?? "true").toLowerCase() !== "false";
+  if (preprocessEnabled && (docType === "ID_CARD" || docType === "PASSPORT" || docType === "DRIVING_LICENSE")) {
+    try {
+      const { preprocessForOcr } = await import("./ocr-preprocess.service.js");
+      const pre = await preprocessForOcr(buffer);
+      processedBuffer = pre.buffer;
+    } catch (preErr) {
+      log.warn({ err: preErr }, "Pré-traitement OCR échoué — utilise image originale");
+    }
+  }
+
   // eslint-disable-next-line no-useless-assignment
   let rawText    = "";
   // eslint-disable-next-line no-useless-assignment
@@ -192,7 +206,7 @@ export async function runOcr(
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data } = await (worker as any).recognize(buffer);
+    const { data } = await (worker as any).recognize(processedBuffer);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (worker as any).terminate();
 
