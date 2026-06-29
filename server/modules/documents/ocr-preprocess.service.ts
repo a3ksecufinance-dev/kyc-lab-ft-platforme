@@ -42,7 +42,8 @@ export interface PreprocessResult {
 export async function preprocessForOcr(
   buffer: Buffer,
   opts: {
-    binarize?:  boolean;   // appliquer un seuillage final (défaut true)
+    binarize?:  boolean;   // seuillage global simple (défaut false)
+    sauvola?:   boolean;   // seuillage adaptatif Sauvola (défaut false, recommandé pour CIN)
     grayscale?: boolean;   // convertir en niveaux de gris (défaut true)
     resize?:    boolean;   // upscale si trop petit (défaut true)
   } = {},
@@ -90,29 +91,65 @@ export async function preprocessForOcr(
     img = img.contrast(0.2);
     steps.push("contrast_+0.2");
 
-    // ── 4. Binarisation adaptative (seuillage Otsu approximé) ─────────────
-    // Calcule la luminance moyenne de l'image puis ajuste le seuil dynamique.
-    // Cette approche préserve mieux le texte que le seuil fixe.
-    if (opts.binarize === true) {
-      const target = img.bitmap;
-      // Calculer la luminance moyenne pour un seuil adaptatif
-      let sum = 0; let count = 0;
-      for (let i = 0; i < target.data.length; i += 4) {
-        const r = target.data[i]!;
-        sum += r; count++;
-      }
-      const meanLuminance = sum / count;
-      // Seuil : 85% de la moyenne (garde le texte foncé en noir, fond moiré en blanc)
-      const threshold = Math.round(meanLuminance * 0.85);
+    // ── 4. Binarisation Sauvola (adaptative locale) ───────────────────────
+    // Bien meilleure que Otsu global pour les CIN avec fond moiré :
+    // chaque pixel est binarisé selon la moyenne LOCALE de son voisinage.
+    // T(x,y) = m(x,y) * (1 + k * (s(x,y)/R - 1))
+    //   m = moyenne locale, s = écart-type local, k=0.34, R=128
+    if (opts.binarize === true || opts.sauvola === true) {
+      const t = img.bitmap;
+      const w = t.width;
+      const h = t.height;
+      const windowSize = 25;  // fenêtre 25×25 pour calcul local
+      const half       = Math.floor(windowSize / 2);
+      const k          = 0.34;
+      const R          = 128;
 
-      for (let i = 0; i < target.data.length; i += 4) {
-        const r = target.data[i]!;
-        const bin = r > threshold ? 255 : 0;
-        target.data[i]     = bin;
-        target.data[i + 1] = bin;
-        target.data[i + 2] = bin;
+      // Extraire luminance dans un Uint8Array plat (plus rapide)
+      const lum = new Uint8Array(w * h);
+      for (let i = 0; i < w * h; i++) lum[i] = t.data[i * 4]!;
+
+      // Image intégrale pour calcul rapide de moyenne et écart-type
+      const integ  = new Float64Array((w + 1) * (h + 1));
+      const integ2 = new Float64Array((w + 1) * (h + 1));
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const v = lum[y * w + x]!;
+          const idx = (y + 1) * (w + 1) + (x + 1);
+          integ[idx]  = v        + integ[idx - 1]!        + integ[idx - (w + 1)]!        - integ[idx - (w + 1) - 1]!;
+          integ2[idx] = v * v    + integ2[idx - 1]!       + integ2[idx - (w + 1)]!       - integ2[idx - (w + 1) - 1]!;
+        }
       }
-      steps.push(`binarize_adaptive_${threshold}`);
+
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const x1 = Math.max(0, x - half);
+          const y1 = Math.max(0, y - half);
+          const x2 = Math.min(w - 1, x + half);
+          const y2 = Math.min(h - 1, y + half);
+          const area = (x2 - x1 + 1) * (y2 - y1 + 1);
+
+          const i1 = y1 * (w + 1) + x1;
+          const i2 = y1 * (w + 1) + (x2 + 1);
+          const i3 = (y2 + 1) * (w + 1) + x1;
+          const i4 = (y2 + 1) * (w + 1) + (x2 + 1);
+
+          const sum  = integ[i4]!  - integ[i2]!  - integ[i3]!  + integ[i1]!;
+          const sum2 = integ2[i4]! - integ2[i2]! - integ2[i3]! + integ2[i1]!;
+          const mean = sum / area;
+          const variance = sum2 / area - mean * mean;
+          const stddev = Math.sqrt(Math.max(0, variance));
+
+          const threshold = mean * (1 + k * (stddev / R - 1));
+          const px = lum[y * w + x]!;
+          const bin = px > threshold ? 255 : 0;
+          const idx = (y * w + x) * 4;
+          t.data[idx]     = bin;
+          t.data[idx + 1] = bin;
+          t.data[idx + 2] = bin;
+        }
+      }
+      steps.push(`sauvola_${windowSize}x${windowSize}`);
     }
 
     // ── 6. Export en JPEG haute qualité ───────────────────────────────────

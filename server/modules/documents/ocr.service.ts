@@ -164,12 +164,14 @@ export async function runOcr(
 
   // ── Pré-traitement image (Jimp) ────────────────────────────────────────────
   // Active si OCR_PREPROCESS=true (par défaut) — améliore confidence de +15-25
+  // OCR_SAUVOLA=true active le seuillage adaptatif Sauvola (recommandé CIN)
   let processedBuffer = buffer;
   const preprocessEnabled = (process.env["OCR_PREPROCESS"] ?? "true").toLowerCase() !== "false";
+  const sauvolaEnabled   = (process.env["OCR_SAUVOLA"]   ?? "true").toLowerCase() !== "false";
   if (preprocessEnabled && (docType === "ID_CARD" || docType === "PASSPORT" || docType === "DRIVING_LICENSE")) {
     try {
       const { preprocessForOcr } = await import("./ocr-preprocess.service.js");
-      const pre = await preprocessForOcr(buffer);
+      const pre = await preprocessForOcr(buffer, { sauvola: sauvolaEnabled });
       processedBuffer = pre.buffer;
     } catch (preErr) {
       log.warn({ err: preErr }, "Pré-traitement OCR échoué — utilise image originale");
@@ -203,6 +205,21 @@ export async function runOcr(
       // Fallback sur fra+eng si lang:ara non installé
       log.warn({ langErr, langs }, "Langues OCR non disponibles — fallback fra+eng");
       worker = await createWorker(["fra", "eng"], 1, workerOpts);
+    }
+
+    // Configuration Tesseract optimisée pour cartes d'identité
+    // PSM 6 = bloc uniforme de texte (idéal pour cartes structurées)
+    // Préserve les espaces entre mots
+    // Whitelist : Latin + chiffres + ponctuation utile (rejette les caractères parasites)
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (worker as any).setParameters({
+        tessedit_pageseg_mode:    "6",
+        preserve_interword_spaces: "1",
+        tessedit_char_whitelist:  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,:;/-° '",
+      });
+    } catch (paramErr) {
+      log.warn({ err: paramErr }, "Configuration Tesseract échouée — params par défaut");
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
