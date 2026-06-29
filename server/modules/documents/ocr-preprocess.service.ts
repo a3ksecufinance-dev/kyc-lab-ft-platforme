@@ -181,3 +181,49 @@ export async function preprocessForOcr(
     };
   }
 }
+
+/**
+ * Crop ciblé sur la zone PRÉNOM/NOM de la CIN marocaine recto.
+ *
+ * Layout typique CIN marocaine :
+ *   ┌──────────────────────────────────────┐
+ *   │  ROYAUME DU MAROC      [armoiries]    │
+ *   │ ┌────┐                                │
+ *   │ │PHO │   PRÉNOM        ← zone ROI    │
+ *   │ │TO  │   NOM                          │
+ *   │ │    │   Né le ...                    │
+ *   │ └────┘                                │
+ *   │  N° XXX           Valable...          │
+ *   └──────────────────────────────────────┘
+ *
+ * La zone nom/prénom est typiquement à :
+ *   x : 33-75% de la largeur
+ *   y : 25-55% de la hauteur
+ */
+export async function cropNameZone(buffer: Buffer): Promise<Buffer> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const jimpModule: any = await import("jimp");
+    const Jimp = jimpModule.Jimp ?? jimpModule.default?.Jimp ?? jimpModule.default;
+    if (!Jimp || typeof Jimp.read !== "function") {
+      return buffer;
+    }
+
+    let img = await Jimp.read(buffer);
+    const { width, height } = img.bitmap;
+
+    const cropX = Math.round(width * 0.33);
+    const cropY = Math.round(height * 0.25);
+    const cropW = Math.round(width * 0.42);  // jusqu'à 75% en x
+    const cropH = Math.round(height * 0.30); // jusqu'à 55% en y
+
+    img = img.crop({ x: cropX, y: cropY, w: cropW, h: cropH });
+    // Booster le contraste local sur cette zone
+    img = img.greyscale().contrast(0.35);
+
+    return await img.getBuffer("image/jpeg", { quality: 95 });
+  } catch (err) {
+    log.warn({ err }, "Crop zone nom échoué — fallback sur image originale");
+    return buffer;
+  }
+}

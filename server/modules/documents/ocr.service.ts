@@ -209,14 +209,15 @@ export async function runOcr(
 
     // Configuration Tesseract optimisée pour cartes d'identité
     // PSM 6 = bloc uniforme de texte (idéal pour cartes structurées)
-    // Préserve les espaces entre mots
-    // Whitelist : Latin + chiffres + ponctuation utile (rejette les caractères parasites)
+    // Préserve les espaces entre mots (utile pour parser "Né le DD.MM.YYYY")
+    //
+    // Note : la char whitelist a été retirée — elle est trop restrictive
+    // sur les CIN marocaines qui ont des caractères arabes et symboles
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (worker as any).setParameters({
         tessedit_pageseg_mode:    "6",
         preserve_interword_spaces: "1",
-        tessedit_char_whitelist:  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,:;/-° '",
       });
     } catch (paramErr) {
       log.warn({ err: paramErr }, "Configuration Tesseract échouée — params par défaut");
@@ -224,11 +225,38 @@ export async function runOcr(
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data } = await (worker as any).recognize(processedBuffer);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (worker as any).terminate();
-
     rawText    = data.text ?? "";
     confidence = Math.round(data.confidence ?? 0);
+
+    // ── Double-pass : 2e OCR sur la zone nom/prénom ─────────────────────
+    // Si OCR_DUAL_PASS=true (défaut) et docType = ID_CARD, on lance un
+    // 2e OCR ciblé pour récupérer le nom/prénom souvent manqué par la 1ère passe
+    const dualPassEnabled = (process.env["OCR_DUAL_PASS"] ?? "true").toLowerCase() !== "false";
+    if (dualPassEnabled && docType === "ID_CARD") {
+      try {
+        const { cropNameZone } = await import("./ocr-preprocess.service.js");
+        const nameCrop = await cropNameZone(buffer);  // Utilise buffer original (pas pré-traité)
+
+        // Re-configurer PSM 7 (single text line) pour la zone nom
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (worker as any).setParameters({ tessedit_pageseg_mode: "7" });
+        } catch { /* ignore */ }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: nameData } = await (worker as any).recognize(nameCrop);
+        const nameText = nameData.text ?? "";
+        if (nameText.trim().length > 0) {
+          rawText = `${rawText}\n\n--- NAME_ZONE ---\n${nameText}`;
+          log.info({ nameTextLen: nameText.length, nameConfidence: Math.round(nameData.confidence ?? 0) }, "Double-pass OCR sur zone nom appliqué");
+        }
+      } catch (dualErr) {
+        log.warn({ err: dualErr }, "Double-pass OCR échoué — texte 1ère passe conservé");
+      }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (worker as any).terminate();
 
   } catch (err) {
     log.error({ err, docType }, "Tesseract OCR échoué");
