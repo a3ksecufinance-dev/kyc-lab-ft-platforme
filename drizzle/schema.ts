@@ -767,7 +767,8 @@ export type InsertSilencingRule = typeof silencingRules.$inferInsert;
 
 export const kycSessionStatusEnum = pgEnum("kyc_session_status", [
   "DRAFT",            // session créée, en attente OCR
-  "OCR_DONE",         // OCR terminé, en attente revue agent
+  "RECTO_ONLY",       // recto uploadé + OCRé, verso pas encore fourni
+  "OCR_DONE",         // OCR complet (recto + verso), en attente revue agent
   "AGENT_REVIEW",     // agent en cours de validation
   "PENDING_CA",       // validation CA en attente (si champs modifiés)
   "DECIDED",          // décision finale prise → customer créé
@@ -812,21 +813,45 @@ export const kycSessions = pgTable("kyc_sessions", {
   // Si champs modifiés à la confirmation
   modifiedFields: jsonb("modified_fields"),  // array de noms de champs
 
-  // Métadonnées
-  startedAt:    timestamp("started_at").defaultNow().notNull(),
-  expiresAt:    timestamp("expires_at").notNull(),
-  decidedAt:    timestamp("decided_at"),
-  abandonedAt:  timestamp("abandoned_at"),
+  // ── Refonte eKYC v5.1 : gestion progressive du workflow ────────────────
+  // Utilisateur (agent Basikon ou compliance officer) qui pilote la session
+  agentUserId:     integer("agent_user_id").references(() => users.id, { onDelete: "set null" }),
 
-  createdAt:    timestamp("created_at").defaultNow().notNull(),
-  updatedAt:    timestamp("updated_at").defaultNow().notNull(),
+  // Suivi des images uploadées (recto/verso indépendants)
+  rectoUploaded:   boolean("recto_uploaded").notNull().default(false),
+  versoUploaded:   boolean("verso_uploaded").notNull().default(false),
+  rectoOcrData:    jsonb("recto_ocr_data"),   // OCR résultat brut recto
+  versoOcrData:    jsonb("verso_ocr_data"),   // OCR résultat brut verso
+  rectoConfidence: integer("recto_confidence"), // 0-100
+  versoConfidence: integer("verso_confidence"), // 0-100
+
+  // Compteur de retries OCR (pour limiter les abus/loops)
+  retryCount:      integer("retry_count").notNull().default(0),
+
+  // Résultats des quality checks (par side)
+  qualityChecks:   jsonb("quality_checks"),  // { recto: {sharpness, brightness, ...}, verso: {...} }
+
+  // Magic link pour self-service client final
+  magicToken:      varchar("magic_token", { length: 128 }),
+  magicTokenExpiresAt: timestamp("magic_token_expires_at"),
+
+  // Métadonnées
+  startedAt:       timestamp("started_at").defaultNow().notNull(),
+  expiresAt:       timestamp("expires_at").notNull(),
+  decidedAt:       timestamp("decided_at"),
+  abandonedAt:     timestamp("abandoned_at"),
+
+  createdAt:       timestamp("created_at").defaultNow().notNull(),
+  updatedAt:       timestamp("updated_at").defaultNow().notNull(),
 }, (t) => ({
-  sessionRefIdx: uniqueIndex("kyc_sessions_session_ref_idx").on(t.sessionRef),
-  statusIdx:     index("kyc_sessions_status_idx").on(t.status),
-  channelIdx:    index("kyc_sessions_channel_idx").on(t.channel),
-  cbsRefIdx:     index("kyc_sessions_cbs_ref_idx").on(t.cbsRef),
-  expiresIdx:    index("kyc_sessions_expires_idx").on(t.expiresAt),
-  customerIdx:   index("kyc_sessions_customer_idx").on(t.customerId),
+  sessionRefIdx:   uniqueIndex("kyc_sessions_session_ref_idx").on(t.sessionRef),
+  statusIdx:       index("kyc_sessions_status_idx").on(t.status),
+  channelIdx:      index("kyc_sessions_channel_idx").on(t.channel),
+  cbsRefIdx:       index("kyc_sessions_cbs_ref_idx").on(t.cbsRef),
+  expiresIdx:      index("kyc_sessions_expires_idx").on(t.expiresAt),
+  customerIdx:     index("kyc_sessions_customer_idx").on(t.customerId),
+  agentIdx:        index("kyc_sessions_agent_idx").on(t.agentUserId),
+  magicTokenIdx:   uniqueIndex("kyc_sessions_magic_token_idx").on(t.magicToken),
 }));
 
 export type KycSession = typeof kycSessions.$inferSelect;

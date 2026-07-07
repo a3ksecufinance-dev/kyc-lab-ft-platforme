@@ -312,6 +312,10 @@ app.post(
 import { createCbsOnboardingRouter } from "../modules/connectors/cbs-onboarding.router";
 app.use("/api/cbs", createCbsOnboardingRouter());
 
+// ─── eKYC session-driven API (v5.1) ───────────────────────────────────────────
+import { createEkycRouter } from "../modules/documents/ekyc.router";
+app.use("/api/ekyc", createEkycRouter());
+
 // ─── Contact landing page (public — pas d'auth) ──────────────────────────────
 
 function escapeHtml(s: string): string {
