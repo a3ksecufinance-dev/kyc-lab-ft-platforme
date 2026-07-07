@@ -25,7 +25,10 @@ import {
   kycSessions, customers,
   type KycSession,
 } from "../../../drizzle/schema";
-import { ocrCinMaroc, verifyModifiedFields, type CinMarocFields, type CinMarocOcrResult } from "./ocr-cin-maroc.service";
+import {
+  ocrCinMaroc, verifyModifiedFields, computeMatchScore,
+  type CinMarocFields, type CinMarocOcrResult, type GlobalMatchScore,
+} from "./ocr-cin-maroc.service";
 import { insertCustomer } from "../customers/customers.repository";
 import { screenCustomer } from "../screening/screening.service";
 import { notifyCbs }      from "../connectors/cbs-notify.service";
@@ -69,6 +72,14 @@ export interface UploadImageResult {
   qualityWarning:   boolean;
   extracted:        Partial<CinMarocFields>;
   confidence:       number;
+  matchScore?:      GlobalMatchScore;              // Si session avait cbsFields
+  duplicate?: {                                     // Doublon CIN détecté à l'OCR
+    exists:       boolean;
+    customerId?:  number;
+    customerRef?: string;
+    kycStatus?:   string;
+    riskLevel?:   string;
+  };
 }
 
 export interface FinalizeSessionInput {
@@ -197,6 +208,31 @@ export async function uploadImage(input: UploadImageInput): Promise<UploadImageR
   }
   patch.candidateFields = merged as unknown as null;
 
+  // ── 6. Match score CBS ↔ OCR (si le CBS a fourni des champs de référence) ──
+  let matchScore: GlobalMatchScore | undefined;
+  const cbsFields = (session.cbsFields ?? null) as Partial<CinMarocFields> | null;
+  if (cbsFields && Object.keys(cbsFields).length > 0) {
+    matchScore = computeMatchScore(cbsFields, merged);
+  }
+
+  // ── 7. Détection doublon CIN dès l'OCR (BAM anti-blanchiment) ─────────────
+  let duplicate: UploadImageResult["duplicate"];
+  const detectedCin = merged.cin;
+  if (detectedCin && (input.side === "recto" || !session.rectoUploaded)) {
+    const dup = await findExistingCustomerByCin(detectedCin);
+    if (dup) duplicate = dup;
+  }
+
+  // Persister matchScore + duplicate dans decisionResult pour audit
+  if (matchScore || duplicate) {
+    const currentDecision = (session.decisionResult ?? {}) as Record<string, unknown>;
+    patch.decisionResult = {
+      ...currentDecision,
+      ...(matchScore ? { matchScore } : {}),
+      ...(duplicate  ? { duplicate }  : {}),
+    } as unknown as null;
+  }
+
   const [updated] = await db.update(kycSessions)
     .set(patch)
     .where(eq(kycSessions.id, session.id))
@@ -208,6 +244,9 @@ export async function uploadImage(input: UploadImageInput): Promise<UploadImageR
     confidence: Math.round(confidence),
     quality: quality.score,
     newStatus: patch.status,
+    matchScore: matchScore?.score,
+    matchVerdict: matchScore?.verdict,
+    duplicate: duplicate?.exists,
   }, "Image uploadée et OCRée");
 
   return {
@@ -217,6 +256,8 @@ export async function uploadImage(input: UploadImageInput): Promise<UploadImageR
     qualityWarning: !quality.passed,
     extracted,
     confidence: Math.round(confidence),
+    ...(matchScore ? { matchScore } : {}),
+    ...(duplicate  ? { duplicate }  : {}),
   };
 }
 
@@ -249,7 +290,32 @@ export async function patchSession(sessionRef: string, patch: {
 
   if (patch.fields) {
     const current = (session.candidateFields ?? {}) as Partial<CinMarocFields>;
-    dbPatch.candidateFields = { ...current, ...patch.fields } as unknown as null;
+    const merged: Partial<CinMarocFields> = { ...current, ...patch.fields };
+    dbPatch.candidateFields = merged as unknown as null;
+
+    // ── Audit trail BAM/GAFI : consigner les champs modifiés vs OCR ──────
+    // Un champ n'est audité que s'il différait déjà de la valeur OCR d'origine
+    // (rectoOcrData / versoOcrData). Modifier un champ vide n'est pas une
+    // "modification", c'est un simple complément.
+    const rectoOcr = (session.rectoOcrData ?? {}) as Partial<CinMarocFields>;
+    const versoOcr = (session.versoOcrData ?? {}) as Partial<CinMarocFields>;
+    const ocrOrigin: Partial<CinMarocFields> = { ...rectoOcr, ...versoOcr };
+
+    const existingModified = new Set(
+      (Array.isArray(session.modifiedFields) ? session.modifiedFields : []) as string[]
+    );
+
+    for (const [field, newVal] of Object.entries(patch.fields)) {
+      const key    = field as keyof CinMarocFields;
+      const oldVal = String(current[key] ?? "").trim();
+      const nextVal = String(newVal ?? "").trim();
+      const ocrVal = String(ocrOrigin[key] ?? "").trim();
+      // Vraie modification par l'agent : la valeur change et une valeur OCR existait
+      if (nextVal !== oldVal && ocrVal && nextVal !== ocrVal) {
+        existingModified.add(field);
+      }
+    }
+    dbPatch.modifiedFields = Array.from(existingModified) as unknown as null;
   }
   if (patch.cbsFields) {
     dbPatch.cbsFields = patch.cbsFields as unknown as null;

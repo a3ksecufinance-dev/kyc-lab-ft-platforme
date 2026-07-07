@@ -1,5 +1,5 @@
 /**
- * Page eKYC — Poste Agent Basikon
+ * Page eKYC — Poste Agent (intégré CBS)
  *
  * Layout desktop 3 colonnes :
  *  ┌────────────┬─────────────────────────┬───────────────────┐
@@ -71,6 +71,34 @@ interface CandidateFields {
   [k: string]:     string | undefined;
 }
 
+interface FieldMatch {
+  field:  string;
+  cbs:    string;
+  ocr:    string;
+  score:  number;
+  status: "MATCH" | "PARTIAL" | "MISMATCH" | "MISSING";
+}
+
+interface MatchScore {
+  score:            number;
+  verdict:          "MATCH" | "REVIEW" | "HIGH_RISK";
+  fields:           FieldMatch[];
+  criticalMismatch: string[];
+}
+
+interface DuplicateInfo {
+  exists:       boolean;
+  customerId?:  number;
+  customerRef?: string;
+  kycStatus?:   string;
+  riskLevel?:   string;
+}
+
+interface DecisionResult {
+  matchScore?: MatchScore;
+  duplicate?:  DuplicateInfo;
+}
+
 interface EkycSession {
   sessionRef:      string;
   status:          SessionStatus;
@@ -80,7 +108,10 @@ interface EkycSession {
   rectoConfidence: number | null;
   versoConfidence: number | null;
   candidateFields: CandidateFields | null;
+  cbsFields:       CandidateFields | null;
   qualityChecks:   Record<string, unknown> | null;
+  decisionResult:  DecisionResult | null;
+  modifiedFields:  string[] | null;
   retryCount:      number;
   createdAt:       string;
   updatedAt:       string;
@@ -99,7 +130,7 @@ const STATUS_LABEL: Record<SessionStatus, string> = {
 };
 
 const CHANNEL_LABEL: Record<Channel, string> = {
-  CBS_API:      "Basikon",
+  CBS_API:      "CBS",
   DIGITAL_WEB:  "Web",
   AGENT_OFFICE: "Agence",
   MOBILE_APP:   "Mobile",
@@ -352,7 +383,7 @@ export function EkycAgentPage() {
     try {
       await api(`/sessions/${activeRef}`, {
         method: "PATCH",
-        body: JSON.stringify({ candidateFields: fields }),
+        body: JSON.stringify({ fields }),
       });
       setDirty(false);
       setDirtyFields(new Set());
@@ -470,7 +501,16 @@ export function EkycAgentPage() {
     return { missing, canFinalize };
   }, [fields, active]);
 
-  const hasDuplicate = historyState?.exists && historyState.customerId;
+  // Doublon détecté soit à l'OCR (backend écrit dans decisionResult) soit par
+  // recherche manuelle sur le CIN saisi
+  const duplicateFromOcr = active?.decisionResult?.duplicate;
+  const hasDuplicate = (duplicateFromOcr?.exists && duplicateFromOcr.customerId) ||
+                       (historyState?.exists && historyState.customerId);
+  const dupCustomerId  = duplicateFromOcr?.customerId  ?? historyState?.customerId;
+  const dupCustomerRef = duplicateFromOcr?.customerRef ?? historyState?.lastKycRef;
+  const dupKycStatus   = duplicateFromOcr?.kycStatus   ?? historyState?.kycStatus;
+
+  const matchScore = active?.decisionResult?.matchScore;
 
   // ─── Rendu ───────────────────────────────────────────────────────────────────
 
@@ -543,7 +583,7 @@ export function EkycAgentPage() {
                 style={selectStyle}
               >
                 <option value="ALL">Canaux</option>
-                <option value="CBS_API">Basikon</option>
+                <option value="CBS_API">CBS</option>
                 <option value="AGENT_OFFICE">Agence</option>
                 <option value="DIGITAL_WEB">Web</option>
                 <option value="MOBILE_APP">Mobile</option>
@@ -698,24 +738,34 @@ export function EkycAgentPage() {
                   }}>
                     <AlertTriangle size={14} style={{ color: C.amber, flexShrink: 0, marginTop: 1 }} />
                     <div style={{ fontSize: 11, fontFamily: C.mono, color: C.text1, lineHeight: 1.5 }}>
-                      <b>Client existant</b> #{historyState?.customerId}
-                      <br /><span style={{ color: C.text3 }}>KYC {historyState?.lastKycRef} · {historyState?.kycStatus}</span>
+                      <b>Client existant</b>{dupCustomerId ? ` #${dupCustomerId}` : ""}
+                      {dupCustomerRef && <><br /><span style={{ color: C.text3 }}>Ref {dupCustomerRef}</span></>}
+                      {dupKycStatus && <><br /><span style={{ color: C.text3 }}>KYC {dupKycStatus}</span></>}
                     </div>
                   </div>
                 )}
 
+                {/* Match score CBS ↔ OCR */}
+                {matchScore && (
+                  <MatchScorePanel score={matchScore} />
+                )}
+
                 {/* Champs */}
-                {Object.keys(FIELD_LABELS).map(key => (
-                  <FieldInput
-                    key={key}
-                    label={FIELD_LABELS[key]!}
-                    value={fields[key] ?? ""}
-                    required={REQUIRED_FIELDS.includes(key)}
-                    dirty={dirtyFields.has(key)}
-                    error={REQUIRED_FIELDS.includes(key) && !fields[key]?.trim()}
-                    onChange={v => updateField(key, v)}
-                  />
-                ))}
+                {Object.keys(FIELD_LABELS).map(key => {
+                  const fm = matchScore?.fields.find(f => f.field === key);
+                  return (
+                    <FieldInput
+                      key={key}
+                      label={FIELD_LABELS[key]!}
+                      value={fields[key] ?? ""}
+                      required={REQUIRED_FIELDS.includes(key)}
+                      dirty={dirtyFields.has(key)}
+                      error={REQUIRED_FIELDS.includes(key) && !fields[key]?.trim()}
+                      onChange={v => updateField(key, v)}
+                      {...(fm ? { fieldMatch: fm } : {})}
+                    />
+                  );
+                })}
 
                 {/* Missing summary */}
                 {validation.missing.length > 0 && (
@@ -937,15 +987,21 @@ function ImageSide({
 }
 
 function FieldInput({
-  label, value, required, dirty, error, onChange,
+  label, value, required, dirty, error, onChange, fieldMatch,
 }: {
-  label: string;
-  value: string;
-  required: boolean;
-  dirty: boolean;
-  error: boolean;
-  onChange: (v: string) => void;
+  label:       string;
+  value:       string;
+  required:    boolean;
+  dirty:       boolean;
+  error:       boolean;
+  onChange:    (v: string) => void;
+  fieldMatch?: FieldMatch;
 }) {
+  const matchColor =
+    !fieldMatch                     ? undefined :
+    fieldMatch.status === "MATCH"   ? C.green   :
+    fieldMatch.status === "PARTIAL" ? C.amber   :
+                                       C.red;
   return (
     <div style={{ marginBottom: 10 }}>
       <label style={{
@@ -956,7 +1012,17 @@ function FieldInput({
           {label}
           {required && <span style={{ color: C.red, marginLeft: 3 }}>*</span>}
         </span>
-        {dirty && <span style={{ color: C.amber }}>●</span>}
+        <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          {fieldMatch && (
+            <span
+              title={`CBS: ${fieldMatch.cbs}\nOCR: ${fieldMatch.ocr}`}
+              style={{ color: matchColor, fontSize: 9 }}
+            >
+              CBS {fieldMatch.score}%
+            </span>
+          )}
+          {dirty && <span style={{ color: C.amber }}>●</span>}
+        </span>
       </label>
       <input
         type="text"
@@ -966,7 +1032,7 @@ function FieldInput({
           width: "100%",
           padding: "6px 8px",
           background: C.bg,
-          border: `1px solid ${error ? C.red : dirty ? C.amber : C.border2}`,
+          border: `1px solid ${error ? C.red : dirty ? C.amber : matchColor ?? C.border2}`,
           borderRadius: 5,
           fontSize: 12,
           fontFamily: C.sans,
@@ -975,6 +1041,43 @@ function FieldInput({
           boxSizing: "border-box",
         }}
       />
+    </div>
+  );
+}
+
+function MatchScorePanel({ score }: { score: MatchScore }) {
+  const color =
+    score.verdict === "MATCH"     ? C.green :
+    score.verdict === "REVIEW"    ? C.amber :
+                                     C.red;
+  const bg =
+    score.verdict === "MATCH"     ? "rgba(52,211,153,0.08)"  :
+    score.verdict === "REVIEW"    ? "rgba(251,191,36,0.08)"  :
+                                     "rgba(248,113,113,0.10)";
+  return (
+    <div style={{
+      background: bg,
+      border: `1px solid ${color}`,
+      borderRadius: 8,
+      padding: 10,
+      marginBottom: 12,
+      fontSize: 11,
+      fontFamily: C.mono,
+      color: C.text1,
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span>
+          <b style={{ color }}>Match CBS ↔ OCR : {score.verdict}</b>
+        </span>
+        <span style={{ color, fontSize: 14, fontWeight: 700 }}>
+          {score.score}/100
+        </span>
+      </div>
+      {score.criticalMismatch.length > 0 && (
+        <div style={{ marginTop: 4, color: C.red, fontSize: 10 }}>
+          ⚠ Champs critiques divergents : {score.criticalMismatch.join(", ")}
+        </div>
+      )}
     </div>
   );
 }
@@ -1052,7 +1155,7 @@ function FinalizeModal({
           Finaliser la session ?
         </h3>
         <p style={{ fontFamily: C.mono, fontSize: 11, color: C.text3, margin: "0 0 16px" }}>
-          Un client sera créé dans le CBS Basikon avec les données ci-dessous.
+          Un client sera créé dans le CBS avec les données ci-dessous.
         </p>
 
         <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12, marginBottom: 14 }}>

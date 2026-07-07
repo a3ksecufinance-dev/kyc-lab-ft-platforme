@@ -193,6 +193,8 @@ export function createEkycRouter(): Router {
         confidence:     result.confidence,
         quality:        result.quality,
         qualityWarning: result.qualityWarning,
+        matchScore:     result.matchScore,
+        duplicate:      result.duplicate,
         newStatus:      result.session.status,
       });
     } catch (err) {
@@ -223,6 +225,8 @@ export function createEkycRouter(): Router {
         extracted:  result.extracted,
         confidence: result.confidence,
         quality:    result.quality,
+        matchScore: result.matchScore,
+        duplicate:  result.duplicate,
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erreur interne";

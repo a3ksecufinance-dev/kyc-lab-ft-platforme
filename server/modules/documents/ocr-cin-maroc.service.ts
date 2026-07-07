@@ -527,6 +527,170 @@ export function validateCbsVsOcr(
   return { valid, missing, mismatch, score };
 }
 
+// ─── Match score CBS ↔ OCR par champ + global ─────────────────────────────────
+//
+// Objectif conformité BAM / GAFI R.10 : vérifier la cohérence entre les
+// données saisies par l'agent dans le CBS et les données extraites de la
+// pièce d'identité par OCR. Un écart significatif signale soit une erreur
+// de saisie soit une tentative d'usurpation.
+
+export interface FieldMatchScore {
+  field:      string;      // ex: "nom", "cin", "dateNaissance"
+  cbs:        string;      // valeur CBS
+  ocr:        string;      // valeur OCR (peut être vide)
+  score:      number;      // 0-100 (100 = identique après normalisation)
+  status:     "MATCH" | "PARTIAL" | "MISMATCH" | "MISSING";
+}
+
+export interface GlobalMatchScore {
+  score:      number;      // 0-100 pondéré (nom/prenom/cin/date pèsent + lourd)
+  verdict:    "MATCH" | "REVIEW" | "HIGH_RISK";
+  fields:     FieldMatchScore[];
+  criticalMismatch: string[];  // Champs critiques en échec (nom, cin, dateNaissance)
+}
+
+// Poids par champ pour le score global — les champs identitaires forts
+// pèsent plus qu'un lieu ou une adresse qui varient souvent.
+const FIELD_WEIGHTS: Record<string, number> = {
+  nom:            3,
+  prenom:         3,
+  cin:            4,   // critique
+  dateNaissance:  4,   // critique
+  dateExpiration: 1,
+  lieuNaissance:  1,
+  sexe:           1,
+  adresse:        1,
+  ville:          1,
+  quartier:       0.5,
+  filiationPere:  0.5,
+  filiationMere:  0.5,
+};
+
+const CRITICAL_FIELDS = new Set(["nom", "prenom", "cin", "dateNaissance"]);
+
+// Champs date : tolérance après reformatage (DD/MM/YYYY ≡ YYYY-MM-DD)
+const DATE_FIELDS = new Set(["dateNaissance", "dateExpiration"]);
+
+/**
+ * Distance de Levenshtein normalisée en score de similarité [0..100].
+ * 100 = chaînes identiques, 0 = tout différent.
+ */
+function similarityScore(a: string, b: string): number {
+  const na = normalizeForCompare(a);
+  const nb = normalizeForCompare(b);
+  if (!na && !nb) return 100;
+  if (!na || !nb) return 0;
+  if (na === nb) return 100;
+  const dist = levenshtein(na, nb);
+  const maxLen = Math.max(na.length, nb.length);
+  return Math.round((1 - dist / maxLen) * 100);
+}
+
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0;
+  const m = a.length, n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  const prev = new Uint16Array(n + 1);
+  const curr = new Uint16Array(n + 1);
+  for (let j = 0; j <= n; j++) prev[j] = j;
+  for (let i = 1; i <= m; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
+      curr[j] = Math.min(
+        curr[j - 1]! + 1,   // insertion
+        prev[j]! + 1,        // deletion
+        prev[j - 1]! + cost, // substitution
+      );
+    }
+    prev.set(curr);
+  }
+  return prev[n]!;
+}
+
+/** Normalise une date en YYYYMMDD pour comparaison résistante au format. */
+function normalizeDate(raw: string): string {
+  const s = raw.trim().replace(/[^0-9]/g, "");
+  if (s.length !== 8) return s;
+  // Détection heuristique : DDMMYYYY vs YYYYMMDD
+  const first4 = s.slice(0, 4);
+  const year = parseInt(first4, 10);
+  if (year >= 1900 && year <= 2100) return s; // Déjà YYYYMMDD
+  // DDMMYYYY → YYYYMMDD
+  return s.slice(4, 8) + s.slice(2, 4) + s.slice(0, 2);
+}
+
+function scoreField(field: string, cbsVal: string, ocrVal: string): FieldMatchScore {
+  const cbs = String(cbsVal ?? "").trim();
+  const ocr = String(ocrVal ?? "").trim();
+
+  if (!cbs) return { field, cbs, ocr, score: 100, status: "MATCH" };  // rien à comparer
+  if (!ocr) return { field, cbs, ocr, score: 0,   status: "MISSING" };
+
+  let score: number;
+  if (DATE_FIELDS.has(field)) {
+    score = normalizeDate(cbs) === normalizeDate(ocr) ? 100 : similarityScore(cbs, ocr);
+  } else if (field === "cin") {
+    // CIN : exact ou 0 (aucune tolérance sur la casse déjà gérée par normalize)
+    score = normalizeForCompare(cbs) === normalizeForCompare(ocr) ? 100 : similarityScore(cbs, ocr);
+  } else {
+    score = similarityScore(cbs, ocr);
+  }
+
+  const status: FieldMatchScore["status"] =
+    score >= 90 ? "MATCH" :
+    score >= 65 ? "PARTIAL" :
+                  "MISMATCH";
+
+  return { field, cbs, ocr, score, status };
+}
+
+/**
+ * Calcule le score de correspondance CBS ↔ OCR sur tous les champs comparables.
+ * Ne throw jamais — les champs manquants côté CBS sont simplement ignorés.
+ *
+ * Verdict :
+ *   MATCH      score ≥ 85 et aucun MISMATCH sur champ critique
+ *   REVIEW     score 65-84 OU un MISMATCH sur champ non-critique
+ *   HIGH_RISK  score < 65 OU MISMATCH sur champ critique
+ */
+export function computeMatchScore(
+  cbsFields: Partial<CinMarocFields>,
+  ocrFields: Partial<CinMarocFields>,
+): GlobalMatchScore {
+  const fields: FieldMatchScore[] = [];
+  let weightedSum = 0;
+  let totalWeight = 0;
+  const criticalMismatch: string[] = [];
+
+  for (const field of ALL_FIELDS) {
+    const cbsVal = cbsFields[field];
+    if (cbsVal == null || cbsVal === "") continue;
+
+    const ocrVal = ocrFields[field] ?? "";
+    const fs = scoreField(field, String(cbsVal), String(ocrVal));
+    fields.push(fs);
+
+    const weight = FIELD_WEIGHTS[field] ?? 0.5;
+    weightedSum += fs.score * weight;
+    totalWeight += weight;
+
+    if (CRITICAL_FIELDS.has(field) && (fs.status === "MISMATCH" || fs.status === "MISSING")) {
+      criticalMismatch.push(field);
+    }
+  }
+
+  const score = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : 100;
+
+  const verdict: GlobalMatchScore["verdict"] =
+    criticalMismatch.length > 0 || score < 65 ? "HIGH_RISK" :
+    score < 85                                ? "REVIEW"    :
+                                                "MATCH";
+
+  return { score, verdict, fields, criticalMismatch };
+}
+
 // ─── Vérification champs modifiés vs OCR ─────────────────────────────────────
 
 export function verifyModifiedFields(
