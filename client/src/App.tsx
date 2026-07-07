@@ -37,6 +37,7 @@ import { ConnectorsPage }    from "./pages/ConnectorsPage";
 import { GoodGuysPage }     from "./pages/GoodGuysPage";
 import { SilencingPage }    from "./pages/SilencingPage";
 import { EkycPage }         from "./pages/EkycPage";
+import { EkycAgentPage }    from "./pages/EkycAgentPage";
 
 function PrivateRoute({ component: Component, minRole }: {
   component: () => ReactElement;
@@ -91,6 +92,7 @@ export function App() {
       <Route path="/connectors"     component={() => <PrivateRoute component={ConnectorsPage} minRole="supervisor" />} />
       <Route path="/good-guys"     component={() => <PrivateRoute component={GoodGuysPage} minRole="analyst" />} />
       <Route path="/silencing"     component={() => <PrivateRoute component={SilencingPage} minRole="analyst" />} />
+      <Route path="/ekyc/agent"    component={() => <PrivateRoute component={EkycAgentPage} minRole="analyst" />} />
       <Route path="/ekyc"          component={() => <PrivateRoute component={EkycPage} minRole="analyst" />} />
 
       {/* Route publique — simulateur CBS (pas d'auth requise) */}

@@ -54,6 +54,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     labelKey: "kycIdentity",
     items: [
+      { path: "/ekyc/agent",  icon: ScanFace,     labelKey: "ekycAgent",   minRole: "analyst" },
       { path: "/ekyc",        icon: ScanFace,     labelKey: "ekyc",        minRole: "analyst" },
       { path: "/screening",   icon: ShieldCheck,  labelKey: "screening",   minRole: "analyst" },
       { path: "/documents",   icon: FileText,     labelKey: "documents",   minRole: "analyst" },
