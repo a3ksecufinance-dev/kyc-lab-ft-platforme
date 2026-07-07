@@ -20,6 +20,7 @@ import {
   Camera, Upload, CheckCircle2, AlertTriangle, Loader2,
   RefreshCw, ChevronRight, Shield, Clock, FileText,
 } from "lucide-react";
+import { checkClientImageQuality, compressImageIfNeeded } from "../lib/image-quality";
 
 // ─── Palette (identifiée client-friendly, pas d'accents mono) ────────────────
 
@@ -108,6 +109,12 @@ export function KycClientPage() {
   const [uploadResult, setUploadResult] = useState<
     { side: "recto" | "verso"; quality: { score: number; passed: boolean; issues: string[] }; confidence: number } | null
   >(null);
+  const [preflightWarning, setPreflightWarning] = useState<{
+    side: "recto" | "verso";
+    score: number;
+    issues: string[];
+    pendingFile: File;
+  } | null>(null);
 
   // ── Charge session au démarrage ────────────────────────────────────────────
 
@@ -137,19 +144,21 @@ export function KycClientPage() {
 
   // ── Handler upload générique ───────────────────────────────────────────────
 
-  const handleUpload = useCallback(async (side: "recto" | "verso", file: File) => {
+  const doUpload = useCallback(async (side: "recto" | "verso", file: File) => {
     if (!token || !session) return;
     setUploading(side);
     setError("");
+    setPreflightWarning(null);
     try {
-      const base64 = await fileToBase64(file);
+      // Compression : évite d'envoyer 8 Mo depuis un iPhone
+      const compressed = await compressImageIfNeeded(file, 2400, 0.88);
+      const base64 = await fileToBase64(compressed);
       const r = await uploadWithToken(
         token, session.sessionRef, side, base64,
-        file.type || "image/jpeg",
+        compressed.type || "image/jpeg",
       );
       setSession(r.session);
       setUploadResult({ side, quality: r.quality, confidence: r.confidence });
-      // Transition
       if (side === "recto") setStep("verso");
       else if (side === "verso") setStep("confirm");
     } catch (e) {
@@ -158,6 +167,36 @@ export function KycClientPage() {
       setUploading(null);
     }
   }, [token, session]);
+
+  const handleUpload = useCallback(async (side: "recto" | "verso", file: File) => {
+    setError("");
+    // ── Preflight : analyse locale ───────────────────────────────────────
+    setUploading(side);
+    try {
+      const q = await checkClientImageQuality(file);
+      setUploading(null);
+      // Score < 60 : alerte l'utilisateur avant d'envoyer
+      if (!q.passed) {
+        setPreflightWarning({ side, score: q.score, issues: q.issues, pendingFile: file });
+        return;
+      }
+    } catch {
+      setUploading(null);
+      // Sur erreur d'analyse, on continue sans bloquer
+    }
+    await doUpload(side, file);
+  }, [doUpload]);
+
+  const confirmPreflight = useCallback(() => {
+    if (!preflightWarning) return;
+    const { side, pendingFile } = preflightWarning;
+    setPreflightWarning(null);
+    doUpload(side, pendingFile);
+  }, [preflightWarning, doUpload]);
+
+  const rejectPreflight = useCallback(() => {
+    setPreflightWarning(null);
+  }, []);
 
   // ─────────────────────────────────────────────────────────────────────────────
 
@@ -305,6 +344,56 @@ export function KycClientPage() {
         </div>
 
       </div>
+
+      {/* ── Modale : qualité insuffisante détectée localement ────────────── */}
+      {preflightWarning && (
+        <div
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            zIndex: 100, padding: 20,
+          }}
+          onClick={rejectPreflight}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: C.card, borderRadius: 16, padding: 24,
+              maxWidth: 380, width: "100%",
+              display: "flex", flexDirection: "column", gap: 14,
+            }}
+          >
+            <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+              <AlertTriangle size={28} style={{ color: C.amber, flexShrink: 0 }} />
+              <div>
+                <h3 style={{ fontSize: 17, fontWeight: 700, color: C.text1, margin: "0 0 4px" }}>
+                  Qualité photo insuffisante
+                </h3>
+                <p style={{ fontSize: 13, color: C.text2, margin: 0, lineHeight: 1.5 }}>
+                  Score : {preflightWarning.score}/100 · minimum recommandé : 60/100
+                </p>
+              </div>
+            </div>
+            <ul style={{ margin: 0, paddingLeft: 20, fontSize: 12, color: C.text2, lineHeight: 1.6 }}>
+              {preflightWarning.issues.map((issue, i) => <li key={i}>{issue}</li>)}
+            </ul>
+            <p style={{ fontSize: 12, color: C.text3, margin: 0 }}>
+              L'OCR risque d'échouer. Nous vous conseillons de reprendre la photo dans un endroit mieux éclairé.
+            </p>
+            <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+              <button onClick={rejectPreflight} style={secondaryButtonStyle(true)}>
+                <RefreshCw size={14} /> Reprendre
+              </button>
+              <button onClick={confirmPreflight} style={{
+                ...primaryButtonStyle(true),
+                background: C.amber,
+              }}>
+                Envoyer quand même
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

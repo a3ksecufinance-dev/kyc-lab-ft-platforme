@@ -27,6 +27,7 @@ import {
   Camera, Link2, XCircle,
 } from "lucide-react";
 import { useI18n } from "../hooks/useI18n";
+import { checkClientImageQuality, compressImageIfNeeded } from "../lib/image-quality";
 
 // ─── Palette (identique EkycPage) ─────────────────────────────────────────────
 
@@ -285,7 +286,17 @@ export function EkycAgentPage() {
     if (!activeRef) return;
     setUploading(side);
     try {
-      const base64 = await fileToBase64(file);
+      // Preflight qualité côté navigateur (feedback rapide sans aller-retour)
+      const preflight = await checkClientImageQuality(file);
+      if (!preflight.passed) {
+        setToast({
+          msg: `Qualité locale ${preflight.score}/100 — ${preflight.issues[0] ?? "vérifier"}. Envoi quand même…`,
+          type: "warn",
+        });
+      }
+      // Compression pour réduire la taille (agents peuvent scanner en très haute déf)
+      const compressed = await compressImageIfNeeded(file, 2400, 0.9);
+      const base64 = await fileToBase64(compressed);
       const data = await api<{ session: EkycSession; extracted: CandidateFields; confidence: number; quality: { score: number; passed: boolean; issues: string[] } }>(
         `/sessions/${activeRef}/images`,
         {
@@ -293,7 +304,7 @@ export function EkycAgentPage() {
           body: JSON.stringify({
             side,
             base64,
-            mimeType: file.type || "image/jpeg",
+            mimeType: compressed.type || "image/jpeg",
           }),
         }
       );
