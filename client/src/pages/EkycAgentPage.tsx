@@ -52,7 +52,7 @@ const C = {
 
 type SessionStatus =
   | "DRAFT" | "RECTO_ONLY" | "OCR_DONE" | "AGENT_REVIEW"
-  | "PENDING_APPROVAL" | "DECIDED" | "ABANDONED";
+  | "PENDING_CA" | "DECIDED" | "ABANDONED";
 
 type Channel = "CBS_API" | "DIGITAL_WEB" | "AGENT_OFFICE" | "MOBILE_APP";
 
@@ -92,7 +92,7 @@ const STATUS_LABEL: Record<SessionStatus, string> = {
   RECTO_ONLY:       "Recto seul",
   OCR_DONE:         "OCR complet",
   AGENT_REVIEW:     "Revue",
-  PENDING_APPROVAL: "Approbation",
+  PENDING_CA:       "Approbation CA",
   DECIDED:          "Décidé",
   ABANDONED:        "Abandonné",
 };

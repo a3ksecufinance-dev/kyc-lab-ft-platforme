@@ -44,6 +44,32 @@ function verifyApiKey(req: Request, res: Response): boolean {
   return true;
 }
 
+/**
+ * Accepte SOIT une API key (agent/CBS) SOIT un magic-token valide pour cette
+ * session (client self-service via `/kyc/:token`).
+ * Renvoie `true` si autorisé, écrit une réponse 401/403 sinon.
+ */
+async function verifyApiKeyOrMagicToken(
+  req: Request, res: Response, sessionRef: string,
+): Promise<boolean> {
+  // 1. API key (agent / CBS) — accès complet
+  if (ENV.CBS_AUTH_DISABLED) return true;
+  const apiKey = req.headers["x-cbs-api-key"]
+    ?? req.headers["authorization"]?.replace("Bearer ", "");
+  if (apiKey && apiKey === ENV.CBS_ONBOARDING_API_KEY) return true;
+
+  // 2. Magic token — accès limité à la session concernée
+  const magicToken = req.headers["x-magic-token"];
+  if (typeof magicToken === "string" && magicToken.length > 0) {
+    const tokenSession = await ekyc.findSessionByMagicToken(magicToken);
+    if (tokenSession && tokenSession.sessionRef === sessionRef) return true;
+    res.status(403).json({ success: false, error: "Token ne correspond pas à cette session" });
+    return false;
+  }
+  res.status(401).json({ success: false, error: "Auth manquante" });
+  return false;
+}
+
 // ─── Router ───────────────────────────────────────────────────────────────────
 
 export function createEkycRouter(): Router {
@@ -139,9 +165,9 @@ export function createEkycRouter(): Router {
   // POST /api/ekyc/sessions/:ref/images — upload progressif
   // ═════════════════════════════════════════════════════════════════════════
   router.post("/sessions/:ref/images", async (req: Request, res: Response) => {
-    if (!verifyApiKey(req, res)) return;
     const ref = req.params["ref"];
     if (!ref) { res.status(400).json({ success: false, error: "ref manquant" }); return; }
+    if (!(await verifyApiKeyOrMagicToken(req, res, ref))) return;
     const body = req.body as {
       side?:     "recto" | "verso";
       base64?:   string;
@@ -181,9 +207,9 @@ export function createEkycRouter(): Router {
   // POST /api/ekyc/sessions/:ref/retry-ocr — retry avec nouvelle image
   // ═════════════════════════════════════════════════════════════════════════
   router.post("/sessions/:ref/retry-ocr", async (req: Request, res: Response) => {
-    if (!verifyApiKey(req, res)) return;
     const ref = req.params["ref"];
     if (!ref) { res.status(400).json({ success: false, error: "ref manquant" }); return; }
+    if (!(await verifyApiKeyOrMagicToken(req, res, ref))) return;
     const body = req.body as { side?: "recto" | "verso"; base64?: string; mimeType?: string };
     if (!body.side || !body.base64) {
       res.status(400).json({ success: false, error: "side et base64 obligatoires" });
@@ -286,6 +312,30 @@ export function createEkycRouter(): Router {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erreur interne";
       res.status(500).json({ success: false, error: msg });
+    }
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // POST /api/ekyc/token/:token/submit — client confirme, passe en AGENT_REVIEW
+  // ═════════════════════════════════════════════════════════════════════════
+  router.post("/token/:token/submit", async (req: Request, res: Response) => {
+    const token = req.params["token"];
+    if (!token) { res.status(400).json({ success: false, error: "token manquant" }); return; }
+    try {
+      const session = await ekyc.findSessionByMagicToken(token);
+      if (!session) {
+        res.status(404).json({ success: false, error: "Lien expiré ou invalide" });
+        return;
+      }
+      const updated = await ekyc.submitForAgentReview(session.sessionRef);
+      res.json({ success: true, session: sanitizeSession(updated) });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erreur interne";
+      const code = msg.includes("Statut invalide") ? 409
+                 : msg.includes("introuvable")     ? 404
+                 : msg.includes("expirée") || msg.includes("abandonnée") ? 410
+                 : 500;
+      res.status(code).json({ success: false, error: msg });
     }
   });
 

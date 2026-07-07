@@ -25,7 +25,7 @@ import {
   kycSessions, customers,
   type KycSession,
 } from "../../../drizzle/schema";
-import { ocrCinMaroc, validateCbsVsOcr, verifyModifiedFields, type CinMarocFields, type CinMarocOcrResult } from "./ocr-cin-maroc.service";
+import { ocrCinMaroc, verifyModifiedFields, type CinMarocFields, type CinMarocOcrResult } from "./ocr-cin-maroc.service";
 import { insertCustomer } from "../customers/customers.repository";
 import { screenCustomer } from "../screening/screening.service";
 import { notifyCbs }      from "../connectors/cbs-notify.service";
@@ -259,6 +259,33 @@ export async function patchSession(sessionRef: string, patch: {
     .where(eq(kycSessions.id, session.id))
     .returning();
 
+  return updated!;
+}
+
+/**
+ * Marque une session comme prête pour la revue agent.
+ * Utilisé côté client self-service : le client confirme, l'agent traite.
+ * Passe uniquement OCR_DONE → AGENT_REVIEW (idempotent si déjà après).
+ */
+export async function submitForAgentReview(sessionRef: string): Promise<KycSession> {
+  const session = await requireValidSession(sessionRef);
+
+  // Idempotent : si déjà en revue ou décidé, on retourne tel quel
+  if (session.status === "AGENT_REVIEW" || session.status === "PENDING_CA" ||
+      session.status === "DECIDED") {
+    return session;
+  }
+  // Prérequis : au moins OCR terminé (recto + verso)
+  if (session.status !== "OCR_DONE") {
+    throw new Error(`Statut invalide pour soumission : ${session.status}`);
+  }
+
+  const [updated] = await db.update(kycSessions).set({
+    status:    "AGENT_REVIEW",
+    updatedAt: new Date(),
+  }).where(eq(kycSessions.id, session.id)).returning();
+
+  log.info({ sessionRef }, "Session soumise pour revue agent");
   return updated!;
 }
 

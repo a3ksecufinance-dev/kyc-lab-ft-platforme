@@ -38,6 +38,7 @@ import { GoodGuysPage }     from "./pages/GoodGuysPage";
 import { SilencingPage }    from "./pages/SilencingPage";
 import { EkycPage }         from "./pages/EkycPage";
 import { EkycAgentPage }    from "./pages/EkycAgentPage";
+import { KycClientPage }    from "./pages/KycClientPage";
 
 function PrivateRoute({ component: Component, minRole }: {
   component: () => ReactElement;
@@ -97,6 +98,9 @@ export function App() {
 
       {/* Route publique — simulateur CBS (pas d'auth requise) */}
       <Route path="/cbs" component={CbsSimulatorPage} />
+
+      {/* Route publique — self-service client via magic link */}
+      <Route path="/kyc/:token" component={KycClientPage} />
 
       <Route>{isAuthenticated ? <Redirect to="/" /> : <Redirect to="/login" />}</Route>
     </Switch>
