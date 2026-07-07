@@ -36,7 +36,9 @@ const translations = {
       agents:            "Réseau agents",
       bam:               "Rapports BAM",
       // ── Groupes nav supplémentaires ───────────────────────────────────────
-      kycIdentity:       "KYC / Identité",
+      kycIdentity:       "KYC / Identité",     // legacy, conservé pour compat
+      onboarding:        "Onboarding",
+      customerFile:      "Dossier client",
       regulatory:        "Réglementation",
       // ── 2026 features ─────────────────────────────────────────────────────
       sla:               "SLA Monitoring",
@@ -51,8 +53,9 @@ const translations = {
       account:           "Mon Compte",
       goodGuys:          "Liste blanche",
       silencing:         "Règles de silence",
-      ekyc:              "eKYC Digital",
+      ekyc:              "eKYC Digital",           // legacy — remplacé par ekycClient
       ekycAgent:         "eKYC Agent",
+      ekycClient:        "eKYC Client (self-service)",
     },
     // ── Common ──────────────────────────────────────────────────────────────
     common: {
@@ -1287,7 +1290,9 @@ const translations = {
       agents:           "Agent Network",
       bam:              "BAM Reports",
       // ── Additional nav groups ─────────────────────────────────────────────
-      kycIdentity:      "KYC / Identity",
+      kycIdentity:      "KYC / Identity",   // legacy, kept for compat
+      onboarding:       "Onboarding",
+      customerFile:     "Customer File",
       regulatory:       "Regulatory",
       // ── 2026 features ─────────────────────────────────────────────────────
       sla:              "SLA Monitoring",
@@ -1302,8 +1307,9 @@ const translations = {
       account:          "My Account",
       goodGuys:         "Good Guys List",
       silencing:        "Silencing Rules",
-      ekyc:             "eKYC Digital",
+      ekyc:             "eKYC Digital",             // legacy — replaced by ekycClient
       ekycAgent:        "eKYC Agent",
+      ekycClient:       "eKYC Client (self-service)",
     },
     common: {
       loading:      "Loading…",

@@ -9,6 +9,7 @@ import {
   ShieldCheck, FileBarChart, Scale, Gauge, ScrollText, Building2,
   ChevronLeft, ChevronRight, GitMerge, KeyRound,
   Cog, BellRing, Plug, UserCheck, VolumeX, ScanFace,
+  UserPlus,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { useI18n } from "../../hooks/useI18n";
@@ -52,13 +53,19 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    labelKey: "kycIdentity",
+    labelKey: "onboarding",
     items: [
       { path: "/ekyc/agent",  icon: ScanFace,     labelKey: "ekycAgent",   minRole: "analyst" },
-      { path: "/ekyc",        icon: ScanFace,     labelKey: "ekyc",        minRole: "analyst" },
-      { path: "/screening",   icon: ShieldCheck,  labelKey: "screening",   minRole: "analyst" },
+      { path: "/ekyc",        icon: UserPlus,     labelKey: "ekycClient",  minRole: "analyst" },
+    ],
+  },
+  {
+    labelKey: "customerFile",
+    items: [
       { path: "/documents",   icon: FileText,     labelKey: "documents",   minRole: "analyst" },
+      { path: "/screening",   icon: ShieldCheck,  labelKey: "screening",   minRole: "analyst" },
       { path: "/network",     icon: Network,      labelKey: "network",     minRole: "analyst" },
+      { path: "/pkyc",        icon: Repeat2,      labelKey: "pkyc",        minRole: "analyst" },
     ],
   },
   {
@@ -67,7 +74,6 @@ const NAV_GROUPS: NavGroup[] = [
       { path: "/aml-rules",   icon: Shield,       labelKey: "amlRules",    minRole: "analyst" },
       { path: "/good-guys",   icon: UserCheck,    labelKey: "goodGuys",    minRole: "analyst" },
       { path: "/silencing",   icon: VolumeX,      labelKey: "silencing",   minRole: "analyst" },
-      { path: "/pkyc",        icon: Repeat2,      labelKey: "pkyc",        minRole: "analyst" },
       { path: "/reports",     icon: FileBarChart, labelKey: "reports",     minRole: "analyst" },
       { path: "/approvals",   icon: GitMerge,     labelKey: "approvals",   minRole: "compliance_officer", badge: true },
     ],
