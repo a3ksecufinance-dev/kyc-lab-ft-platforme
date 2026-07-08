@@ -103,6 +103,11 @@ const envSchema = z.object({
 
   // eKYC — provider de vérification d'identité
   EKYC_PROVIDER: z.enum(["local", "onfido", "sumsub"]).default("local"),
+  // Concurrence du worker OCR asynchrone (BullMQ)
+  OCR_QUEUE_CONCURRENCY: z.coerce.number().int().positive().max(16).default(2),
+  // Adverse media (due diligence renforcée BAM art. 15)
+  ADVERSE_MEDIA_PROVIDER: z.enum(["disabled", "newsapi", "gdelt"]).default("disabled"),
+  ADVERSE_MEDIA_API_KEY:  z.string().optional(),
   // Onfido (https://documentation.onfido.com)
   ONFIDO_API_TOKEN: z.string().optional(),
   ONFIDO_BASE_URL: z.string().url().optional().or(z.literal("").transform(() => undefined)),

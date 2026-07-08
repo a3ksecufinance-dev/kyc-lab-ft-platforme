@@ -1,0 +1,1 @@
+ALTER TABLE "kyc_sessions" ADD COLUMN "consents" jsonb;

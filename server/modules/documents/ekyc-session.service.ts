@@ -30,7 +30,9 @@ import {
   type CinMarocFields, type CinMarocOcrResult, type GlobalMatchScore,
 } from "./ocr-cin-maroc.service";
 import { insertCustomer } from "../customers/customers.repository";
-import { screenCustomer } from "../screening/screening.service";
+import { screenCustomer, previewNameScreening, type NameScreeningPreview } from "../screening/screening.service";
+import { assessCountryRisk } from "../customers/country-risk.service";
+import { emitEkycEvent } from "./ekyc-events";
 import { notifyCbs }      from "../connectors/cbs-notify.service";
 import { checkImageQuality, type ImageQualityReport } from "./image-quality.service";
 
@@ -80,6 +82,7 @@ export interface UploadImageResult {
     kycStatus?:   string;
     riskLevel?:   string;
   };
+  screeningPreview?: NameScreeningPreview;         // Aperçu PEP/sanctions dès l'OCR
 }
 
 export interface FinalizeSessionInput {
@@ -112,6 +115,12 @@ export async function createSession(input: CreateSessionInput): Promise<KycSessi
   }).returning();
 
   log.info({ sessionRef, channel: input.channel, agentUserId: input.agentUserId }, "Session eKYC créée (DRAFT)");
+  emitEkycEvent({
+    event:      "session-created",
+    sessionRef,
+    status:     session!.status,
+    channel:    session!.channel,
+  });
   return session!;
 }
 
@@ -223,13 +232,28 @@ export async function uploadImage(input: UploadImageInput): Promise<UploadImageR
     if (dup) duplicate = dup;
   }
 
-  // Persister matchScore + duplicate dans decisionResult pour audit
-  if (matchScore || duplicate) {
+  // ── 8. Preview screening PEP/sanctions dès qu'un nom+prénom sont extraits ─
+  //     Objectif : afficher un signal au consultant AVANT le /finalize,
+  //     pour éviter 3 min de saisie inutile sur un dossier bloqué.
+  //     N'écrit rien en table screening (pas encore de customer).
+  let screeningPreview: NameScreeningPreview | undefined;
+  const previewName = `${merged.nom ?? ""} ${merged.prenom ?? ""}`.trim();
+  if (previewName.length >= 3) {
+    try {
+      screeningPreview = await previewNameScreening(previewName);
+    } catch (err) {
+      log.warn({ err, sessionRef: input.sessionRef }, "Preview screening échoué — poursuite");
+    }
+  }
+
+  // Persister matchScore + duplicate + screeningPreview dans decisionResult pour audit
+  if (matchScore || duplicate || screeningPreview) {
     const currentDecision = (session.decisionResult ?? {}) as Record<string, unknown>;
     patch.decisionResult = {
       ...currentDecision,
-      ...(matchScore ? { matchScore } : {}),
-      ...(duplicate  ? { duplicate }  : {}),
+      ...(matchScore        ? { matchScore }        : {}),
+      ...(duplicate         ? { duplicate }         : {}),
+      ...(screeningPreview  ? { screeningPreview }  : {}),
     } as unknown as null;
   }
 
@@ -256,8 +280,9 @@ export async function uploadImage(input: UploadImageInput): Promise<UploadImageR
     qualityWarning: !quality.passed,
     extracted,
     confidence: Math.round(confidence),
-    ...(matchScore ? { matchScore } : {}),
-    ...(duplicate  ? { duplicate }  : {}),
+    ...(matchScore       ? { matchScore }       : {}),
+    ...(duplicate        ? { duplicate }        : {}),
+    ...(screeningPreview ? { screeningPreview } : {}),
   };
 }
 
@@ -328,6 +353,67 @@ export async function patchSession(sessionRef: string, patch: {
   return updated!;
 }
 
+// ─── Consentements RGPD / loi 09-08 ──────────────────────────────────────────
+//
+// Loi marocaine 09-08 art. 4 : consentement par finalité, pas global.
+// On persiste chaque acceptation avec timestamp + IP + version de politique
+// pour l'audit BAM et pour honorer un éventuel exercice de droit d'accès.
+
+export type ConsentPurpose = "biometric" | "screening" | "cbsSharing" | "retention";
+
+export interface ConsentEntry {
+  granted:       boolean;
+  at:            string;         // ISO 8601
+  ip?:           string;
+  userAgent?:    string;
+  policyVersion?: string;
+}
+
+export type SessionConsents = Partial<Record<ConsentPurpose, ConsentEntry>> & {
+  policyVersion?: string;
+};
+
+const REQUIRED_CONSENTS: ConsentPurpose[] = ["biometric", "screening", "cbsSharing", "retention"];
+
+export async function recordConsents(
+  sessionRef: string,
+  input: {
+    purposes:       Partial<Record<ConsentPurpose, boolean>>;
+    ip?:            string;
+    userAgent?:     string;
+    policyVersion?: string;
+  },
+): Promise<KycSession> {
+  const session = await requireValidSession(sessionRef);
+  const now     = new Date().toISOString();
+  const current = (session.consents ?? {}) as SessionConsents;
+
+  const next: SessionConsents = { ...current };
+  if (input.policyVersion) next.policyVersion = input.policyVersion;
+
+  for (const [key, granted] of Object.entries(input.purposes)) {
+    if (typeof granted !== "boolean") continue;
+    const entry: ConsentEntry = { granted, at: now };
+    if (input.ip)            entry.ip = input.ip;
+    if (input.userAgent)     entry.userAgent = input.userAgent;
+    if (input.policyVersion) entry.policyVersion = input.policyVersion;
+    next[key as ConsentPurpose] = entry;
+  }
+
+  const [updated] = await db.update(kycSessions).set({
+    consents:  next as unknown as null,
+    updatedAt: new Date(),
+  }).where(eq(kycSessions.id, session.id)).returning();
+
+  log.info({ sessionRef, purposes: Object.keys(input.purposes) }, "Consentements enregistrés");
+  return updated!;
+}
+
+export function hasAllRequiredConsents(consents: SessionConsents | null | undefined): boolean {
+  if (!consents) return false;
+  return REQUIRED_CONSENTS.every(p => consents[p]?.granted === true);
+}
+
 /**
  * Marque une session comme prête pour la revue agent.
  * Utilisé côté client self-service : le client confirme, l'agent traite.
@@ -346,12 +432,24 @@ export async function submitForAgentReview(sessionRef: string): Promise<KycSessi
     throw new Error(`Statut invalide pour soumission : ${session.status}`);
   }
 
+  // Loi 09-08 : tous les consentements de finalité doivent être donnés
+  const consents = (session.consents ?? null) as SessionConsents | null;
+  if (!hasAllRequiredConsents(consents)) {
+    throw new Error("Consentements RGPD/09-08 manquants ou incomplets");
+  }
+
   const [updated] = await db.update(kycSessions).set({
     status:    "AGENT_REVIEW",
     updatedAt: new Date(),
   }).where(eq(kycSessions.id, session.id)).returning();
 
   log.info({ sessionRef }, "Session soumise pour revue agent");
+  emitEkycEvent({
+    event:      "session-review-ready",
+    sessionRef,
+    status:     updated!.status,
+    channel:    updated!.channel,
+  });
   return updated!;
 }
 
@@ -400,6 +498,12 @@ export async function finalizeSession(input: FinalizeSessionInput): Promise<{
     }
   }
 
+  // ── Country risk (FATF grey/black + embargo) ─────────────────────────────
+  //     Le nationality par défaut = MA pour CIN Marocaine. Si le champ était
+  //     étendu (passeport, etc.), on utiliserait la valeur extraite.
+  const rawNationality = (f as { nationality?: string }).nationality ?? "MA";
+  const countryRisk = assessCountryRisk(rawNationality);
+
   // ── Création client ──────────────────────────────────────────────────────
   const customerRef = `KYC-${nanoid(8).toUpperCase()}`;
   const customer = await insertCustomer({
@@ -407,11 +511,11 @@ export async function finalizeSession(input: FinalizeSessionInput): Promise<{
     firstName:    f.prenom ?? "",
     lastName:     (f.nom ?? "").toUpperCase(),
     dateOfBirth:  f.dateNaissance ?? null,
-    nationality:  "MA",
+    nationality:  countryRisk.countryCode || "MA",
     customerType: "INDIVIDUAL",
     kycStatus:    "PENDING",
-    riskLevel:    "LOW",
-    riskScore:    0,
+    riskLevel:    countryRisk.level,
+    riskScore:    countryRisk.score,
     pepStatus:    false,
     nicNumber:    f.cin?.toUpperCase() ?? null,
     birthCity:    f.lieuNaissance ?? null,
@@ -444,8 +548,8 @@ export async function finalizeSession(input: FinalizeSessionInput): Promise<{
       customerRef: customer.customerId,
       cin:         f.cin ?? null,
       cbsRef:      session.cbsRef ?? input.sessionRef,
-      riskLevel:   "LOW",
-      reason:      `eKYC session finalisée — ${finalKycStatus}`,
+      riskLevel:   countryRisk.level,
+      reason:      `eKYC session finalisée — ${finalKycStatus} (${countryRisk.reason})`,
       timestamp:   now.toISOString(),
     });
   }
@@ -459,6 +563,14 @@ export async function finalizeSession(input: FinalizeSessionInput): Promise<{
       screening:     screeningResult.status,
       matchScore:    screeningResult.sanctionsResult.matchScore,
       matchedEntity: screeningResult.sanctionsResult.matchedEntity,
+      countryRisk:   { level: countryRisk.level, listSource: countryRisk.listSource, reason: countryRisk.reason },
+      ...(screeningResult.adverseMedia ? {
+        adverseMedia: {
+          status:    screeningResult.adverseMedia.status,
+          totalHits: screeningResult.adverseMedia.totalHits,
+          topHits:   screeningResult.adverseMedia.topHits,
+        },
+      } : {}),
     } as unknown as null,
     modifiedFields: (input.modifiedFields ?? []) as unknown as null,
     decidedAt:      now,
@@ -630,4 +742,26 @@ export async function abandonExpiredSessions(): Promise<number> {
 
   log.info({ count: expired.length }, "Sessions eKYC expirées marquées abandonnées");
   return expired.length;
+}
+
+// ─── Purge RGPD : suppression sessions ABANDONED anciennes ───────────────────
+//
+// Loi 09-08 / RGPD art. 5 minimisation : les sessions abandonnées ne servent
+// à rien après quelques semaines. On les supprime après 30 jours.
+// On préserve les sessions décidées (auditables via customer).
+
+const ABANDON_RETENTION_DAYS = 30;
+
+export async function purgeOldAbandonedSessions(): Promise<number> {
+  const cutoff = new Date(Date.now() - ABANDON_RETENTION_DAYS * 24 * 3600 * 1000);
+  const rows = await db.delete(kycSessions)
+    .where(and(
+      eq(kycSessions.status, "ABANDONED"),
+      lt(kycSessions.abandonedAt, cutoff),
+    ))
+    .returning({ id: kycSessions.id });
+  if (rows.length > 0) {
+    log.info({ count: rows.length, cutoff: cutoff.toISOString() }, "Sessions ABANDONED purgées (RGPD)");
+  }
+  return rows.length;
 }

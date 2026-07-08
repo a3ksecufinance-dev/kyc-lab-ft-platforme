@@ -33,6 +33,7 @@ export type AuditAction =
   // UBOs
   | "UBO_ADDED"
   | "UBO_UPDATED"
+  | "UBO_REMOVED"
   // Transactions
   | "TRANSACTION_CREATED"
   | "TRANSACTION_FLAGGED"

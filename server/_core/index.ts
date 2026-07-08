@@ -13,6 +13,8 @@ import { startMlRetrainScheduler, stopMlRetrainScheduler } from "../modules/aml/
 import { startPkycScheduler, stopPkycScheduler }           from "../modules/customers/pkyc.scheduler";
 import { startSlaScheduler, stopSlaScheduler }             from "../modules/sla/sla.scheduler";
 import { startDocExpiryScheduler, stopDocExpiryScheduler } from "../modules/documents/doc-expiry.scheduler";
+import { startEkycSessionScheduler, stopEkycSessionScheduler } from "../modules/documents/ekyc-session.scheduler";
+import { startOcrWorker, stopOcrWorker }                       from "../modules/documents/ocr.queue";
 import { handleTransactionWebhook } from "../modules/transactions/transactions.webhook";
 import {
   handleOrangeMoney,
@@ -403,6 +405,8 @@ async function start() {
   startPkycScheduler();
   startSlaScheduler();
   startDocExpiryScheduler();
+  startEkycSessionScheduler();
+  startOcrWorker();
 
   const server = app.listen(ENV.PORT, () => {
     log.info(`🚀 KYC-AML v2 démarré sur http://localhost:${ENV.PORT}`);
@@ -418,6 +422,8 @@ async function start() {
     stopPkycScheduler();
     stopSlaScheduler();
     stopDocExpiryScheduler();
+    stopEkycSessionScheduler();
+    await stopOcrWorker();
     server.close(async () => {
       await Promise.all([closeDb(), closeRedis()]);
       log.info("Serveur arrêté proprement");

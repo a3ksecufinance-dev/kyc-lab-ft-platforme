@@ -835,6 +835,11 @@ export const kycSessions = pgTable("kyc_sessions", {
   magicToken:      varchar("magic_token", { length: 128 }),
   magicTokenExpiresAt: timestamp("magic_token_expires_at"),
 
+  // Consentements RGPD / loi 09-08 (granulaires par finalité)
+  //  { biometric?: { granted, at, ip }, screening?: {...}, cbsSharing?: {...},
+  //    retention?: {...}, policyVersion?: string }
+  consents:        jsonb("consents"),
+
   // Métadonnées
   startedAt:       timestamp("started_at").defaultNow().notNull(),
   expiresAt:       timestamp("expires_at").notNull(),
