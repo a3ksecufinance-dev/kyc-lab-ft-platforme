@@ -26,6 +26,7 @@ import { createLogger } from "../../_core/logger";
 import { ENV } from "../../_core/env";
 import type { OcrData } from "./ocr.service";
 import type { Customer } from "../../../drizzle/schema";
+import { EKYC_SCORE } from "./ekyc.scores";
 
 const log = createLogger("ekyc");
 
@@ -309,23 +310,23 @@ function mapOnfidoCheckToResult(check: OnfidoCheck, applicantId: string, ocr: Oc
 
   if (check.status !== "complete") {
     status = "REVIEW";
-    score  = 50;
+    score  = EKYC_SCORE.PENDING;
     detail = `Vérification en cours (check: ${check.id}) — résultat disponible via webhook Onfido`;
   } else {
     switch (check.result) {
       case "clear":
         status = "PASS";
-        score  = 95;
+        score  = EKYC_SCORE.PASS;
         detail = "Document validé par Onfido";
         break;
       case "consider":
         status = "REVIEW";
-        score  = 45;
+        score  = EKYC_SCORE.REVIEW;
         detail = "Document nécessite révision manuelle (Onfido: consider)";
         break;
       default:
         status = "FAIL";
-        score  = 5;
+        score  = EKYC_SCORE.FAIL;
         detail = `Vérification Onfido échouée (result: ${check.result ?? "unidentified"})`;
     }
   }
@@ -497,23 +498,23 @@ function mapSumsubStatusToResult(status: SumsubApplicantStatus, applicantId: str
   const review = status.reviewResult;
   if (status.reviewStatus !== "completed" || !review) {
     ekycStatus = "REVIEW";
-    score      = 50;
+    score      = EKYC_SCORE.PENDING;
     detail     = `Vérification en cours (applicant: ${applicantId}, reviewStatus: ${status.reviewStatus})`;
   } else {
     switch (review.reviewAnswer) {
       case "GREEN":
         ekycStatus = "PASS";
-        score      = 95;
+        score      = EKYC_SCORE.PASS;
         detail     = "Identité validée par Sum Sub";
         break;
       case "YELLOW":
         ekycStatus = "REVIEW";
-        score      = 45;
+        score      = EKYC_SCORE.REVIEW;
         detail     = `Révision manuelle requise (Sum Sub: ${review.label ?? "YELLOW"})`;
         break;
       default: // RED
         ekycStatus = "FAIL";
-        score      = 5;
+        score      = EKYC_SCORE.FAIL;
         detail     = `Vérification refusée (Sum Sub: ${review.reviewRejectType ?? "RED"})`;
     }
   }

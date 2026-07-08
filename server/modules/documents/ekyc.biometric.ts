@@ -20,6 +20,7 @@
 import crypto        from "node:crypto";
 import { createLogger } from "../../_core/logger";
 import { ENV }          from "../../_core/env";
+import { EKYC_SCORE }   from "./ekyc.scores";
 
 const ML_SERVICE_URL = ENV.ML_SERVICE_URL;
 const ML_API_KEY     = ENV.ML_INTERNAL_API_KEY;
@@ -170,19 +171,19 @@ async function runOnfidoLiveness(
   let score:  number;
 
   if (check.status !== "complete") {
-    status = "REVIEW"; score = 50;
+    status = "REVIEW"; score = EKYC_SCORE.PENDING;
   } else if (check.result === "clear") {
-    status = "PASS";   score = 95;
+    status = "PASS";   score = EKYC_SCORE.PASS;
   } else if (check.result === "consider") {
-    status = "REVIEW"; score = 45;
+    status = "REVIEW"; score = EKYC_SCORE.REVIEW;
   } else {
-    status = "FAIL";   score = 5;
+    status = "FAIL";   score = EKYC_SCORE.FAIL;
   }
 
   return {
     status,
     score,
-    livenessScore: livenessOk ? 95 : 60,
+    livenessScore: livenessOk ? EKYC_SCORE.LIVENESS_OK : EKYC_SCORE.LIVENESS_WEAK,
     checks: [
       {
         id:       "facial_match",
@@ -301,13 +302,13 @@ async function runSumsubLiveness(
   let score:  number;
 
   if (apStatus.reviewStatus !== "completed" || !review) {
-    status = "REVIEW"; score = 50;
+    status = "REVIEW"; score = EKYC_SCORE.PENDING;
   } else if (review.reviewAnswer === "GREEN") {
-    status = "PASS";   score = 95;
+    status = "PASS";   score = EKYC_SCORE.PASS;
   } else if (review.reviewAnswer === "YELLOW") {
-    status = "REVIEW"; score = 45;
+    status = "REVIEW"; score = EKYC_SCORE.REVIEW;
   } else {
-    status = "FAIL";   score = 5;
+    status = "FAIL";   score = EKYC_SCORE.FAIL;
   }
 
   return {
