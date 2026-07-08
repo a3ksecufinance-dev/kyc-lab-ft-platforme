@@ -262,3 +262,10 @@ export async function insertUBO(values: {
   if (!ubo) throw new Error("Échec insertion UBO");
   return ubo;
 }
+
+export async function deleteUBO(uboId: number, customerId: number): Promise<boolean> {
+  const rows = await db.delete(ubos)
+    .where(and(eq(ubos.id, uboId), eq(ubos.customerId, customerId)))
+    .returning({ id: ubos.id });
+  return rows.length > 0;
+}

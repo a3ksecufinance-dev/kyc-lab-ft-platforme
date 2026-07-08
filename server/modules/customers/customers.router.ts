@@ -12,6 +12,8 @@ import {
   getCustomerScreening,
   getCustomerTransactions,
   addUBO,
+  removeUBO,
+  assessUboCoverage,
   getCustomerStats,
   freezeCustomer,
   unfreezeCustomer,
@@ -263,7 +265,7 @@ export const customersRouter = router({
         ...(input.role                !== undefined && { role: input.role }),
       };
 
-      const ubo = await addUBO(params);
+      const { ubo, screening } = await addUBO(params);
       const customer = await getCustomerOrThrow(input.customerId);
 
       await log({
@@ -275,10 +277,36 @@ export const customersRouter = router({
           firstName: ubo.firstName,
           lastName: ubo.lastName,
           ownershipPercentage: ubo.ownershipPercentage,
+          screeningStatus: screening?.status,
+          screeningMatchedEntity: screening?.matchedEntity ?? null,
         },
       });
 
-      return ubo;
+      return { ubo, screening };
+    }),
+
+  removeUBO: analystProc
+    .input(z.object({
+      uboId:      z.number().int().positive(),
+      customerId: z.number().int().positive(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const log = createAuditFromContext(ctx);
+      await removeUBO(input.uboId, input.customerId);
+      const customer = await getCustomerOrThrow(input.customerId);
+      await log({
+        action: "UBO_REMOVED",
+        entityType: "customer",
+        entityId: customer.customerId,
+        details: { uboId: input.uboId },
+      });
+      return { success: true };
+    }),
+
+  uboCoverage: analystProc
+    .input(z.object({ customerId: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      return assessUboCoverage(input.customerId);
     }),
 
   /**
