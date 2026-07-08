@@ -24,6 +24,16 @@ vi.mock("../transactions/transactions.repository", () => ({
   updateTransaction:    vi.fn(),
   insertAlert:          vi.fn(),
 }));
+vi.mock("./good-guys.repository", () => ({
+  isCustomerExcluded: vi.fn().mockResolvedValue(false),
+}));
+vi.mock("./silencing.repository", () => ({
+  shouldSilenceAlert: vi.fn().mockResolvedValue({ silenced: false }),
+}));
+vi.mock("../../_core/metrics", () => ({
+  amlAlertsTotal:          { labels: () => ({ inc: vi.fn() }) },
+  amlTransactionsAnalyzed: { inc: vi.fn() },
+}));
 vi.mock("../../_core/institution", () => ({
   getInstitutionFlags: () => ({
     walletAml: false,   // CLASSIC_BANK par défaut → wallet rules non exécutées

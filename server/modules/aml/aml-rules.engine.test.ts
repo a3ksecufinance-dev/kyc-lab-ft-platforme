@@ -18,6 +18,14 @@ vi.mock("./aml-rules.repository", () => ({
   insertExecution:      vi.fn(),
 }));
 
+vi.mock("./good-guys.repository", () => ({
+  isCustomerExcluded: vi.fn().mockResolvedValue(false),
+}));
+
+vi.mock("./silencing.repository", () => ({
+  shouldSilenceAlert: vi.fn().mockResolvedValue({ silenced: false }),
+}));
+
 import * as repo     from "../transactions/transactions.repository";
 import * as rulesRepo from "./aml-rules.repository";
 import { runDynamicAmlRules } from "./aml-rules.engine";
