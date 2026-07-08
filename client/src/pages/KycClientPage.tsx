@@ -63,6 +63,25 @@ async function fetchSessionByToken(token: string): Promise<SessionInfo> {
   return data.session as SessionInfo;
 }
 
+const POLICY_VERSION = "09-08.2024.1";
+
+interface ConsentPayload {
+  biometric:  boolean;
+  screening:  boolean;
+  cbsSharing: boolean;
+  retention:  boolean;
+}
+
+async function submitConsents(token: string, purposes: ConsentPayload): Promise<void> {
+  const res = await fetch(`/api/ekyc/token/${token}/consents`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...purposes, policyVersion: POLICY_VERSION }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+}
+
 async function uploadWithToken(
   token: string,
   sessionRef: string,
@@ -105,7 +124,13 @@ export function KycClientPage() {
   const [loading, setLoading]   = useState(true);
   const [uploading, setUploading] = useState<"recto" | "verso" | null>(null);
   const [error, setError]       = useState<string>("");
-  const [consented, setConsented] = useState(false);
+  const [consents, setConsents] = useState<ConsentPayload>({
+    biometric:  false,
+    screening:  false,
+    cbsSharing: false,
+    retention:  false,
+  });
+  const consentsGranted = consents.biometric && consents.screening && consents.cbsSharing && consents.retention;
   const [uploadResult, setUploadResult] = useState<
     { side: "recto" | "verso"; quality: { score: number; passed: boolean; issues: string[] }; confidence: number } | null
   >(null);
@@ -281,9 +306,18 @@ export function KycClientPage() {
         }}>
           {step === "welcome" && (
             <WelcomeStep
-              onContinue={() => setStep("recto")}
-              consented={consented}
-              setConsented={setConsented}
+              onContinue={async () => {
+                if (!token || !consentsGranted) return;
+                try {
+                  await submitConsents(token, consents);
+                  setStep("recto");
+                } catch (e) {
+                  setError((e as Error).message);
+                }
+              }}
+              consents={consents}
+              setConsents={setConsents}
+              consentsGranted={consentsGranted}
               {...(session?.expiresAt ? { expiresAt: session.expiresAt } : {})}
             />
           )}
@@ -440,12 +474,23 @@ function ProgressBar({ step }: { step: Step }) {
   );
 }
 
+const CONSENT_ITEMS: Array<{
+  key:   keyof ConsentPayload;
+  label: string;
+}> = [
+  { key: "biometric",  label: "J'accepte la vérification biométrique de mon identité (analyse OCR/faciale de ma CIN)." },
+  { key: "screening",  label: "J'accepte le contrôle de mon nom sur les listes officielles de sanctions et de personnes politiquement exposées (PEP)." },
+  { key: "cbsSharing", label: "J'accepte le partage de mes données avec le Core Banking System (CBS) pour l'ouverture de mon dossier." },
+  { key: "retention",  label: "Je suis informé que mes données sont conservées 5 ans conformément à la loi 43-05 (LAB-FT) et la loi 09-08." },
+];
+
 function WelcomeStep({
-  onContinue, consented, setConsented, expiresAt,
+  onContinue, consents, setConsents, consentsGranted, expiresAt,
 }: {
   onContinue: () => void;
-  consented: boolean;
-  setConsented: (v: boolean) => void;
+  consents: ConsentPayload;
+  setConsents: React.Dispatch<React.SetStateAction<ConsentPayload>>;
+  consentsGranted: boolean;
   expiresAt?: string;
 }) {
   return (
@@ -480,29 +525,38 @@ function WelcomeStep({
         </div>
       )}
 
-      <label style={{
-        display: "flex", gap: 10, alignItems: "flex-start",
-        cursor: "pointer", padding: 10,
-        background: consented ? "rgba(15,118,110,0.05)" : "transparent",
-        border: `1px solid ${consented ? C.primary : C.border}`,
-        borderRadius: 8,
-      }}>
-        <input
-          type="checkbox"
-          checked={consented}
-          onChange={e => setConsented(e.target.checked)}
-          style={{ marginTop: 3 }}
-        />
-        <span style={{ fontSize: 12, color: C.text2, lineHeight: 1.5 }}>
-          J'accepte que mes données d'identité soient collectées pour la vérification
-          KYC conformément à la loi 09-08 et la loi 43-05.
-        </span>
-      </label>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ fontSize: 11, color: C.text3, fontWeight: 600, letterSpacing: 0.5 }}>
+          CONSENTEMENTS RGPD · LOI 09-08 (obligatoires)
+        </div>
+        {CONSENT_ITEMS.map(({ key, label }) => {
+          const checked = consents[key];
+          return (
+            <label key={key} style={{
+              display: "flex", gap: 10, alignItems: "flex-start",
+              cursor: "pointer", padding: 10,
+              background: checked ? "rgba(15,118,110,0.05)" : "transparent",
+              border: `1px solid ${checked ? C.primary : C.border}`,
+              borderRadius: 8,
+            }}>
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={e => setConsents(prev => ({ ...prev, [key]: e.target.checked }))}
+                style={{ marginTop: 3 }}
+              />
+              <span style={{ fontSize: 12, color: C.text2, lineHeight: 1.5 }}>
+                {label}
+              </span>
+            </label>
+          );
+        })}
+      </div>
 
       <button
         onClick={onContinue}
-        disabled={!consented}
-        style={primaryButtonStyle(consented)}
+        disabled={!consentsGranted}
+        style={primaryButtonStyle(consentsGranted)}
       >
         Commencer <ChevronRight size={16} />
       </button>

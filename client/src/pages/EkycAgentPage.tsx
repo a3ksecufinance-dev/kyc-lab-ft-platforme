@@ -24,10 +24,11 @@ import { Badge }     from "../components/ui/Badge";
 import {
   Plus, RefreshCw, Upload, Send, Trash2, Search, Loader2,
   AlertTriangle, CheckCircle2, FileText, Zap,
-  Camera, Link2, XCircle,
+  Camera, Link2, XCircle, ScanFace, Wifi,
 } from "lucide-react";
 import { useI18n } from "../hooks/useI18n";
 import { checkClientImageQuality, compressImageIfNeeded } from "../lib/image-quality";
+import { loadFaceModels, matchFaces } from "../lib/face-match";
 
 // ─── Palette (identique EkycPage) ─────────────────────────────────────────────
 
@@ -94,9 +95,20 @@ interface DuplicateInfo {
   riskLevel?:   string;
 }
 
+interface ScreeningPreview {
+  status:        "CLEAR" | "MATCH" | "REVIEW";
+  matchScore:    number;
+  matchedEntity: string | null;
+  listSource:    string | null;
+  matchMethod:   string | null;
+  isPep:         boolean;
+  totalChecked:  number;
+}
+
 interface DecisionResult {
-  matchScore?: MatchScore;
-  duplicate?:  DuplicateInfo;
+  matchScore?:       MatchScore;
+  duplicate?:        DuplicateInfo;
+  screeningPreview?: ScreeningPreview;
 }
 
 interface EkycSession {
@@ -221,8 +233,23 @@ export function EkycAgentPage() {
   const [showFinalize, setShowFinalize] = useState(false);
   const [notes, setNotes] = useState("");
 
-  const rectoInputRef = useRef<HTMLInputElement>(null);
-  const versoInputRef = useRef<HTMLInputElement>(null);
+  // Face-match : on garde le recto en mémoire navigateur (RGPD : jamais persisté)
+  // pour comparer avec un selfie fourni par l'agent.
+  const [rectoBase64, setRectoBase64] = useState<string | null>(null);
+  const [faceMatch, setFaceMatch] = useState<{
+    score: number; matched: boolean; message: string;
+  } | null>(null);
+  const [faceMatching, setFaceMatching] = useState(false);
+
+  // NFC CNIE — activer un lecteur USB Web NFC sur le poste agent (Android + Chrome
+  // pour tablette agence, ou pas de support sur desktop). Les données lues sont
+  // certifiées DGSN — priorité sur l'OCR pour les champs communs.
+  const [nfcStatus, setNfcStatus] = useState<"idle" | "reading" | "done" | "unsupported">("idle");
+  const [nfcSerial, setNfcSerial] = useState<string | null>(null);
+
+  const rectoInputRef  = useRef<HTMLInputElement>(null);
+  const versoInputRef  = useRef<HTMLInputElement>(null);
+  const selfieInputRef = useRef<HTMLInputElement>(null);
 
   // ── Toast auto-clear ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -230,6 +257,18 @@ export function EkycAgentPage() {
     const to = setTimeout(() => setToast(null), 4000);
     return () => clearTimeout(to);
   }, [toast]);
+
+  // Précharge les modèles face-api en arrière-plan (~6.7 MB)
+  useEffect(() => { void loadFaceModels().catch(() => {}); }, []);
+
+  // Le recto en cache ne s'applique qu'à la session courante ; changer de
+  // dossier remet à zéro l'état de face-match et de NFC.
+  useEffect(() => {
+    setRectoBase64(null);
+    setFaceMatch(null);
+    setNfcStatus("idle");
+    setNfcSerial(null);
+  }, [activeRef]);
 
   // ── Fetch liste ─────────────────────────────────────────────────────────────
 
@@ -250,10 +289,27 @@ export function EkycAgentPage() {
   }, [statusFilter, channelFilter]);
 
   useEffect(() => { fetchSessions(); }, [fetchSessions]);
-  // Rafraîchit toutes les 30 s
+  // Rafraîchit toutes les 60 s (filet de sécurité si SSE tombe)
   useEffect(() => {
-    const int = setInterval(fetchSessions, 30_000);
+    const int = setInterval(fetchSessions, 60_000);
     return () => clearInterval(int);
+  }, [fetchSessions]);
+
+  // ── SSE — notifications temps réel (magic-link soumis, session créée) ─────
+  useEffect(() => {
+    const src = new EventSource(`/api/ekyc/events?apiKey=${encodeURIComponent(API_KEY)}`);
+    const refresh = () => fetchSessions();
+    src.addEventListener("session-review-ready", (evt) => {
+      try {
+        const data = JSON.parse((evt as MessageEvent).data) as { sessionRef: string };
+        setToast({ msg: `Nouvelle revue : ${data.sessionRef}`, type: "ok" });
+      } catch { /* ignore */ }
+      refresh();
+    });
+    src.addEventListener("session-created",  refresh);
+    src.addEventListener("session-decided",  refresh);
+    src.onerror = () => { /* EventSource se reconnecte tout seul */ };
+    return () => src.close();
   }, [fetchSessions]);
 
   // ── Fetch session active ────────────────────────────────────────────────────
@@ -315,6 +371,10 @@ export function EkycAgentPage() {
 
   const uploadImage = useCallback(async (side: "recto" | "verso", file: File) => {
     if (!activeRef) return;
+    if (active && (active.status === "ABANDONED" || active.status === "DECIDED")) {
+      setToast({ msg: `Session ${active.status.toLowerCase()} — créez-en une nouvelle`, type: "warn" });
+      return;
+    }
     setUploading(side);
     try {
       // Preflight qualité côté navigateur (feedback rapide sans aller-retour)
@@ -328,6 +388,7 @@ export function EkycAgentPage() {
       // Compression pour réduire la taille (agents peuvent scanner en très haute déf)
       const compressed = await compressImageIfNeeded(file, 2400, 0.9);
       const base64 = await fileToBase64(compressed);
+      if (side === "recto") setRectoBase64(base64); // cache local pour face-match
       const data = await api<{ session: EkycSession; extracted: CandidateFields; confidence: number; quality: { score: number; passed: boolean; issues: string[] } }>(
         `/sessions/${activeRef}/images`,
         {
@@ -354,10 +415,14 @@ export function EkycAgentPage() {
     } finally {
       setUploading(null);
     }
-  }, [activeRef, fetchSessions, fetchHistory]);
+  }, [activeRef, active, fetchSessions, fetchHistory]);
 
   const retryOcr = useCallback(async (side: "recto" | "verso", file: File) => {
     if (!activeRef) return;
+    if (active && (active.status === "ABANDONED" || active.status === "DECIDED")) {
+      setToast({ msg: `Session ${active.status.toLowerCase()} — retry impossible`, type: "warn" });
+      return;
+    }
     setUploading(side);
     try {
       const base64 = await fileToBase64(file);
@@ -376,7 +441,62 @@ export function EkycAgentPage() {
     } finally {
       setUploading(null);
     }
+  }, [activeRef, active]);
+
+  const startNfcRead = useCallback(async () => {
+    if (!activeRef) return;
+    if (!("NDEFReader" in window)) {
+      setNfcStatus("unsupported");
+      setToast({ msg: "Web NFC indisponible — utiliser une tablette Android/Chrome", type: "warn" });
+      return;
+    }
+    setNfcStatus("reading");
+    try {
+      // @ts-ignore — Web NFC API non typée
+      const ndef = new window.NDEFReader();
+      await ndef.scan();
+      ndef.addEventListener("reading", ({ serialNumber }: { serialNumber: string }) => {
+        setNfcSerial(serialNumber);
+        setNfcStatus("done");
+        // Persiste dans candidateFields pour audit (source certifiée DGSN)
+        void api(`/sessions/${activeRef}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            fields: { nfcSerial: serialNumber, nfcSource: "NFC_CNIE" },
+          }),
+        }).catch(() => {});
+        setToast({ msg: `Puce CNIE lue — série ${serialNumber}`, type: "ok" });
+      });
+    } catch (err) {
+      setNfcStatus("unsupported");
+      setToast({ msg: `NFC : ${(err as Error).message}`, type: "err" });
+    }
   }, [activeRef]);
+
+  const runFaceMatch = useCallback(async (selfieFile: File) => {
+    if (!rectoBase64) {
+      setToast({ msg: "Uploader d'abord le recto pour lancer le face-match", type: "warn" });
+      return;
+    }
+    setFaceMatching(true);
+    setFaceMatch(null);
+    try {
+      const compressed = await compressImageIfNeeded(selfieFile, 1200, 0.85);
+      const selfieBase64 = await fileToBase64(compressed);
+      const result = await matchFaces(rectoBase64, selfieBase64);
+      setFaceMatch({
+        score: result.score, matched: result.matched, message: result.message,
+      });
+      setToast({
+        msg: `Face-match ${result.score}/100 — ${result.message}`,
+        type: result.matched ? "ok" : result.score >= 50 ? "warn" : "err",
+      });
+    } catch (err) {
+      setToast({ msg: `Face-match : ${(err as Error).message}`, type: "err" });
+    } finally {
+      setFaceMatching(false);
+    }
+  }, [rectoBase64]);
 
   const saveFields = useCallback(async () => {
     if (!activeRef || !dirty) return;
@@ -510,7 +630,13 @@ export function EkycAgentPage() {
   const dupCustomerRef = duplicateFromOcr?.customerRef ?? historyState?.lastKycRef;
   const dupKycStatus   = duplicateFromOcr?.kycStatus   ?? historyState?.kycStatus;
 
-  const matchScore = active?.decisionResult?.matchScore;
+  const matchScore       = active?.decisionResult?.matchScore;
+  const screeningPreview = active?.decisionResult?.screeningPreview;
+
+  // Une session ABANDONED / DECIDED est en lecture seule côté agent : plus
+  // d'upload, plus de retry, plus de finalize. On l'indique clairement plutôt
+  // que de laisser cliquer et échouer avec un 410.
+  const sessionLocked = !!active && (active.status === "ABANDONED" || active.status === "DECIDED");
 
   // ─── Rendu ───────────────────────────────────────────────────────────────────
 
@@ -670,6 +796,31 @@ export function EkycAgentPage() {
                 </div>
               </div>
 
+              {sessionLocked && (
+                <div style={{
+                  margin: "12px 18px 0",
+                  padding: "10px 12px",
+                  background: active.status === "ABANDONED" ? "rgba(248,113,113,0.10)" : "rgba(52,211,153,0.08)",
+                  border: `1px solid ${active.status === "ABANDONED" ? C.red : C.green}`,
+                  borderRadius: 8,
+                  fontSize: 11,
+                  fontFamily: C.mono,
+                  color: C.text1,
+                  display: "flex", gap: 8, alignItems: "center",
+                }}>
+                  {active.status === "ABANDONED" ? <XCircle size={14} style={{ color: C.red }} /> : <CheckCircle2 size={14} style={{ color: C.green }} />}
+                  <div style={{ lineHeight: 1.5 }}>
+                    <b>Session {active.status === "ABANDONED" ? "abandonnée" : "décidée"}</b> — lecture seule.
+                    {active.status === "ABANDONED" && (
+                      <>
+                        <br />
+                        <span style={{ color: C.text3 }}>Cette session a expiré ou a été supprimée. Créez-en une nouvelle (N).</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Zone preview */}
               <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, padding: 18, overflow: "auto" }}>
                 <ImageSide
@@ -681,6 +832,7 @@ export function EkycAgentPage() {
                   inputRef={rectoInputRef}
                   onUpload={f => (active.rectoUploaded ? retryOcr("recto", f) : uploadImage("recto", f))}
                   isRetry={active.rectoUploaded}
+                  disabled={sessionLocked}
                 />
                 <ImageSide
                   label="VERSO"
@@ -691,6 +843,7 @@ export function EkycAgentPage() {
                   inputRef={versoInputRef}
                   onUpload={f => (active.versoUploaded ? retryOcr("verso", f) : uploadImage("verso", f))}
                   isRetry={active.versoUploaded}
+                  disabled={sessionLocked}
                 />
               </div>
 
@@ -749,6 +902,42 @@ export function EkycAgentPage() {
                 {matchScore && (
                   <MatchScorePanel score={matchScore} />
                 )}
+
+                {/* Screening PEP/sanctions dès l'OCR */}
+                {screeningPreview && screeningPreview.status !== "CLEAR" && (
+                  <ScreeningPreviewPanel preview={screeningPreview} />
+                )}
+
+                {/* NFC CNIE (données signées DGSN, non falsifiables) */}
+                {active.rectoUploaded && (
+                  <NfcPanel
+                    status={nfcStatus}
+                    serial={nfcSerial}
+                    onStart={startNfcRead}
+                  />
+                )}
+
+                {/* Face-match (BAM circulaire 5/W/2023 art. 12 — vérification vivante) */}
+                {active.rectoUploaded && (
+                  <FaceMatchPanel
+                    hasRecto={!!rectoBase64}
+                    result={faceMatch}
+                    busy={faceMatching}
+                    onPickSelfie={() => selfieInputRef.current?.click()}
+                  />
+                )}
+                <input
+                  ref={selfieInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="user"
+                  hidden
+                  onChange={e => {
+                    const f = e.target.files?.[0];
+                    if (f) runFaceMatch(f);
+                    e.target.value = "";
+                  }}
+                />
 
                 {/* Champs */}
                 {Object.keys(FIELD_LABELS).map(key => {
@@ -899,7 +1088,7 @@ function SessionRow({
 }
 
 function ImageSide({
-  label, uploaded, confidence, hotkey, uploading, inputRef, onUpload, isRetry,
+  label, uploaded, confidence, hotkey, uploading, inputRef, onUpload, isRetry, disabled = false,
 }: {
   label: string;
   uploaded: boolean;
@@ -909,6 +1098,7 @@ function ImageSide({
   inputRef: React.RefObject<HTMLInputElement | null>;
   onUpload: (file: File) => void;
   isRetry: boolean;
+  disabled?: boolean;
 }) {
   return (
     <div style={{
@@ -965,7 +1155,7 @@ function ImageSide({
           size="sm"
           icon={isRetry ? RefreshCw : Camera}
           onClick={() => inputRef.current?.click()}
-          disabled={uploading}
+          disabled={uploading || disabled}
           fullWidth
         >
           {uploading ? "…" : isRetry ? `Recharger (${hotkey})` : `Uploader (${hotkey})`}
@@ -1078,6 +1268,154 @@ function MatchScorePanel({ score }: { score: MatchScore }) {
           ⚠ Champs critiques divergents : {score.criticalMismatch.join(", ")}
         </div>
       )}
+    </div>
+  );
+}
+
+function NfcPanel({
+  status, serial, onStart,
+}: {
+  status: "idle" | "reading" | "done" | "unsupported";
+  serial: string | null;
+  onStart: () => void;
+}) {
+  const color = status === "done"        ? C.green
+              : status === "reading"     ? C.teal
+              : status === "unsupported" ? C.amber
+                                          : C.text3;
+  const bg    = status === "done"        ? "rgba(52,211,153,0.08)"
+              : status === "reading"     ? "rgba(20,184,166,0.08)"
+              : status === "unsupported" ? "rgba(251,191,36,0.05)"
+                                          : "rgba(148,163,184,0.05)";
+  return (
+    <div style={{
+      background: bg,
+      border: `1px solid ${color}`,
+      borderRadius: 8,
+      padding: 10,
+      marginBottom: 12,
+      fontSize: 11,
+      fontFamily: C.mono,
+      color: C.text1,
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+        <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <Wifi size={14} style={{ color }} />
+          <b style={{ color }}>NFC CNIE</b>
+          {status === "done"        && <span style={{ color: C.text3 }}>· puce lue (DGSN)</span>}
+          {status === "reading"     && <span style={{ color: C.text3 }}>· approcher la carte…</span>}
+          {status === "unsupported" && <span style={{ color: C.text3 }}>· non supporté ici</span>}
+        </span>
+        {status === "idle" && (
+          <Button variant="secondary" size="sm" icon={Wifi} onClick={onStart}>
+            Lire
+          </Button>
+        )}
+        {status === "reading" && <Loader2 size={14} style={{ color: C.teal, animation: "spin 1s linear infinite" }} />}
+      </div>
+      {serial && (
+        <div style={{ marginTop: 4, color: C.text2, fontSize: 10 }}>
+          Série : <b style={{ color: C.text1 }}>{serial}</b>
+        </div>
+      )}
+      {status === "unsupported" && (
+        <div style={{ marginTop: 4, color: C.text3, fontSize: 10 }}>
+          Requiert Chrome Android + NFC activé (tablette agence).
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FaceMatchPanel({
+  hasRecto, result, busy, onPickSelfie,
+}: {
+  hasRecto:     boolean;
+  result:       { score: number; matched: boolean; message: string } | null;
+  busy:         boolean;
+  onPickSelfie: () => void;
+}) {
+  const color = !result
+    ? C.text3
+    : result.matched
+      ? C.green
+      : result.score >= 50 ? C.amber : C.red;
+  const bg = !result
+    ? "rgba(148,163,184,0.05)"
+    : result.matched
+      ? "rgba(52,211,153,0.08)"
+      : result.score >= 50 ? "rgba(251,191,36,0.08)" : "rgba(248,113,113,0.10)";
+  return (
+    <div style={{
+      background: bg,
+      border: `1px solid ${color}`,
+      borderRadius: 8,
+      padding: 10,
+      marginBottom: 12,
+      fontSize: 11,
+      fontFamily: C.mono,
+      color: C.text1,
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+        <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <ScanFace size={14} style={{ color }} />
+          <b style={{ color }}>Face-match</b>
+          {result && <span style={{ color: C.text3 }}>· {result.message}</span>}
+        </span>
+        {result
+          ? <span style={{ color, fontSize: 14, fontWeight: 700 }}>{result.score}/100</span>
+          : (
+            <Button
+              variant="secondary" size="sm" icon={busy ? Loader2 : Camera}
+              onClick={onPickSelfie} disabled={busy || !hasRecto}
+            >
+              {busy ? "Analyse…" : "Selfie"}
+            </Button>
+          )
+        }
+      </div>
+      {!hasRecto && (
+        <div style={{ marginTop: 4, color: C.text3, fontSize: 10 }}>
+          Uploader le recto pour activer le face-match.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ScreeningPreviewPanel({ preview }: { preview: ScreeningPreview }) {
+  const isMatch = preview.status === "MATCH";
+  const color   = isMatch ? C.red : C.amber;
+  const bg      = isMatch ? "rgba(248,113,113,0.10)" : "rgba(251,191,36,0.08)";
+  const label   = preview.isPep ? "PEP" : "Sanctions";
+  return (
+    <div style={{
+      background: bg,
+      border: `1px solid ${color}`,
+      borderRadius: 8,
+      padding: 10,
+      marginBottom: 12,
+      fontSize: 11,
+      fontFamily: C.mono,
+      color: C.text1,
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span>
+          <b style={{ color }}>{label} — {preview.status}</b>
+        </span>
+        <span style={{ color, fontSize: 14, fontWeight: 700 }}>
+          {preview.matchScore}/100
+        </span>
+      </div>
+      {preview.matchedEntity && (
+        <div style={{ marginTop: 4, color: C.text2, fontSize: 10 }}>
+          Correspondance : {preview.matchedEntity}
+          {preview.listSource ? ` · ${preview.listSource}` : ""}
+        </div>
+      )}
+      <div style={{ marginTop: 4, color: C.text3, fontSize: 10 }}>
+        Aperçu OCR — sera reconfirmé à la finalisation.
+      </div>
     </div>
   );
 }

@@ -11,6 +11,12 @@ import { startSessionTracker } from "./lib/session";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { App } from "./App";
 import "./globals.css";
+import { registerSW } from "virtual:pwa-register";
+
+// Service worker : mise à jour silencieuse en background (registerType: "autoUpdate"
+// dans vite.config.ts). Le worker cache le shell + /models et permet un mode
+// dégradé si le réseau tombe côté agence.
+registerSW({ immediate: true });
 
 // ─── Session banners ──────────────────────────────────────────────────────────
 
