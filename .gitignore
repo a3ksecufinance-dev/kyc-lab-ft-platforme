@@ -32,3 +32,13 @@ drizzle/schema2.ts
 # Logs et divers
 *.log
 .DS_Store
+
+# Fichiers utilisateurs (jamais dans le repo)
+uploads/
+
+# Modèles Tesseract (téléchargeables, ~6 Mo — hors repo)
+*.traineddata
+
+# Résultats de tests / coverage
+coverage/
+test-results/
